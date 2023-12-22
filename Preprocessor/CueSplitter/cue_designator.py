@@ -1,5 +1,6 @@
 import os
 import json
+from uuid import uuid4
 from pythonnet import load, set_runtime
 from Shared.utils import (
     recurse_search,
@@ -15,6 +16,12 @@ load("coreclr")
 
 import clr
 import sys
+
+# TODO: NEED TO FIX SUCH THAT RESTUCTURED DIRECTORY STRUCTURE IS UPDATED
+# COMMENT STEPS.MD: PREPROCESSING -> SECTION 3 -> EXECUTION -> 2 REVIEW
+# "There's no need to manually update `potential.json` after reorganizing the directories."
+# THERE IS NO CODE CURRENTLY HANDLING THIS. THE ONLY THING THAT MAKING IT WORK IS
+# OUR GUESSED AUDIO PATH IN DESIGNATOR IS CORRECT.
 
 # find CueSplitInfoProvider.dll
 cue_info_provider_path = recurse_search(os.getcwd(), "CueSplitInfoProvider.dll")
@@ -144,11 +151,15 @@ def main():
     with open(input_potential, "r") as f:
         potential = json.load(f)
 
-    profiles = []
+    profiles = {}
     for target in potential:
         print("Generating Full Profile " + target["root"])
-        profile = rescan_and_probe(target)
-        profiles.append(profile)
+        profilez = rescan_and_probe(target)
+
+        for profile in profilez:
+            id = str(uuid4())
+            profile["id"] = id
+            profiles[id] = profile
 
     json_dump(profiles, output_designated)
 
