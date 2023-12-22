@@ -1,3 +1,6 @@
+# ignore program temp outputs
+*.output.*
+
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,venv,visualstudio
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode,venv,visualstudio
 

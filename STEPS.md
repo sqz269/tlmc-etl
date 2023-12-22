@@ -123,7 +123,13 @@ Install the .NET SDK (version 6 or above) as per your operating system's instruc
 
 1. Navigate to the repository's directory: `cd TlmcInfoProviderV2`.
 2. Create a virtual environment: `python -m venv .`
-3. Install the required packages `pip install -r requirements.txt`
+3. Adding project root to python execution context
+    - For Linux users, navigate to `bin/activate` and add `export PYTHONPATH="$(pwd):$PYTHONPATH"` to the activation script
+    - For Windows users, navigate to `bin/Activate.ps1` and add `set PYTHONPATH=%CD%;%PYTHONPATH%` to the activation script
+4. Activating the environment
+    - Linux: `source bin/activate`
+    - Windows: `./bin/Activate.ps1`
+5. Install the required packages `pip install -r requirements.txt`
 
 ### 7 Zip
 
