@@ -5,6 +5,12 @@ import subprocess
 from Preprocessor.CueSplitter.output.path_definitions import CUE_SCANNER_OUTPUT_NAME
 from Shared.utils import check_cuesheet_attr, get_file_relative
 
+TARGET_TYPES = (
+    ".flac",
+    ".wav",
+    ".mp3",
+)
+
 output_root = get_file_relative(__file__, "output")
 os.makedirs(output_root, exist_ok=True)
 output_file = os.path.join(output_root, CUE_SCANNER_OUTPUT_NAME)
@@ -57,12 +63,12 @@ def scan_potential_album(root: str):
 
     for root, dirs, files in os.walk(root):
         for file in files:
-            if file.endswith(".cue"):
+            if file.lower().endswith(".cue"):
                 pending_cue.append(os.path.join(root, file))
                 if flag_reason is None:
                     flag_reason = "Cue file found"
 
-            if file.endswith(".flac") or file.endswith(".wav") or file.endswith(".mp3"):
+            if file.lower().endswith(TARGET_TYPES):
                 # probe file and check if have cue metadata
                 total_flac_count += 1
                 path = os.path.join(root, file)
