@@ -5,6 +5,7 @@ import typing
 import mslex
 import shlex
 
+
 def get_file_relative(path, *args):
     """
     Returns the path of a file relative to the given path.
@@ -19,10 +20,12 @@ def get_file_relative(path, *args):
     """
     return os.path.join(os.path.dirname(path), *args)
 
+
 def oslex_quote(path):
     if os.name == "nt":
         return mslex.quote(path)
     return shlex.quote(path)
+
 
 def probe_flac(ffprobe: str, path: str):
     exec = ffprobe
@@ -46,34 +49,60 @@ def probe_flac(ffprobe: str, path: str):
         return None
     return out
 
+
 def check_cuesheet_attr(path: str) -> bool:
     probe_result = probe_flac("ffprobe", path)
     if probe_result is None:
         return False
-    
+
     result = json.loads(probe_result)
     if "format" not in result:
         return False
-    
+
     if "tags" not in result["format"]:
         return False
-    
+
     tags = [i.lower() for i in result["format"]["tags"].keys()]
     if "cuesheet" in tags:
         return True
     return False
+
 
 def recurse_search(path: str, target: str):
     for root, dirs, files in os.walk(path):
         for file in files:
             if file == target:
                 return os.path.join(root, file)
-            
-def max_common_prefix(array1: typing.List[str], array2: typing.List[str]) -> typing.List[typing.Tuple[str, str]]:
-    array1.sort()
-    array2.sort()
+
+
+def max_common_prefix(
+    array1: typing.List[str], array2: typing.List[str]
+) -> typing.List[typing.Tuple[str, str]]:
+    # Function to find the longest common prefix between two strings
+    def longest_common_prefix(str1: str, str2: str) -> str:
+        i = 0
+        while i < len(str1) and i < len(str2) and str1[i] == str2[i]:
+            i += 1
+        return str1[:i]
+
+    # Pairing items with the max common prefix
     result = []
-    for i in range(len(array1)):
-        if os.path.commonprefix([array1[i], array2[i]]) == array1[i]:
-            result.append((array1[i], array2[i]))
+    used_indices = set()  # To track used elements in array2
+    for str1 in array1:
+        max_prefix = ""
+        max_prefix_pair = ("", "")
+        for idx, str2 in enumerate(array2):
+            # Skip if element is already used
+            if idx in used_indices:
+                continue
+            # Find longest common prefix and update max_prefix if longer
+            common_prefix = longest_common_prefix(str1, str2)
+            if len(common_prefix) > len(max_prefix):
+                max_prefix = common_prefix
+                max_prefix_pair = (str1, str2)
+                paired_idx = idx
+        if max_prefix_pair != ("", ""):  # If a pair is formed
+            result.append(max_prefix_pair)
+            used_indices.add(paired_idx)  # Mark as used
+
     return result

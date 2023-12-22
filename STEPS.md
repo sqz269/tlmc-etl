@@ -209,9 +209,8 @@ This section details the procedure for splitting a single, aggregated album trac
 - Build the Cue file parser project located under `Preprocessor/CueSplitter/CueSplitInfoProvider`
     1. Change working directory into `Preprocessor/CueSplitter/CueSplitInfoProvider`
     2. Restore and collect packages using `dotnet restore`
-    3. Build project using `dotnet build -c Release`
-
-#### Execution
+    3. Sometimes for some reason UtfUnknown is not installed with `restore` command. Run this command to install it `dotnet add package UTF.Unknown --version 2.5.1`
+    4. Build project using `dotnet publish -c Release`
 
 #### Execution
 
