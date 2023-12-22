@@ -4,6 +4,7 @@ import re
 import subprocess
 import threading
 import time
+import traceback
 from Shared.utils import (
     check_cuesheet_attr,
     max_common_prefix,
@@ -69,7 +70,9 @@ def process_one(profile):
 
             for line in proc.stdout:
                 progress_time = cap_time.search(line)
-                print_logs[ident] = f"[{idx + 1}/{len(profile['Tracks'])}] {file_name}"
+                print_logs[
+                    ident
+                ] = f"[{idx + 1}/{len(profile['Tracks'])}] ({progress_time.group(1) if progress_time else 'NO_INFO'}) {file_name}"
 
             proc.wait()
 
@@ -89,7 +92,7 @@ def process_one(profile):
 
         stats["processed"] += 1
 
-        journal_completed_file.write(profile["ID"] + "\n")
+        journal_completed_file.write(profile["id"] + "\n")
         journal_completed_file.flush()
 
         audio_track = (
@@ -102,9 +105,9 @@ def process_one(profile):
         os.unlink(audio_track)
     except Exception as e:
         stats["failed"] += 1
-        journal_failed_file.write(profile["ID"] + "\n")
+        journal_failed_file.write(profile["id"] + "\n")
         journal_failed_file.flush()
-        print_logs[ident] = f"Failed to process {profile['ID']}"
+        print_logs[ident] = f"Failed to process {profile['id']}"
         return
 
 
@@ -113,10 +116,11 @@ def process(profiles):
     processes = []
     try:
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            for profile in profiles:
+            for id, profile in profiles.items():
                 processes.append(executor.submit(process_one, profile))
                 queued += 1
             print(f"Queued {queued} processes", end="\r")
+            stats["total"] = queued
 
             time.sleep(1)
             try:
@@ -138,10 +142,12 @@ def process(profiles):
                     wait(processes, timeout=0.7, return_when=ALL_COMPLETED)
                     os.system("cls" if os.name == "nt" else "clear")
             except Exception as e:
-                pass
+                print(e)
+                print(traceback.format_exc())
 
     except Exception as e:
-        pass
+        traceback.print_exc()
+        print(e)
 
 
 def main():
