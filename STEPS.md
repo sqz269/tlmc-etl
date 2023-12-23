@@ -264,12 +264,32 @@ This section details the procedure for splitting a single, aggregated album trac
 
 ## SECTION: METADATA EXTRACTION
 
-### 1. INITIAL PROBE & EXTRACTION
+### 1. DISC IDENTIFICATION
 
-### 2. DISC IDENTIFICATION
+To structure tracks and extract metadata accurately, it's essential to identify, tag, and separate multi-disc albums. The process varies in complexity:
 
-### 3. DATA TRANSFROMATION
+- In some cases, discs are neatly organized into separate directories (e.g., one for Disc 1, another for Disc 2), allowing for straightforward automated identification.
+- In other instances, all tracks may be in a single directory with the disc number indicated in the file name (e.g., `01.03 track.flac` for Disc 1, `02.05 track.flac` for Disc 2). Such scenarios are less conducive to automation and may require more manual oversight.
 
-## SECTION: POST PROCESSING
+#### Important Notices
 
-### 1. FLAC to HLS Transcoding
+- _**Manual Intervention**_: The automatic process for identifying discs is not foolproof and might incorrectly mark directories and files as discs. It is crucial to manually check the accuracy of the split files. The manual processing may be extensive.
+
+#### Prerequisites
+
+- N/A
+
+#### Preparation
+
+- N/A
+
+#### Exectuion
+
+1. **Generating Potential Disc List**
+    - Run `InfoCollector/AlbumInfo/disc_scanner.py` to compile a list of albums potentially containing multiple discs.
+
+2. **Manual Disc Verification**
+    - Run `InfoCollector/AlbumInfo/disc_man_checker.py` for an interactive session to manually verify and designate discs. This script focuses on albums with lower confidence scores, skipping over those with clear indications of multiple discs. Durign this session:
+        - Manually assess and categorize ambiguous albums into disc-specific directories (If they do indeed contain discs).
+        - After addressing all ambiguities, the script will organize tracks into their designated directories and create a comprehensive list of disc directories.
+    - Upon completion, the script outputs a file named `InfoCollecto/AlbumInfo/output/disc_manual_checker.output.json`. Open this file to review the results and, if desired, add descriptive names to each disc using the directory names as references.

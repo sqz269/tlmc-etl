@@ -6,6 +6,24 @@ import mslex
 import shlex
 
 
+def join_paths(*paths):
+    """
+    Join multiple paths using the separator detected from the first path argument.
+    If no separator is detected, use os.sep as the separator.
+    """
+    sep = os.sep
+    if len(paths) > 0:
+        first_path = paths[0]
+        if "/" in first_path:
+            sep = "/"
+        elif "\\" in first_path:
+            sep = "\\"
+
+    # strip all separators from the end of each path
+    paths = [path.rstrip(sep) for path in paths]
+    return sep.join(paths)
+
+
 def get_file_relative(path, *args):
     """
     Returns the path of a file relative to the given path.
