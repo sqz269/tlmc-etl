@@ -292,4 +292,6 @@ To structure tracks and extract metadata accurately, it's essential to identify,
     - Run `InfoCollector/AlbumInfo/disc_man_checker.py` for an interactive session to manually verify and designate discs. This script focuses on albums with lower confidence scores, skipping over those with clear indications of multiple discs. Durign this session:
         - Manually assess and categorize ambiguous albums into disc-specific directories (If they do indeed contain discs).
         - After addressing all ambiguities, the script will organize tracks into their designated directories and create a comprehensive list of disc directories.
-    - Upon completion, the script outputs a file named `InfoCollecto/AlbumInfo/output/disc_manual_checker.output.json`. Open this file to review the results and, if desired, add descriptive names to each disc using the directory names as references.
+    - Upon completion, the script outputs a file named `InfoCollecto/AlbumInfo/output/disc_manual_checker.output.json`. Review this file to:
+        - Correct any instances of `disc_numbers: -1` to the appropriate disc number. The script defaults to -1 when it can't determine the number from the file name.
+        - Optionally, add descriptive names to each disc, based off it's directory name
