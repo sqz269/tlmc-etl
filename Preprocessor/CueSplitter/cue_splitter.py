@@ -105,7 +105,7 @@ def process_one(profile):
         os.unlink(audio_track)
     except Exception as e:
         stats["failed"] += 1
-        journal_failed_file.write(profile["id"] + "\n")
+        journal_failed_file.write(profile["id"] + f" [Reason: {e}] " + "\n")
         journal_failed_file.flush()
         print_logs[ident] = f"Failed to process {profile['id']}"
         return
@@ -157,7 +157,11 @@ def main():
 
     profiles = json_load(input_designated)
 
+    ptr = journal_completed_file.tell()
+    journal_completed_file.seek(0)
     processed = journal_completed_file.read().splitlines()
+    journal_completed_file.seek(ptr)
+
     for id in processed:
         print(f"Skipping {id} (already processed)")
         profiles.pop(id, None)
