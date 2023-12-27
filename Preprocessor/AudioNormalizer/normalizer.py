@@ -197,12 +197,14 @@ def main():
         print("Existing File List Detected Resuming")
         file_list = json_load(output_file)
 
-        for id in journal_completed_file:
-            if id in file_list:
-                del file_list[id]
-        for id in journal_failed_file:
-            if id in file_list:
-                del file_list[id]
+        ptr = journal_completed_file.tell()
+        journal_completed_file.seek(0)
+        processed = journal_completed_file.read().splitlines()
+        journal_completed_file.seek(ptr)
+
+        for id in processed:
+            print(f"Skipping {id} (already processed)")
+            file_list.pop(id, None)
 
         print("Resuming with ", len(file_list), "files")
 
