@@ -295,3 +295,26 @@ To structure tracks and extract metadata accurately, it's essential to identify,
     - Upon completion, the script outputs a file named `InfoCollecto/AlbumInfo/output/disc_manual_checker.output.json`. Review this file to:
         - Correct any instances of `disc_numbers: -1` to the appropriate disc number. The script defaults to -1 when it can't determine the number from the file name.
         - Optionally, add descriptive names to each disc, based off it's directory name
+
+### 2. Information Extraction Phase 1
+
+This process transforms an unstructured directory of album tracks into a structured JSON format. The goal is to organize and identify tracks, discs, and associated assets for easier access during information extraction.
+
+#### Important Notices
+
+- _**Manual Intervention**_: The tutomated processes may not accurately organize all tracks due to non-standard file naming or missing files. Refer to the Execution section for detailed instructions on manual review.
+
+#### Prerequisites
+
+- N/A
+
+#### Preparation
+
+- N/A
+
+#### Exectuion
+
+1. Run `InfoCollector\AlbumInfo\info_scanner_ph1.py` to initiate the first phase of information extraction. This script scans the album directory, categorizes content, and generates a preliminary JSON structure for each album.
+2. Review all documents that is flagged with `"NeedsManualReview": true`. Correct any issues with file or directory structures as needed. See field `"NeedsManualReviewReason": []` for potential issues.
+3. If certain albums are incomplete or missing files that can't be fixed, you may skip these files.
+4. After making corrections, rerun the `info_scanner_ph1.py` script. Repeat this process as many times as necessary (Some albums ).
