@@ -315,6 +315,28 @@ This process transforms an unstructured directory of album tracks into a structu
 #### Exectuion
 
 1. Run `InfoCollector\AlbumInfo\info_scanner_ph1.py` to initiate the first phase of information extraction. This script scans the album directory, categorizes content, and generates a preliminary JSON structure for each album.
-2. Review all documents that is flagged with `"NeedsManualReview": true`. Correct any issues with file or directory structures as needed. See field `"NeedsManualReviewReason": []` for potential issues.
+2. Review all documents that is flagged with `"NeedsManualReview": true` in file `InfoCollector/AlbumInfo/output/info_scanner.phase1.output.json`. Correct any issues with file or directory structures as needed. See field `"NeedsManualReviewReason": []` for potential issues. Do not edit the file directly, rather correct any mistakes from disc tagging and file organization level instead.
 3. If certain albums are incomplete or missing files that can't be fixed, you may skip these files.
-4. After making corrections, rerun the `info_scanner_ph1.py` script. Repeat this process as many times as necessary (Some albums ).
+4. After making corrections, rerun the `info_scanner_ph1.py` script. Repeat this process as many times as necessary.
+
+### 2. Information Extraction Phase 2
+
+In the second phase of transforming an unstructured directory of album tracks into a structured JSON format, the focus is on extracting and compiling metadata for albums and tracks from various sources such as file properties and naming conventions.
+
+#### Prerequisites
+
+- N/A
+
+#### Preparation
+
+- N/A
+
+#### Exectuion
+
+1. **Metadata Extraction**: Run `InfoCollector\AlbumInfo\info_scanner_ph2.py`. This script aggregates metadata from file properties and names, populating album and track details into a structured JSON.
+2. **Review Generated Files**
+    - Inspect the output JSON files `InfoCollector/AlbumInfo/output/info_scanner.phase2.albuminfo.output.json` and `InfoCollector/AlbumInfo/output/info_scanner.phase2.trackinfo.output.json`. Address any entries flagged with `"NeedsManualReview": true`. Pay special attention to:
+        - **Empty Track Titles or Album Names**: Ensure all tracks and albums have appropriate titles. Empty fields often indicate missing or unreadable metadata and **_must_** be manually corrected.
+        - **Track Numbering**: While fixing empty track numbers is **_optional_**, any track with an index of -1 will be uniquely indexed in Phase 3. However, correctly numbering tracks here can aid in organizing and understanding the album's structure.
+
+### 3. Information Extraction Phase 3

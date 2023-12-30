@@ -136,13 +136,24 @@ class Phase02TrackExtractor:
         probed_data = self.extract_track_info_from_probed_results(track_path)
         path_data = self.try_extract_track_info_from_path(track_path)
 
-        if path_data is None:
-            return probed_data
-
         # merge the two data, prioritize probed data
-        for k in Phase02TrackExtractor.KEYS:
-            if probed_data[k] == "" or probed_data[k] == -1:
-                probed_data[k] = path_data[k]
+        if path_data is not None:
+            for k in Phase02TrackExtractor.KEYS:
+                if probed_data[k] == "" or probed_data[k] == -1:
+                    probed_data[k] = path_data[k]
+
+        needs_manual_check = False
+        needs_manual_check_reason = []
+        if probed_data["track"] == -1:
+            needs_manual_check = True
+            needs_manual_check_reason.append("Track number is empty")
+
+        if probed_data["title"] == "":
+            needs_manual_check = True
+            needs_manual_check_reason.append("Track title is empty")
+
+        probed_data["NeedsManualCheck"] = needs_manual_check
+        probed_data["NeedsManualCheckReason"] = needs_manual_check_reason
 
         return probed_data
 
@@ -303,6 +314,15 @@ class Phase02AlbumExtractor:
 
         if path_data.get("AlbumArtist", ""):
             probed_data["AlbumArtist"] = path_data["AlbumArtist"]
+
+        needs_manual_check = False
+        manul_check_reason = []
+        if probed_data["AlbumName"] == "":
+            needs_manual_check = True
+            manul_check_reason.append("AlbumName is empty")
+
+        probed_data["NeedsManualCheck"] = needs_manual_check
+        probed_data["NeedsManualCheckReason"] = manul_check_reason
 
         return probed_data
 
