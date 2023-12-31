@@ -56,9 +56,11 @@ def process_one(profile):
     try:
         ident = threading.get_ident()
         # PROBE EACH OUTPUT FILE TO SEE IF IT EXISTS AND IS COMPLETE AFTER PROCESSING
+        exec_cmds = []
         for idx, track in enumerate(profile["Tracks"]):
             file_name = track["TrackName"]
             cmd = mk_ffmpeg_cmd(track, profile)
+            exec_cmds.append(cmd)
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -85,10 +87,12 @@ def process_one(profile):
             # Perform a final check to make sure the file exists and is not empty
             out = os.path.join(profile["Root"], track["TrackName"])
             if not os.path.exists(out):
-                raise Exception(f"Track {track} does not exist after processing")
+                raise Exception(
+                    f"Track {track} does not exist after processing (FFmpeg Cmd Executed: {cmd_exec[idx]})"
+                )
 
             if os.path.getsize(out) == 0:
-                raise Exception(f"Track {track} is empty after processing")
+                raise Exception(f"Track {track} is empty after processing (FFmpeg Cmd Executed: {cmd_exec[idx]})")
 
         stats["processed"] += 1
 
@@ -105,7 +109,7 @@ def process_one(profile):
         os.unlink(audio_track)
     except Exception as e:
         stats["failed"] += 1
-        journal_failed_file.write(profile["id"] + f" [Reason: {e}] " + "\n")
+        journal_failed_file.write(profile["id"] + f" [Reason: {e}] [Exec cmds]" + "\n")
         journal_failed_file.flush()
         print_logs[ident] = f"Failed to process {profile['id']}"
         return

@@ -55,13 +55,13 @@ def assign_confidence(potential: dict):
     return score
 
 
-def scan_potential_album(root: str):
+def scan_potential_album(album_root: str):
     pending_cue = []
     pending_audio = []
     total_flac_count = 0
     flag_reason = None
 
-    for root, dirs, files in os.walk(root):
+    for root, dirs, files in os.walk(album_root):
         for file in files:
             if file.lower().endswith(".cue"):
                 pending_cue.append(os.path.join(root, file))
@@ -78,7 +78,7 @@ def scan_potential_album(root: str):
                         flag_reason = "Audio file with cuesheet attribute found"
 
     return {
-        "root": root,
+        "root": album_root,
         "cue": pending_cue,
         "audio": pending_audio,
         "total_flac_count": total_flac_count,

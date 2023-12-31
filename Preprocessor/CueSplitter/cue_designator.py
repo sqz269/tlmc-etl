@@ -111,12 +111,12 @@ def rescan_and_probe(potential: dict) -> dict:
     root = potential["root"]
     cues = []
     audio = []
-    for root, dirs, files in os.walk(root):
+    for rt, dirs, files in os.walk(root):
         for file in files:
             if file.lower().endswith(".cue"):
-                cues.append(os.path.join(root, file))
+                cues.append(os.path.join(rt, file))
             elif file.lower().endswith(TARGET_TYPES):
-                audio.append(os.path.join(root, file))
+                audio.append(os.path.join(rt, file))
 
     # flac with cuesheet attribute
     cuesheet_attr = []
