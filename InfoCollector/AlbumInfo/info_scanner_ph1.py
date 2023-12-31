@@ -225,7 +225,7 @@ class Phase01:
         return {
             "AlbumRoot": dir_path,
             "Discs": {
-                "0": {
+                dir_path: {
                     "DiscNumber": 0,
                     "DiscName": "",
                     "Tracks": [
