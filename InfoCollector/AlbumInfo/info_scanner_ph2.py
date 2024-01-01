@@ -280,9 +280,8 @@ class Phase02AlbumExtractor:
 
         # get circle part of the path. (parent of album dir)
         dirname = os.path.basename(os.path.dirname(album_path))
-        artist = CIRCLE_INFO_EXTRACTOR.findall(dirname)
-        if len(artist) == 1:
-            data["AlbumArtist"] = artist[0]
+        artist = dirname
+        data["AlbumArtist"] = artist
 
         if len(brackets) == 0:
             return data
