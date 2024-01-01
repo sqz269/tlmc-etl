@@ -387,3 +387,51 @@ This step is only nessarily if the files will be added to an existing database
     ```
 
 2. Copy paste the query output (json) into `InfoCollector/ArtistInfo/output/artist_scanner.existing.name_dump.output.json`
+
+### 5. Artist Identification Phase 2
+
+#### Prerequisites
+
+- N/A
+
+#### Preparation
+
+- N/A
+
+#### Execution
+
+1. Run `InfoCollector/ArtistInfo/artist_scanner_ph2.py`
+2. Review the generated file at `InfoCollector/ArtistInfo/output/artist_scanner.discovery.new_artists.output.json` for
+    - **Collaborative Entries**
+        - Look for entries representing collaborative works (e.g., `[TUMENECO & RED  FOREST]`). Ensure that each artist or group is correctly identified and listed. For collaborations, separate individual artists or groups into the `"linked"` field while preserving the original formatting.
+        - Verify that each artist listed in the `"linked"` section has a corresponding standalone entry elsewhere in the file. If an artist appears exclusively in collaborations (meaning, no standalone entry), encapsulate their name in brackets (e.g., [Artist Name]) and include it in the "linked" list. This ensures all participants are accounted for, even if their only contributions are collaborative.
+        - Example: Notice here `TUMENECO` has it's original form as it appeared in a standalone entry `"[冷猫] TUMENECO"`
+
+            ```json
+            "[tumeneco & red forest]": {
+                "raw": "[TUMENECO & RED FOREST]",
+                "name": "TUMENECO & RED FOREST",
+                "alias": [],
+                "linked": [
+                    "[冷猫] TUMENECO",
+                    "[RED FOREST METAL ORCHESTRA]"
+                ],
+                "known_id": []
+            }
+            ```
+
+        - Example 2: In this case, observe how `AbsoЯute Zero` is stylized as `AbsoRute Zero` in some instances. Despite the stylistic difference, it refers to the same entity as the standalone entry. Apply careful judgment to accurately link variant names to the correct artist, especially when they involve stylistic or language differences. The example below demonstrates how to handle such variations while ensuring all artists are correctly disentangled and linked:
+
+            ```json
+            "[イノライ×少女理論観測所×absorute zero]": {
+                "raw": "[イノライ×少女理論観測所×AbsoRute Zero]",
+                "name": "イノライ×少女理論観測所×AbsoRute Zero",
+                "alias": [],
+                "linked": [
+                    "[イノライ]",
+                    "[少女理論観測所]",
+                    "[AbsoЯute Zero]"
+                ],
+                "known_id": []
+            }
+            ```
