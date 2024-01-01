@@ -340,3 +340,50 @@ In the second phase of transforming an unstructured directory of album tracks in
         - **Track Numbering**: While fixing empty track numbers is **_optional_**, any track with an index of -1 will be uniquely indexed in Phase 3. However, correctly numbering tracks here can aid in organizing and understanding the album's structure.
 
 ### 3. Information Extraction Phase 3
+
+### 4. Artist Identification Phase 1 (OPTIONAL)
+
+This step is only nessarily if the files will be added to an existing database
+
+#### Prerequisites
+
+- N/A
+
+#### Preparation
+
+- N/A
+
+#### Execution
+
+1. Run the following sql query on your existing music data database
+
+    ```sql
+    drop materialized view if exists albumcirclemergeassertpath;
+    create materialized view albumcirclemergeassertpath as
+        select distinct string_agg("Circles"."Id"::text, ',') as "CircleIds", split_part("HlsPlaylistPath", '/', 5) as "CirclePathNames"
+        from "Albums" as alb
+        join "Tracks" on "Tracks"."Id" = (
+            select "Tracks"."Id"
+            from "Tracks"
+            where alb."Id" = "Tracks"."AlbumId"
+            order by "Id" -- ensure the returned track is deterministic
+            limit 1
+        )
+        join "HlsPlaylist" HP on "Tracks"."Id" = HP."TrackId"
+        join "AlbumCircle" on alb."Id" = "AlbumCircle"."AlbumsId"
+        join "Circles" on "AlbumCircle"."AlbumArtistId" = "Circles"."Id"
+        where HP."Type" = 'Master'
+        group by "AlbumId", "HlsPlaylistPath";
+
+    select jsonb_object_agg(key, value) as aggregated_json
+    from (
+        select
+            acm."CirclePathNames" as key,
+            to_jsonb(array_agg(ci.id)) as value  -- Cast the aggregated array directly to JSON
+        from albumcirclemergeassertpath acm
+        cross join lateral unnest(string_to_array(acm."CircleIds", ',')) as ci(id)
+        group by acm."CirclePathNames"
+    ) as sub;
+    ```
+
+2. Copy paste the query output (json) into `InfoCollector/ArtistInfo/output/artist_scanner.existing.name_dump.output.json`
