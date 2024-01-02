@@ -6,6 +6,11 @@ import mslex
 import shlex
 
 
+def get_output_path(module, file):
+    module_path = os.path.dirname(module.__file__)
+    return os.path.join(module_path, file)
+
+
 def join_paths(*paths):
     """
     Join multiple paths using the separator detected from the first path argument.
