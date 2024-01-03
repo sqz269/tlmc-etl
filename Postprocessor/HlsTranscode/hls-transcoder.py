@@ -171,7 +171,7 @@ def process_one(key, entry):
 
         # 6. Create master playlist
         master_playlist = mk_master_playlist(BITRATES)
-        with open(os.path.join(dst_dir, "playlist.m3u8"), "w", encoding="utf-8") as f:
+        with open(dst_master_playlist, "w", encoding="utf-8") as f:
             f.write(master_playlist)
 
         stats_pad = "[DONE]".ljust(25)
