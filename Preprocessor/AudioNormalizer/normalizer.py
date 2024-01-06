@@ -102,6 +102,23 @@ def process_one(file_info):
             ] = f"[{progress_time.group(1) if progress_time else 'NO_INFO'}] {file_info['src']}"
 
         proc.wait()
+
+        if not os.path.getsize(["tmp_dst"]):
+            print_queue[ident] = f"[FAILED] {file_info['id']} (empty file)"
+            stats_lock.acquire()
+            stats["failed"] += 1
+            stats_lock.release()
+
+            journal_failed_lock.acquire()
+            journal_failed_file.write(file_info["id"] + "\n")
+            journal_failed_file.flush()
+            journal_failed_lock.release()
+
+            print_queue_lock.acquire()
+            print_queue[ident] = f"[FAILED] {file_info['id']}"
+            print_queue_lock.release()
+            return
+
         if proc.returncode != 0:
             print_queue[ident] = f"[FAILED] {file_info['id']} ({proc.returncode})"
             stats_lock.acquire()
