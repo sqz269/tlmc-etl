@@ -16,6 +16,7 @@ from Shared.json_utils import json_dump, json_load
 from Shared.utils import get_file_relative, oslex_quote
 
 output_root = get_file_relative(__file__, "output")
+os.makedirs(output_root, exist_ok=True)
 output_file = os.path.join(output_root, "normalizer.filelist.output.json")
 journal_completed_path = os.path.join(output_root, "normalizer.completed.output.txt")
 journal_failed_path = os.path.join(output_root, "normalizer.failed.output.txt")
@@ -27,7 +28,7 @@ journal_failed_lock = threading.Lock()
 journal_completed_file = open(journal_completed_path, "a+", encoding="utf-8")
 journal_failed_file = open(journal_failed_path, "a+", encoding="utf-8")
 
-FILE_EXT = (".flac", ".wav", ".mp3")
+FILE_EXT = (".flac", ".wav", ".mp3", ".m4a")
 
 
 def mk_ffmpeg_cmd(src, dst):
@@ -103,7 +104,7 @@ def process_one(file_info):
 
         proc.wait()
 
-        if not os.path.getsize(["tmp_dst"]):
+        if not os.path.getsize(file_info["tmp_dst"]):
             print_queue[ident] = f"[FAILED] {file_info['id']} (empty file)"
             stats_lock.acquire()
             stats["failed"] += 1
@@ -169,7 +170,7 @@ def process(file_list):
     queued = 0
     processes = []
     try:
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ThreadPoolExecutor(max_workers=os.cpu_count() // 2) as executor:
             for key, file_info in file_list.items():
                 queued += 1
                 processes.append(executor.submit(process_one, file_info))
