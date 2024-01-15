@@ -91,6 +91,24 @@ def check_cuesheet_attr(path: str) -> bool:
     return False
 
 
+def get_cuesheet_attr(path: str) -> str:
+    probe_result = probe_flac("ffprobe", path)
+    if probe_result is None:
+        return None
+
+    result = json.loads(probe_result)
+    if "format" not in result:
+        return None
+
+    if "tags" not in result["format"]:
+        return None
+
+    tags = [i.lower() for i in result["format"]["tags"].keys()]
+    if "cuesheet" in tags:
+        return result["format"]["tags"]["cuesheet"]
+    return None
+
+
 def recurse_search(path: str, target: str):
     for root, dirs, files in os.walk(path):
         for file in files:

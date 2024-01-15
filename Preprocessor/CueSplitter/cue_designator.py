@@ -5,6 +5,7 @@ from pythonnet import load, set_runtime
 from Shared.utils import (
     recurse_search,
     check_cuesheet_attr,
+    get_cuesheet_attr,
     max_common_prefix,
     get_file_relative,
 )
@@ -26,6 +27,15 @@ import sys
 # find CueSplitInfoProvider.dll
 cue_info_provider_path = recurse_search(os.getcwd(), "CueSplitInfoProvider.dll")
 utf_unknown_path = recurse_search(os.getcwd(), "UtfUnknown.dll")
+
+if cue_info_provider_path is None:
+    print("CueSplitInfoProvider.dll not found. Compile CueSplitter project first.")
+    exit(1)
+
+if utf_unknown_path is None:
+    print("UtfUnknown.dll not found. Compile CueSplitter project first.")
+    exit(1)
+
 print("Found CueSplitInfoProvider.dll at " + cue_info_provider_path)
 print("Found UtfUnknown.dll at " + utf_unknown_path)
 
@@ -77,7 +87,7 @@ def manual_designate(root, cues, audios):
         print("Cached pairs:")
         for idx, pair in enumerate(pairs):
             print(f"[{idx}] {pair[0]} {pair[1]}")
-        response = input("Do you want to use the cached pairs? [y/n] ")
+        response = input("Do you want to use the cached pairs? [y/n] ") or "y"
         if response == "y":
             return pairs
         else:
@@ -106,6 +116,16 @@ def gen_full_profile(root, cue_path):
     return result
 
 
+def gen_full_profile_from_cue(flac_file, cuesheet):
+    """
+    :param flac_file: path to flac file
+    :param cuesheet: cuesheet string NOT path
+    """
+    result = CueSplit.SplitCueWithEmbedCueSheet(flac_file, cuesheet)
+    result = json.loads(result)
+    return result
+
+
 def rescan_and_probe(potential: dict) -> dict:
     # find all cue and audio files in a directory
     root = potential["root"]
@@ -124,6 +144,16 @@ def rescan_and_probe(potential: dict) -> dict:
         if check_cuesheet_attr(file):
             cuesheet_attr.append(file)
 
+    profiles = []
+    if len(cuesheet_attr) >= len(cues):
+        for file in cuesheet_attr:
+            print(f"Designating using embedded cue sheet {file}")
+            cuesheet = get_cuesheet_attr(file)
+            profile = gen_full_profile_from_cue(file, cuesheet)
+            profiles.append(profile)
+
+        return profiles
+
     # if there are # of cuesheets = # of flac with cuesheet attribute
     # then designate the pairs with longest common prefix as a target
     target_pairs = None
@@ -136,9 +166,8 @@ def rescan_and_probe(potential: dict) -> dict:
     else:
         print("Number of cuesheets and flac with cuesheet attribute does not match.")
         print("Manually designate cuesheet and audio pairs required.")
-        target_pairs = manual_designate(root, cues, cuesheet_attr)
+        target_pairs = manual_designate(root, cues, audio)
 
-    profiles = []
     for pair in target_pairs:
         print(f"Designating {pair[0]} and {pair[1]}")
         profile = gen_full_profile(root, pair[0])

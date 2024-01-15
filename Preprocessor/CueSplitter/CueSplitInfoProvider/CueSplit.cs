@@ -46,11 +46,11 @@ public static class CueSplit
         {'>', '＞'},
         {'|', '｜'}
     };
-    
+
     private static string MkFileName(Track track, CueSheet origin)
     {
         var sb = new List<string>();
-        
+
         sb.Add($"({track.TrackNumber:00})");
 
         if (!string.IsNullOrWhiteSpace(track.Performer))
@@ -83,7 +83,7 @@ public static class CueSplit
             ".log",
             ".txt"
         };
-        
+
         var reg = new Regex("(?:.+ - )?(.+)\\..+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         // if there is only one flac file in the root directory.
@@ -145,7 +145,7 @@ public static class CueSplit
     {
         // only the first file have data file prop
         var filePath = Path.Combine(root, sheet.Tracks[0].DataFile.Filename);
-        string guessedPath = null;
+        string? guessedPath = null;
         List<string>? guessedCandidate = new List<string>();
         var invalid = false;
 
@@ -156,7 +156,6 @@ public static class CueSplit
             if (guessedCandidate == null || guessedCandidate?.Count == 0)
             {
                 invalid = true;
-                
             }
             else
             {
@@ -207,6 +206,58 @@ public static class CueSplit
         var cue = new CueSheet(cueFile, new char[] { '\r', '\n' });
 
         var p = Split(cue, cuePath, root);
+        return JsonSerializer.Serialize(p);
+    }
+
+    private static AlbumProcess SplitFromEmbeddedCue(string flacPath, CueSheet cueSheet)
+    {
+        // get flac's Parent dir
+        DirectoryInfo dirInfo = new(flacPath);
+        string root = dirInfo.Parent.FullName;
+
+        // only the first file have data file prop
+        var album = new AlbumProcess()
+        {
+            Root = root,
+            AlbumName = cueSheet.Title,
+            Performer = cueSheet.Performer,
+            AudioFilePath = flacPath,
+            AudioFilePathGuessed = "",
+            AudioFilePathGuessedCandidate = new(),
+            CueFilePath = "<EMBEDDED>",
+            Tracks = new List<TrackProcess>(),
+            Invalid = false
+        };
+
+        for (var i = 0; i < cueSheet.Tracks.Length; i++)
+        {
+            var track = cueSheet.Tracks[i];
+            Index start;
+            Index? end = null;
+            // Always take the first index as the start
+            // Same as MPV strategy:
+            // https://github.com/mpv-player/mpv/blob/375076578f4c1c450ecf0b60de6290ad9942ddfc/demux/demux_mkv.c#L852
+            start = track.Indices[0];
+
+            // While we haven't reached end of tracks
+            if (i + 1 < cueSheet.Tracks.Length)
+            {
+                var next = cueSheet.Tracks[i + 1];
+
+                end = next.Indices[0];
+            }
+
+            album.Tracks.Add(MkSplitArgs(track, cueSheet, start, end, root));
+        }
+
+        return album;
+    }
+
+    public static string SplitCueWithEmbedCueSheet(string flac, string cueSheet)
+    {
+        var cue = new CueSheet(cueSheet, new char[] { '\r', '\n' });
+
+        var p = SplitFromEmbeddedCue(flac, cue);
         return JsonSerializer.Serialize(p);
     }
 }
