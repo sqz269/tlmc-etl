@@ -21,6 +21,8 @@ output_file = os.path.join(output_root, "normalizer.filelist.output.json")
 journal_completed_path = os.path.join(output_root, "normalizer.completed.output.txt")
 journal_failed_path = os.path.join(output_root, "normalizer.failed.output.txt")
 
+size_delta = open("size_delta.txt", "a+", encoding="utf-8")
+
 journal_completed_lock = threading.Lock()
 journal_failed_lock = threading.Lock()
 
@@ -38,6 +40,10 @@ def mk_ffmpeg_cmd(src, dst):
         oslex_quote(src),
         "-af",
         "loudnorm",  # "loudnorm=I=-24:LRA=7:tp=-2.0",
+        "-ar",  # force 44.1khz and 16bit, for some reason without this ffmpeg automatically upsamples to 192khz 24bit
+        "44100",
+        "-sample_fmt",
+        "s16",
         "-movflags",
         "faststart",
         oslex_quote(dst),
@@ -141,11 +147,20 @@ def process_one(file_info):
 
         journal_completed_lock.acquire()
         journal_completed_file.write(file_info["id"] + "\n")
+
+        sz_dlt = {
+            "path": file_info["src"],
+            "org_size": os.path.getsize(file_info["src"]),
+            "norm_size": os.path.getsize(file_info["tmp_dst"]),
+            "ffmpeg_cmd": " ".join(cmd),
+        }
+        size_delta.write(json.dumps(sz_dlt, ensure_ascii=False) + "\n")
+        size_delta.flush()
         journal_completed_file.flush()
         journal_completed_lock.release()
 
-        os.unlink(file_info["src"])
-        os.rename(file_info["tmp_dst"], file_info["src"])
+        # os.unlink(file_info["src"])
+        # os.rename(file_info["tmp_dst"], file_info["src"])
     except Exception as e:
         stats_lock.acquire()
         stats["failed"] += 1
