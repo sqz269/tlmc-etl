@@ -93,6 +93,7 @@ if __name__ == '__main__':
         with open(rar_snapshot_path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=4, ensure_ascii=False)
     
+    input("Press enter to continue")
     extract_rar_files(rar_files)
 
     # Generate filesystem snapshot

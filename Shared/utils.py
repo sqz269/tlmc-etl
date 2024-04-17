@@ -8,7 +8,7 @@ import shlex
 
 def get_output_path(module, name):
     module_path = os.path.dirname(module.__file__)
-    return os.path.join(module_path, name)
+    return os.path.join(module_path, "output", name)
 
 
 def get_self_output_path(module_fp, name):
