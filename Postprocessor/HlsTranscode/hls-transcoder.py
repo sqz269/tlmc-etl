@@ -75,6 +75,13 @@ def mk_ffmpeg_tc_cmd(src, root, bitrate):
 
 
 def mk_master_playlist(bitrate_list):
+    prefixes = [
+        "#EXTM3U",
+        "#EXT-X-VERSION:7",
+        "#EXT-X-INDEPENDENT-SEGMENTS",
+        "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"Audio\",DEFAULT=YES,AUTOSELECT=YES",
+        "#EXT-X-STREAM-INF:AUDIO=\"audio\"",
+    ]
     playlist = "#EXTM3U\n"
     for bitrate in bitrate_list:
         playlist += (

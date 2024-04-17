@@ -141,6 +141,12 @@ Install 7-zip 64 bit as per your operating system's instructions
 
 This section details the process of extracting .rar files contained in the TLMC (Touhou Lossless Music Collection) directory. Before processing the files, they must be extracted.
 
+In addition to extracting files, the script will also generate a snapshot of the file system before and after the extraction with each file's hash for updating TLMC versions.
+
+- The script will calculate hash for all the `.rar` file and it's relative path from the TLMC root as it's key
+- The script will then extract the `.rar` files
+- Then, will all `.rar` files extracted, the script will then go through and generate hashes for all files and each file.
+
 #### Prerequisites
 
 - Ensure 7z (7-Zip) is installed and added to your system's PATH. You can verify this by running `7z` in your command line; it should not return an error.
@@ -189,7 +195,7 @@ You can edit this profile by navigating to the script and under `mk_ffmpeg_cmd(s
 
 - Run `python ./Preprocessor/AudioNormalizer/normalizer.py` to start the normalization process
 
-### 3. Cue Splitting (WIP)
+### 3. Cue Splitting
 
 This section details the procedure for splitting a single, aggregated album track (segmented by a .cue file) into separate files for each individual track. This step is necessary because the backend cannot parse cue files to serve individual tracks, and separate track files are required for proper functionality.
 
@@ -435,3 +441,50 @@ This step is only nessarily if the files will be added to an existing database
                 "known_id": []
             }
             ```
+
+## SECTION: HLS TRANSCODING
+
+flac is a lossless format meaning that the file prioritizes quality over compression, but it's large file size make it undesireable in mobile streaming which have constrainted bandwidth. This section details the process to transcode flac files into HLS (fMP4 format) which is optimized for streaming and allows for adaptive bitrate switching. However, do note that the HLS transcoding may SIGNIFICANTLY alter the original file's audio quality which depends on the bitrate of the conversion. It is advised to backup the original flac files if needed.
+
+### 1. Distribute
+
+Transcoding media files is often computationally expensive. In the case of video file transcoding, GPU drivers usually provide hardware accerlation for such tasks to reduce transcoding file. However, as of 2024, there is no dedicated support for hardware accerlated flac to fMP4 conversion. Meaning that this process will take a significant amount of time to run (ranging from days to weeks, depending on the machine's CPU speed). To reduce the length of the process, multiple devices may be used to distribute this task and reduce the computation time.
+
+### 2. Transcode
+
+**WARNING: THIS PROCESS IS EXTREMELY COMPUTATIONALLY INTENSIVE. ENSURE YOU HAVE ENOUGH COMPUTATION POWER AND UPTIME BEFORE PROCEEDING**
+
+#### Prerequisites
+
+- Ensure that `ffmpeg` with `libfdk-aac` support enabled is installed and available via command `ffmpeg`
+- Ensure that the CPU is powerful enough to complete the process in the forseeable future. Recommend to use a CPU at least 8 cores.
+
+#### Preparation
+
+- N/A
+
+#### Execution
+
+## SECTION: FINALIZATION AND PUSHING TO DB
+
+### 2. Merge Information
+
+### 3
+
+## SECTION: EXTENDED METADATA COLLECTION AND TAGGING
+
+## SECTION: UPDATIG COLLECTION
+
+### 1. Calculate File Deltas Across Versions
+
+In this section, we will be determining the albums/files that have changed from version to version so the only changed files will be processed and added instead of the need of reprocessing all files.
+
+#### Prerequisites
+
+- Snapshot files for the old version generated during Preprocessing (Section 1)
+
+#### Preparation
+
+- N/A
+
+#### Exectuion

@@ -40,6 +40,9 @@ def assign_confidence(potential: dict):
     if num_cue_files == num_cuesheet_attr_files:
         return 0.9
 
+    if num_cue_files == 0 and num_cuesheet_attr_files != 0:
+        return 0.9
+
     # Base score based on the ratio of cue files to FLAC files
     if num_flac_files == 0:
         return 0  # Avoid division by zero

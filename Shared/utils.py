@@ -6,10 +6,14 @@ import mslex
 import shlex
 
 
-def get_output_path(module, file):
+def get_output_path(module, name):
     module_path = os.path.dirname(module.__file__)
-    return os.path.join(module_path, file)
+    return os.path.join(module_path, name)
 
+
+def get_self_output_path(module_fp, name):
+    module_path = os.path.dirname(module_fp)
+    return os.path.join(module_path, name)
 
 def join_paths(*paths):
     """
