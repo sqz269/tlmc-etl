@@ -1,4 +1,4 @@
-import InfoCollector.AlbumInfo.output.path_definitions as AlbumInfoOutputPaths
+import Processor.InfoCollector.AlbumInfo.output.path_definitions as AlbumInfoOutputPaths
 import Postprocessor.HlsTranscode.output.path_definitions as HlsTranscodeOutputPaths
 from Shared.utils import get_output_path
 from Shared.json_utils import json_load, json_dump
