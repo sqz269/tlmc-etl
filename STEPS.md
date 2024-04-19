@@ -137,6 +137,24 @@ Install 7-zip 64 bit as per your operating system's instructions
 
 ## SECTION: PREPROCESSING
 
+### 0. File Snapshot
+
+This section details the process of snapshotting the downloaded collection files for their hash and size. This step is needed to ensure we can correctly and efficiently identify added albums from new versions of the collection and retroactively apply updates instead of the need to go through the process again with every new release.
+
+### Prerequisites
+
+- N/A
+
+### Preparation
+
+- Ensure that you have moved `!Misc` in the TLMC release to the root folder so that it's properly merged with the rest of the directory.
+    - Can be achieved via `cp * .. -r` in the `!Misc` directory or `cp !Misc/* . -r` in TLMC root directory then with `rm -r !Misc`
+
+### Execution
+
+- Execute the snapshot script by running `python Preprocessor/Extract/unextracted_snapshot.py`
+- Ensure you keep/backup the output located at `Preprocessor/Extract/output/unextracted_rar_snapshot.output.json` for the time when upgrading releases.
+
 ### 1. Archive Extraction
 
 This section details the process of extracting .rar files contained in the TLMC (Touhou Lossless Music Collection) directory. Before processing the files, they must be extracted.
@@ -472,19 +490,3 @@ Transcoding media files is often computationally expensive. In the case of video
 ### 3
 
 ## SECTION: EXTENDED METADATA COLLECTION AND TAGGING
-
-## SECTION: UPDATIG COLLECTION
-
-### 1. Calculate File Deltas Across Versions
-
-In this section, we will be determining the albums/files that have changed from version to version so the only changed files will be processed and added instead of the need of reprocessing all files.
-
-#### Prerequisites
-
-- Snapshot files for the old version generated during Preprocessing (Section 1)
-
-#### Preparation
-
-- N/A
-
-#### Exectuion
