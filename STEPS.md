@@ -137,7 +137,7 @@ Install 7-zip 64 bit as per your operating system's instructions
 
 ## SECTION: PREPROCESSING
 
-### 0. File Snapshot
+### 0. RAR File Snapshot
 
 This section details the process of snapshotting the downloaded collection files for their hash and size. This step is needed to ensure we can correctly and efficiently identify added albums from new versions of the collection and retroactively apply updates instead of the need to go through the process again with every new release.
 
@@ -159,8 +159,6 @@ This section details the process of snapshotting the downloaded collection files
 
 This section details the process of extracting .rar files contained in the TLMC (Touhou Lossless Music Collection) directory. Before processing the files, they must be extracted.
 
-In addition to extracting files, the script will also generate a snapshot of the file system before and after the extraction with each file's hash for updating TLMC versions.
-
 - The script will calculate hash for all the `.rar` file and it's relative path from the TLMC root as it's key
 - The script will then extract the `.rar` files
 - Then, will all `.rar` files extracted, the script will then go through and generate hashes for all files and each file.
@@ -181,7 +179,25 @@ In addition to extracting files, the script will also generate a snapshot of the
 2. Open your command line interface and change the directory to the TLMC root. This is crucial as `extract.py` must be executed in the same directory as the `.rar` files.
 3. Execute the script by running `python ./extract.py`. This will start the extraction process.
 
-### 2. Track Audio Normalization
+### 2. Extracted Filesystem Snapshot
+
+This section details the process of snapshotting the extracted files for their hash and size. Although there isn't any plans to use this file, the process and script is documented in case extracted files hashes are needed to upgrade.
+
+#### Prerequisites
+
+- All `.rar` files has been extracted and the `.rar` files has been moved/deleted from the TLMC root
+
+### Preparation
+
+- N/A
+
+### Execution
+
+- Execute the snapshot script by running `python Preprocessor/Extract/extracted_snapshot.py`
+- Ensure you keep/backup the output located at `Preprocessor/Extract/output/extracted_filesystem_snapshot.output.json` for the time when upgrading releases.
+
+
+### 3. Track Audio Normalization
 
 This section explains how to normalize the volume levels of audio tracks. Since web apps and the HLS protocol don't support ReplayGain tags, we'll directly modify the files to normalize their volume. This is a lossy process, so it's advised to back up your files if you wish to retain lossless copies.
 
@@ -213,7 +229,7 @@ You can edit this profile by navigating to the script and under `mk_ffmpeg_cmd(s
 
 - Run `python ./Preprocessor/AudioNormalizer/normalizer.py` to start the normalization process
 
-### 3. Cue Splitting
+### 4. Cue Splitting
 
 This section details the procedure for splitting a single, aggregated album track (segmented by a .cue file) into separate files for each individual track. This step is necessary because the backend cannot parse cue files to serve individual tracks, and separate track files are required for proper functionality.
 

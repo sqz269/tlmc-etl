@@ -38,7 +38,7 @@ def generate_rar_snapshot(filelist: List[str]):
             print(f"[{idx}/{len(filelist)}] Hashing {file}", end="\r")
 
             # Stream hash the file
-            hash = xxhash.xxh64()
+            hash = xxhash.xxh128()
             while True:
                 data = f.read(4096)
                 if not data:
