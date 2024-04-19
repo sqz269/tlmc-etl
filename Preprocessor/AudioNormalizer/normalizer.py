@@ -1,37 +1,38 @@
 from dataclasses import dataclass
-import re
-import os
-import sys
 import json
-import time
-import shlex
-import traceback
-
-import threading
+import os
 import subprocess
-from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
-
-from uuid import uuid4
-
-from Shared.json_utils import json_dump, json_load
-from Shared.utils import get_file_relative, oslex_quote
-
-output_root = get_file_relative(__file__, "output")
-os.makedirs(output_root, exist_ok=True)
-output_file = os.path.join(output_root, "normalizer.filelist.output.json")
-journal_completed_path = os.path.join(output_root, "normalizer.completed.output.txt")
-journal_failed_path = os.path.join(output_root, "normalizer.failed.output.txt")
-
-size_delta = open("size_delta.txt", "a+", encoding="utf-8")
-
-journal_completed_lock = threading.Lock()
-journal_failed_lock = threading.Lock()
-
-# disable buffering to prevent data loss on exception
-journal_completed_file = open(journal_completed_path, "a+", encoding="utf-8")
-journal_failed_file = open(journal_failed_path, "a+", encoding="utf-8")
+from typing import Dict
+from Shared.utils import get_file_relative, oslex_quote, get_output_path
+from Shared.reporting_multi_processor import (
+    JournalWriter,
+    OutputWriter,
+    PrintMessageReporter,
+    StatAutoMuxMultiProcessor,
+)
+import Preprocessor.AudioNormalizer.output.path_definitions as AudioNormalizerOutputPaths
 
 FILE_EXT = (".flac", ".wav", ".mp3", ".m4a")
+
+stage_1_worklist = get_output_path(
+    AudioNormalizerOutputPaths,
+    AudioNormalizerOutputPaths.NORMALIZE_FIRST_PASS_DETECT_WORKLIST_PATH,
+)
+
+stage_1_output = get_output_path(
+    AudioNormalizerOutputPaths,
+    AudioNormalizerOutputPaths.NORMALIZE_FIRST_PASS_DETECT_OUTPUT_FILELIST_NAME,
+)
+
+stage_2_worklist = get_output_path(
+    AudioNormalizerOutputPaths,
+    AudioNormalizerOutputPaths.NORMALIZE_SECOND_PASS_CONVERT_WORKLIST_PATH,
+)
+
+stage_2_output = get_output_path(
+    AudioNormalizerOutputPaths,
+    AudioNormalizerOutputPaths.NORMALIZE_SECOND_PASS_CONVERT_COMPLETED_NAME,
+)
 
 
 @dataclass
@@ -41,262 +42,415 @@ class NormalizationParameters:
     measured_lra: float
     measured_thresh: float
     target_offset: float
+    target_sample_fmt: str = "s16"
 
+    def to_json(self):
+        return {
+            "measured_i": self.measured_i,
+            "measured_tp": self.measured_tp,
+            "measured_lra": self.measured_lra,
+            "measured_thresh": self.measured_thresh,
+            "target_offset": self.target_offset,
+            "target_sample_fmt": self.target_sample_fmt,
+        }
 
-def mk_ffmpeg_norm_convert_cmd(src, dst, norm_params: NormalizationParameters):
-    return [
-        "ffmpeg",
-        "-i",
-        oslex_quote(src),
-        "-af",
-        "loudnorm",  # "loudnorm=I=-24:LRA=7:tp=-2.0",
-        # "-ar",  # force 44.1khz and 16bit, for some reason without this ffmpeg automatically upsamples to 192khz 24bit
-        # "44100",
-        # "-sample_fmt",
-        # "s16",
-        "-movflags",
-        "faststart",
-        oslex_quote(dst),
-        "-y",
-        "-v",
-        "quiet",
-        "-stats",
-    ]
-
-
-def mk_ffmpeg_norm_detect_cmd(src):
-    return [
-        "ffmpeg",
-        "-i",
-        oslex_quote(src),
-        "-af",
-        "loudnorm=I=-24:LRA=7:tp=-2.0:print_format=json",
-        "-f",
-        "null",
-        "-" "-y" "-v" "quiet",
-    ]
-
-
-def mk_out_filename(original_name):
-    return "audio.norm." + original_name
-
-
-def get_file_normalization_params(src) -> NormalizationParameters | None:
-    proc = subprocess.Popen(
-        mk_ffmpeg_norm_detect_cmd(src),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        universal_newlines=True,
-        shell=True,
-    )
-
-    proc.wait()
-
-    if proc.returncode != 0:
-        return None
-
-    results_str = proc.stdout.read()
-    results_json = json.loads(results_str)
-    return NormalizationParameters(
-        measured_i=results_json["input_i"],
-        measured_tp=results_json["input_tp"],
-        measured_lra=results_json["input_lra"],
-        measured_thresh=results_json["input_thresh"],
-        target_offset=results_json["target_offset"],
-    )
-
-
-def generate_file_list(root):
-    output = {}
-    count = 0
-    for fp, dirs, files in os.walk(root):
-        for file in files:
-            if file.endswith(tuple(FILE_EXT)):
-                id = str(uuid4())
-                src = os.path.join(fp, file)
-                dst = os.path.join(fp, mk_out_filename(file))
-                output[id] = {
-                    "id": id,
-                    "src": os.path.join(fp, file),
-                    "tmp_dst": os.path.join(fp, mk_out_filename(file)),
-                    "cmd": " ".join(mk_ffmpeg_norm_convert_cmd(src, dst)),
-                }
-                count += 1
-                print(f"Found {count} files", end="\r")
-
-    return output
-
-
-print_queue_lock = threading.Lock()
-print_queue = {}
-stats_lock = threading.Lock()
-stats = {
-    "processed": 0,
-    "failed": 0,
-    "total": 0,
-}
-
-
-def process_one(file_info):
-    cap_time = re.compile(r"time=(\d{2}:\d{2}:\d{2}.\d{2})")
-    global print_queue
-    global stats
-    try:
-        ident = threading.get_ident()
-        cmd = mk_ffmpeg_norm_convert_cmd(file_info["src"], file_info["tmp_dst"])
-        # for some reason it refuses to work with shell=False and array args
-        proc = subprocess.Popen(
-            " ".join(cmd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            shell=True,
+    @staticmethod
+    def from_json(json_obj):
+        return NormalizationParameters(
+            measured_i=json_obj["measured_i"],
+            measured_tp=json_obj["measured_tp"],
+            measured_lra=json_obj["measured_lra"],
+            measured_thresh=json_obj["measured_thresh"],
+            target_offset=json_obj["target_offset"],
+            target_sample_fmt=json_obj["target_sample_fmt"],
         )
 
-        for line in proc.stdout:
-            progress_time = cap_time.search(line)
-            print_queue[ident] = (
-                f"[{progress_time.group(1) if progress_time else 'NO_INFO'}] {file_info['src']}"
+
+@dataclass
+class Stage1WorkResult:
+    path: str
+    normalization_params: NormalizationParameters
+
+    def to_json(self):
+        return {
+            "path": self.path,
+            "normalization_params": self.normalization_params.to_json(),
+        }
+
+    @staticmethod
+    def from_json(json_obj) -> "Stage1WorkResult":
+        return Stage1WorkResult(
+            path=json_obj["path"],
+            normalization_params=NormalizationParameters.from_json(
+                json_obj["normalization_params"]
+            ),
+        )
+
+
+class Stage2:
+    @staticmethod
+    def make_ffmpeg_norm_param_cmd(src: str, dst: str, params: NormalizationParameters):
+        # ffmpeg -i in.wav -af loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=-27.61:measured_LRA=18.06:measured_TP=-4.47:measured_thresh=-39.20:offset=0.58:linear=true:print_format=summary -ar 48k out.wav
+        return [
+            "ffmpeg",
+            "-i",
+            oslex_quote(src),
+            "-af",
+            f"loudnorm=I=-16:TP=-1.5:LRA=11:measured_I={params.measured_i}:measured_LRA={params.measured_lra}:measured_TP={params.measured_tp}:measured_thresh={params.measured_thresh}:offset={params.target_offset}:linear=true",
+            "-sample_fmt",
+            params.target_sample_fmt,
+            oslex_quote(dst),
+            "-y",
+            "-v",
+            "quiet",
+            "-stats",
+        ]
+
+    @staticmethod
+    def make_ffprobe_get_sample_format_cmd(src: str):
+        return [
+            "ffprobe",
+            "-show_format",
+            "-show_streams",
+            "-of",
+            "json",
+            "-i",
+            oslex_quote(src),
+            "-hide_banner",
+            "-v",
+            "quiet",
+        ]
+
+    @staticmethod
+    def make_tmp_dst_name(src: str):
+        base = os.path.basename(src)
+        path = os.path.dirname(src)
+        return os.path.join(path, f"audio.norm.{base}")
+
+    @staticmethod
+    def generate_stage_2_work_list():
+        stage_2_worklist = {}
+        with open(stage_1_output, "r", encoding="utf-8") as f:
+            results = [
+                Stage1WorkResult.from_json(json.loads(line)) for line in f.readlines()
+            ]
+
+        for result in results:
+            tmp_dst = Stage2.make_tmp_dst_name(result.path)
+            stage_2_worklist[result.path] = {
+                "src": result.path,
+                "dst": tmp_dst,
+                "params": result.normalization_params.to_json(),
+                "cmd": " ".join(
+                    Stage2.make_ffmpeg_norm_param_cmd(
+                        result.path, tmp_dst, result.normalization_params
+                    ),
+                ),
+            }
+
+        return stage_2_worklist
+
+    @staticmethod
+    def filter_completed(worklist: Dict[str, str]):
+        completed = []
+        if not os.path.exists(stage_2_output):
+            return worklist
+
+        # output is json file, each line is a json document
+        # with sturcture of {path: <path>}
+        with open(stage_2_output, "r", encoding="utf-8") as f:
+            completed = [
+                json.loads(line) for line in f.readlines() if line.strip() != ""
+            ]
+
+        return {k: v for k, v in worklist.items() if k not in completed}
+
+    @staticmethod
+    def process_one(
+        journalWriter: JournalWriter,
+        messageWriter: PrintMessageReporter,
+        outputWriter: OutputWriter,
+        file: str,
+        work: dict,
+    ):
+        try:
+            messageWriter.report_state(f"Processing {file}")
+
+            proc = subprocess.Popen(
+                work["cmd"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                shell=True,
             )
 
-        proc.wait()
+            proc.wait()
 
-        if not os.path.getsize(file_info["tmp_dst"]):
-            print_queue[ident] = f"[FAILED] {file_info['id']} (empty file)"
-            stats_lock.acquire()
-            stats["failed"] += 1
-            stats_lock.release()
+            if proc.returncode != 0:
+                journalWriter.report_error(
+                    f"Failed to process {file} with command [{work['cmd']}]. Process returned code {proc.returncode}\n"
+                )
+                return
 
-            journal_failed_lock.acquire()
-            journal_failed_file.write(file_info["id"] + "\n")
-            journal_failed_file.flush()
-            journal_failed_lock.release()
+            outputWriter.write(json.dumps({"path": file}, ensure_ascii=False) + "\n")
+            journalWriter.report_completed(f"Completed {file}\n")
+        except Exception as e:
+            journalWriter.report_error(
+                f"Failed to process {file} with command [{work['cmd']}]\n"
+            )
 
-            print_queue_lock.acquire()
-            print_queue[ident] = f"[FAILED] {file_info['id']}"
-            print_queue_lock.release()
+    @staticmethod
+    def start():
+        if not os.path.isfile(stage_1_output):
+            print("Stage 1 output not found, exiting")
             return
 
-        if proc.returncode != 0:
-            print_queue[ident] = f"[FAILED] {file_info['id']} ({proc.returncode})"
-            stats_lock.acquire()
-            stats["failed"] += 1
-            stats_lock.release()
+        if not os.path.exists(stage_2_worklist):
+            print("Stage 2 output not found, generating worklist")
+            worklist = Stage2.generate_stage_2_work_list()
+            with open(stage_2_worklist, "w", encoding="utf-8") as f:
+                json.dump(worklist, f, ensure_ascii=False)
 
-            journal_failed_lock.acquire()
-            journal_failed_file.write(file_info["id"] + f"\t{' '.join(cmd)}\t" + "\n")
-            journal_failed_file.flush()
-            journal_failed_lock.release()
+        with open(stage_2_worklist, "r", encoding="utf-8") as f:
+            worklist = json.load(f)
+            print("Loaded worklist ({} items)".format(len(worklist)))
 
-            print_queue_lock.acquire()
-            print_queue[ident] = f"[FAILED] {file_info['id']}"
-            print_queue_lock.release()
-            return
-        print_queue[ident] = f"[DONE] {file_info['id']}"
-        time.sleep(0.6)
-        stats["processed"] += 1
+        print("Filtering completed work")
+        worklist = Stage2.filter_completed(worklist)
 
-        journal_completed_lock.acquire()
-        journal_completed_file.write(file_info["id"] + "\n")
+        print("Processing worklist")
 
-        sz_dlt = {
-            "path": file_info["src"],
-            "org_size": os.path.getsize(file_info["src"]),
-            "norm_size": os.path.getsize(file_info["tmp_dst"]),
-            "ffmpeg_cmd": " ".join(cmd),
-        }
-        size_delta.write(json.dumps(sz_dlt, ensure_ascii=False) + "\n")
-        size_delta.flush()
-        journal_completed_file.flush()
-        journal_completed_lock.release()
+        journal_path_fail = get_output_path(
+            AudioNormalizerOutputPaths,
+            AudioNormalizerOutputPaths.NORMALIZE_SECOND_PASS_CONVERT_FAILED_NAME,
+        )
 
-        # os.unlink(file_info["src"])
-        # os.rename(file_info["tmp_dst"], file_info["src"])
-    except Exception as e:
-        stats_lock.acquire()
-        stats["failed"] += 1
-        stats_lock.release()
+        journal_path = get_output_path(
+            AudioNormalizerOutputPaths,
+            AudioNormalizerOutputPaths.NORMALIZE_SECOND_PASS_CONVERT_JOURNAL_NAME,
+        )
 
-        journal_failed_lock.acquire()
-        journal_failed_file.write(file_info["id"] + "\n")
-        journal_failed_file.flush()
-        journal_failed_lock.release()
+        journal_path_completed = get_output_path(
+            AudioNormalizerOutputPaths,
+            AudioNormalizerOutputPaths.NORMALIZE_SECOND_PASS_CONVERT_JOURNAL_NAME,
+        )
 
-        print_queue_lock.acquire()
-        print_queue[ident] = f"[FAILED] {file_info['id']}"
-        print_queue_lock.release()
+        journal_writer = JournalWriter(
+            journal_path, journal_path_fail, journal_path_completed
+        )
 
-        print(traceback.format_exc())
+        output_path = get_output_path(
+            AudioNormalizerOutputPaths,
+            AudioNormalizerOutputPaths.NORMALIZE_SECOND_PASS_CONVERT_COMPLETED_NAME,
+        )
 
+        output_writer = OutputWriter(output_path)
 
-def process(file_list):
-    global print_queue
-    stats["total"] = len(file_list)
+        processor = StatAutoMuxMultiProcessor(
+            os.cpu_count() // 2,
+            journal_writer,
+            output_writer,
+        )
 
-    queued = 0
-    processes = []
-    try:
-        with ThreadPoolExecutor(max_workers=os.cpu_count() // 2) as executor:
-            for key, file_info in file_list.items():
-                queued += 1
-                processes.append(executor.submit(process_one, file_info))
+        for file, cmd in worklist.items():
+            processor.submit_job(Stage2.process_one, file, cmd)
 
-            try:
-                key = print_queue.keys()
-                while any([p.running() for p in processes]):
-                    if print_queue.keys() != key:
-                        key = print_queue.keys()
-
-                    print(
-                        "PROGRESS [{}/{} | {}]".format(
-                            stats["processed"],
-                            stats["total"],
-                            stats["failed"],
-                        )
-                    )
-                    for ident in key:
-                        print(print_queue[ident], end="\n")
-
-                    print("\n\n")
-                    wait(processes, timeout=0.5, return_when=ALL_COMPLETED)
-                    os.system("cls" if os.name == "nt" else "clear")
-            except Exception as e:
-                pass
-
-    except Exception as e:
-        pass
-
-    finally:
-        pass
+        processor.wait_print_complete()
+        processor.reset_terminal()
 
 
-def main():
-    file_list = None
-    if not os.path.exists(output_file):
-        tlmc_root = input("Enter the path to the root of the TLMC: ")
-        print("Generating file list...")
-        file_list = generate_file_list(tlmc_root)
-        json_dump(file_list, output_file)
-    else:
-        print("Existing File List Detected Resuming")
-        file_list = json_load(output_file)
+class Stage1:
 
-        ptr = journal_completed_file.tell()
-        journal_completed_file.seek(0)
-        processed = journal_completed_file.read().splitlines()
-        journal_completed_file.seek(ptr)
+    @staticmethod
+    def make_ffmpeg_cmd(src):
+        return [
+            "ffmpeg",
+            "-i",
+            oslex_quote(src),
+            "-af",
+            "loudnorm=I=-24:LRA=7:tp=-2.0:print_format=json",
+            "-f",
+            "null",
+            "-",
+            "-y",
+            # "-v",
+            # "quiet",
+        ]
 
-        for id in processed:
-            print(f"Skipping {id} (already processed)")
-            file_list.pop(id, None)
+    @staticmethod
+    def generate_stage_1_work_list(root):
+        filelist = {}
+        for root, dirs, files in os.walk(root):
+            for file in files:
+                if file.endswith(FILE_EXT):
+                    fp = os.path.join(root, file)
+                    stage_1_cmd = Stage1.make_ffmpeg_cmd(fp)
+                    filelist[fp] = " ".join(stage_1_cmd)
 
-        print("Resuming with ", len(file_list), "files")
+        return filelist
 
-    process(file_list)
-    if os.name != "nt":
-        # reset terminal
-        os.system("reset")
+    @staticmethod
+    def filter_completed(worklist: Dict[str, str]):
+        completed = []
+        if not os.path.exists(stage_1_output):
+            return worklist
+
+        with open(stage_1_output, "r", encoding="utf-8") as f:
+            completed = [
+                Stage1WorkResult.from_json(json.loads(line)) for line in f.readlines()
+            ]
+            completed = set([result.path for result in completed])
+
+        return {k: v for k, v in worklist.items() if k not in completed}
+
+    def find_json_output(lines: list[str]):
+        stripped = [line.strip() for line in lines]
+        end = stripped.index("}")
+        reversed = stripped[::-1]
+        start = len(reversed) - reversed.index("{") - 1
+
+        return "\n".join(stripped[start : end + 1])
+
+    @staticmethod
+    def process_one(
+        journalWriter: JournalWriter,
+        messageWriter: PrintMessageReporter,
+        outputWriter: OutputWriter,
+        file: str,
+        cmd: str,
+    ):
+        try:
+            messageWriter.report_state(f"Processing {file}")
+
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                shell=True,
+            )
+
+            proc.wait()
+
+            if proc.returncode != 0:
+                journalWriter.report_error(
+                    f"Failed to process {file} with command [{cmd}]. Process returned code {proc.returncode}\n"
+                )
+                return
+
+            results_str = proc.stdout.read()
+            results_json = json.loads(Stage1.find_json_output(results_str.split("\n")))
+
+            # Get the file's sample format as by default the loutnorm filter will output s32
+            cmd = " ".join(
+                Stage2.make_ffprobe_get_sample_format_cmd(file),
+            )
+
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                shell=True,
+            )
+
+            proc.wait()
+
+            if proc.returncode != 0:
+                journalWriter.report_error(
+                    f"Failed to process {file} with command [{cmd}]. Process returned code {proc.returncode}\n"
+                )
+                return
+
+            sample_fmt_str = proc.stdout.read()
+            sample_fmt_json = json.loads(sample_fmt_str)
+            sample_fmt = "s16"
+            for stream in sample_fmt_json["streams"]:
+                if stream["codec_type"] == "audio":
+                    if "sample_fmt" in stream:
+                        sample_fmt = stream["sample_fmt"]
+                    break
+
+            params = NormalizationParameters(
+                measured_i=results_json["input_i"],
+                measured_tp=results_json["input_tp"],
+                measured_lra=results_json["input_lra"],
+                measured_thresh=results_json["input_thresh"],
+                target_offset=results_json["target_offset"],
+                target_sample_fmt=sample_fmt,
+            )
+
+            output = Stage1WorkResult(
+                path=file,
+                normalization_params=params,
+            )
+
+            outputWriter.write(json.dumps(output.to_json(), ensure_ascii=False) + "\n")
+            journalWriter.report_completed(f"Completed {file}\n")
+        except Exception as e:
+            journalWriter.report_error(
+                f"Failed to process {file} with command [{cmd}]\n"
+            )
+
+    @staticmethod
+    def start(root: str):
+        if not os.path.exists(stage_1_worklist):
+            print("Stage 1 worklist not exist, generating...")
+            worklist = Stage1.generate_stage_1_work_list(root)
+            print("Writing worklist to disk")
+            with open(stage_1_worklist, "w", encoding="utf-8") as f:
+                json.dump(worklist, f, ensure_ascii=False)
+
+        with open(stage_1_worklist, "r", encoding="utf-8") as f:
+            worklist = json.load(f)
+            print("Loaded worklist ({} items)".format(len(worklist)))
+
+        print("Filtering completed work")
+        worklist = Stage1.filter_completed(worklist)
+
+        print("Processing worklist")
+
+        journal_path_fail = get_output_path(
+            AudioNormalizerOutputPaths,
+            AudioNormalizerOutputPaths.NORMALIZE_FIRST_PASS_DETECT_FAILED_NAME,
+        )
+
+        journal_path = get_output_path(
+            AudioNormalizerOutputPaths,
+            AudioNormalizerOutputPaths.NORMALIZE_FIRST_PASS_DETECT_JOURNAL_NAME,
+        )
+
+        journal_path_completed = get_output_path(
+            AudioNormalizerOutputPaths,
+            AudioNormalizerOutputPaths.NORMALIZE_FIRST_PASS_DETECT_JOURNAL_NAME,
+        )
+
+        journal_writer = JournalWriter(
+            journal_path, journal_path_fail, journal_path_completed
+        )
+
+        output_path = get_output_path(
+            AudioNormalizerOutputPaths,
+            AudioNormalizerOutputPaths.NORMALIZE_FIRST_PASS_DETECT_OUTPUT_FILELIST_NAME,
+        )
+
+        output_writer = OutputWriter(output_path)
+
+        processor = StatAutoMuxMultiProcessor(
+            os.cpu_count() // 2,
+            journal_writer,
+            output_writer,
+        )
+
+        for file, cmd in worklist.items():
+            processor.submit_job(Stage1.process_one, file, cmd)
+
+        processor.wait_print_complete()
+        processor.reset_terminal()
 
 
 if __name__ == "__main__":
-    main()
+    tlmc_root = input("Enter TLMC root path: ")
+    Stage1.start(tlmc_root)
+
+    Stage2.start()
