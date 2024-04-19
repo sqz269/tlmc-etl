@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import re
 import os
 import sys
@@ -33,17 +34,26 @@ journal_failed_file = open(journal_failed_path, "a+", encoding="utf-8")
 FILE_EXT = (".flac", ".wav", ".mp3", ".m4a")
 
 
-def mk_ffmpeg_cmd(src, dst):
+@dataclass
+class NormalizationParameters:
+    measured_i: int
+    measured_tp: float
+    measured_lra: float
+    measured_thresh: float
+    target_offset: float
+
+
+def mk_ffmpeg_norm_convert_cmd(src, dst, norm_params: NormalizationParameters):
     return [
         "ffmpeg",
         "-i",
         oslex_quote(src),
         "-af",
         "loudnorm",  # "loudnorm=I=-24:LRA=7:tp=-2.0",
-        "-ar",  # force 44.1khz and 16bit, for some reason without this ffmpeg automatically upsamples to 192khz 24bit
-        "44100",
-        "-sample_fmt",
-        "s16",
+        # "-ar",  # force 44.1khz and 16bit, for some reason without this ffmpeg automatically upsamples to 192khz 24bit
+        # "44100",
+        # "-sample_fmt",
+        # "s16",
         "-movflags",
         "faststart",
         oslex_quote(dst),
@@ -54,8 +64,46 @@ def mk_ffmpeg_cmd(src, dst):
     ]
 
 
+def mk_ffmpeg_norm_detect_cmd(src):
+    return [
+        "ffmpeg",
+        "-i",
+        oslex_quote(src),
+        "-af",
+        "loudnorm=I=-24:LRA=7:tp=-2.0:print_format=json",
+        "-f",
+        "null",
+        "-" "-y" "-v" "quiet",
+    ]
+
+
 def mk_out_filename(original_name):
     return "audio.norm." + original_name
+
+
+def get_file_normalization_params(src) -> NormalizationParameters | None:
+    proc = subprocess.Popen(
+        mk_ffmpeg_norm_detect_cmd(src),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        shell=True,
+    )
+
+    proc.wait()
+
+    if proc.returncode != 0:
+        return None
+
+    results_str = proc.stdout.read()
+    results_json = json.loads(results_str)
+    return NormalizationParameters(
+        measured_i=results_json["input_i"],
+        measured_tp=results_json["input_tp"],
+        measured_lra=results_json["input_lra"],
+        measured_thresh=results_json["input_thresh"],
+        target_offset=results_json["target_offset"],
+    )
 
 
 def generate_file_list(root):
@@ -65,10 +113,13 @@ def generate_file_list(root):
         for file in files:
             if file.endswith(tuple(FILE_EXT)):
                 id = str(uuid4())
+                src = os.path.join(fp, file)
+                dst = os.path.join(fp, mk_out_filename(file))
                 output[id] = {
                     "id": id,
                     "src": os.path.join(fp, file),
                     "tmp_dst": os.path.join(fp, mk_out_filename(file)),
+                    "cmd": " ".join(mk_ffmpeg_norm_convert_cmd(src, dst)),
                 }
                 count += 1
                 print(f"Found {count} files", end="\r")
@@ -92,7 +143,7 @@ def process_one(file_info):
     global stats
     try:
         ident = threading.get_ident()
-        cmd = mk_ffmpeg_cmd(file_info["src"], file_info["tmp_dst"])
+        cmd = mk_ffmpeg_norm_convert_cmd(file_info["src"], file_info["tmp_dst"])
         # for some reason it refuses to work with shell=False and array args
         proc = subprocess.Popen(
             " ".join(cmd),
@@ -104,9 +155,9 @@ def process_one(file_info):
 
         for line in proc.stdout:
             progress_time = cap_time.search(line)
-            print_queue[
-                ident
-            ] = f"[{progress_time.group(1) if progress_time else 'NO_INFO'}] {file_info['src']}"
+            print_queue[ident] = (
+                f"[{progress_time.group(1) if progress_time else 'NO_INFO'}] {file_info['src']}"
+            )
 
         proc.wait()
 

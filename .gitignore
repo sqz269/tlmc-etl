@@ -1,5 +1,8 @@
 # ignore program temp outputs
 *.output.*
+**/output/*
+!**/output/
+!**/output/path_definitions.py
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,venv,visualstudio
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode,venv,visualstudio
