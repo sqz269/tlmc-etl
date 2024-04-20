@@ -13,6 +13,14 @@ def extract_rar_files(files: List[str]):
     for idx, file in enumerate(files):
         try:
             print(f"[{idx}/{len(files)}] Extracting: {file}")
+            file_dir = os.path.dirname(file)
+            extract_dir_name = os.path.basename(file).replace(".rar", "")
+            extract_dir = os.path.join(file_dir, extract_dir_name)
+
+            os.makedirs(extract_dir, exist_ok=True)
+
+            os.chdir(extract_dir)
+
             result = subprocess.run(["7z", "x", file])
             if result.returncode != 0:
                 error_log_file.write(
@@ -38,4 +46,6 @@ def generate_filelist(root):
 if __name__ == "__main__":
     tlmc_root = input("Enter TLMC root path: ")
     rar_files = generate_filelist(tlmc_root)
+    print(f"Found {len(rar_files)} RAR files")
+    input("Press enter to start extraction")
     extract_rar_files(rar_files)
