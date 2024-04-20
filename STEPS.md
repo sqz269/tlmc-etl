@@ -159,10 +159,6 @@ This section details the process of snapshotting the downloaded collection files
 
 This section details the process of extracting .rar files contained in the TLMC (Touhou Lossless Music Collection) directory. Before processing the files, they must be extracted.
 
-- The script will calculate hash for all the `.rar` file and it's relative path from the TLMC root as it's key
-- The script will then extract the `.rar` files
-- Then, will all `.rar` files extracted, the script will then go through and generate hashes for all files and each file.
-
 #### Prerequisites
 
 - Ensure 7z (7-Zip) is installed and added to your system's PATH. You can verify this by running `7z` in your command line; it should not return an error.
@@ -171,13 +167,11 @@ This section details the process of extracting .rar files contained in the TLMC 
 #### Preparation
 
 - Confirm that the drive where the TLMC files are stored has at least 300GB of free space.
-- **Important Warning**: The .rar files will be permanently deleted after extraction. Ensure you have backups if necessary. (Or disable this behavior by editing `extract.py` and remove line `os.unlink(os.path.join(fp, file))`)
+- **Important Warning**: The .rar files will be permanently deleted after extraction. Ensure you have backups if necessary. (Or disable this behavior by editing `extract.py` and remove line `os.unlink(file)`)
 
 #### Execution
 
-1. Navigate to the Preprocessor directory and copy the `extract.py` script to your TLMC root directory, where the `.rar` files are located.
-2. Open your command line interface and change the directory to the TLMC root. This is crucial as `extract.py` must be executed in the same directory as the `.rar` files.
-3. Execute the script by running `python ./extract.py`. This will start the extraction process.
+1. Execute the script by running `python ./extract.py`. This will start the extraction process.
 
 ### 2. Extracted Filesystem Snapshot
 
@@ -201,15 +195,18 @@ This section details the process of snapshotting the extracted files for their h
 
 This section explains how to normalize the volume levels of audio tracks. Since web apps and the HLS protocol don't support ReplayGain tags, we'll directly modify the files to normalize their volume. This is a lossy process, so it's advised to back up your files if you wish to retain lossless copies.
 
-The normalization uses the EBU R128 loudness normalization profile, which is the default in ffmpeg.
+The normalization uses the EBU R128 loudness normalization profile.
 
-Detailed Parameter for FFmpeg default loudnorm profile:
-
+Detailed Parameter:
 - Integrated Loudness Target `I=-24` LUFS
 - Loudness range target`LRA=7` LU
 - True peak target `tp=-2.0` dBTP
 
-You can edit this profile by navigating to the script and under `mk_ffmpeg_cmd(src, dst)` and uncomment and edit the profile
+You can edit this profile by editing the file `Preprocessor/AudioNormalizer/normalizer.py` and under the variable `NORMALIZATION_TARGET`.
+
+This normalization process will be a two pass process, with the first pass detecting the file's loudness levels and the second pass applying the gains to the file to achieve the targeted profile.
+
+More details about the dual pass and loudnorm filter can be found here: https://k.ylo.ph/2016/04/04/loudnorm.html
 
 #### Important Noticies
 
@@ -227,7 +224,8 @@ You can edit this profile by navigating to the script and under `mk_ffmpeg_cmd(s
 
 #### Execution
 
-- Run `python ./Preprocessor/AudioNormalizer/normalizer.py` to start the normalization process
+- Run `python ./Preprocessor/AudioNormalizer/normalizer_pass1.py` to detect the file's loudness and generate normalization parameters for pass 2.
+- Run `python ./Preprocessor/AudioNormalizer/normalizer_pass1.py` to apply the loudnorm parameters by modifying the file.
 
 ### 4. Cue Splitting
 
