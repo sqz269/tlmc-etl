@@ -14,6 +14,12 @@ import Preprocessor.AudioNormalizer.output.path_definitions as AudioNormalizerOu
 
 FILE_EXT = (".flac", ".wav", ".mp3", ".m4a")
 
+NORMALIZATION_TARGET = {
+    "I": -24,
+    "TP": -2.0,
+    "LRA": 7,
+}
+
 stage_1_worklist = get_output_path(
     AudioNormalizerOutputPaths,
     AudioNormalizerOutputPaths.NORMALIZE_FIRST_PASS_DETECT_WORKLIST_PATH,
@@ -90,13 +96,12 @@ class Stage1WorkResult:
 class Stage2:
     @staticmethod
     def make_ffmpeg_norm_param_cmd(src: str, dst: str, params: NormalizationParameters):
-        # ffmpeg -i in.wav -af loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=-27.61:measured_LRA=18.06:measured_TP=-4.47:measured_thresh=-39.20:offset=0.58:linear=true:print_format=summary -ar 48k out.wav
         return [
             "ffmpeg",
             "-i",
             oslex_quote(src),
             "-af",
-            f"loudnorm=I=-16:TP=-1.5:LRA=11:measured_I={params.measured_i}:measured_LRA={params.measured_lra}:measured_TP={params.measured_tp}:measured_thresh={params.measured_thresh}:offset={params.target_offset}:linear=true",
+            f"loudnorm=I={NORMALIZATION_TARGET['I']}:TP={NORMALIZATION_TARGET['TP']}:LRA={NORMALIZATION_TARGET['LRA']}:measured_I={params.measured_i}:measured_LRA={params.measured_lra}:measured_TP={params.measured_tp}:measured_thresh={params.measured_thresh}:offset={params.target_offset}:linear=true",
             "-sample_fmt",
             params.target_sample_fmt,
             oslex_quote(dst),
@@ -268,7 +273,7 @@ class Stage1:
             "-i",
             oslex_quote(src),
             "-af",
-            "loudnorm=I=-24:LRA=7:tp=-2.0:print_format=json",
+            f"loudnorm=I={NORMALIZATION_TARGET['I']}:LRA={NORMALIZATION_TARGET['LRA']}:tp={NORMALIZATION_TARGET['TP']}:print_format=json",
             "-f",
             "null",
             "-",
