@@ -115,7 +115,9 @@ class Stage1:
         return [
             "ffmpeg",
             "-i",
-            oslex_quote(src),
+            src,
+            "-threads",
+            "1",
             "-af",
             f"loudnorm=I={NORMALIZATION_TARGET['I']}:LRA={NORMALIZATION_TARGET['LRA']}:tp={NORMALIZATION_TARGET['TP']}:print_format=json",
             "-f",
@@ -172,12 +174,19 @@ class Stage1:
             messageWriter.report_state(f"Processing {file}")
 
             proc = subprocess.Popen(
-                cmd,
+                Stage1.make_ffmpeg_detect_loudness_cmd(
+                    file,
+                ),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                shell=True,
             )
+
+            all_outputs = []
+            line_prefix = os.path.basename(file) + ": "
+            for line in proc.stdout:
+                messageWriter.report_state(line_prefix + line.strip())
+                all_outputs.append(line)
 
             proc.wait()
 
@@ -187,8 +196,7 @@ class Stage1:
                 )
                 return
 
-            results_str = proc.stdout.read()
-            results_json = json.loads(Stage1.find_json_output(results_str.split("\n")))
+            results_json = json.loads(Stage1.find_json_output(all_outputs))
 
             # Get the file's sample format as by default the loutnorm filter will output s32
             cmd = " ".join(
@@ -238,7 +246,7 @@ class Stage1:
             journalWriter.report_completed(f"Completed {file}\n")
         except Exception as e:
             journalWriter.report_error(
-                f"Failed to process {file} with command [{cmd}]\n"
+                f"Failed to process {file} with command [{cmd}] [EXCEPTION: {e}]\n"
             )
 
     @staticmethod
