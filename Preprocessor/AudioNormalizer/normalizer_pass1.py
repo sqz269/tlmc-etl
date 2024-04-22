@@ -214,7 +214,7 @@ class Stage1:
             read_format_results = []
             for line in proc.stdout:
                 read_format_results.append(line)
-                messageWriter.write(f"[{file}] ffprobe in progress")
+                messageWriter.report_state(f"[{file}] ffprobe in progress")
 
             proc.wait()
 
