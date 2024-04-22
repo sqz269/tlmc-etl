@@ -211,6 +211,11 @@ class Stage1:
                 shell=True,
             )
 
+            read_format_results = []
+            for line in proc.stdout:
+                read_format_results.append(line)
+                outputWriter.write(f"[{file}] ffprobe in progress")
+
             proc.wait()
 
             if proc.returncode != 0:
@@ -219,8 +224,7 @@ class Stage1:
                 )
                 return
 
-            sample_fmt_str = proc.stdout.read()
-            sample_fmt_json = json.loads(sample_fmt_str)
+            sample_fmt_json = json.loads("".join(read_format_results))
             sample_fmt = "s16"
             for stream in sample_fmt_json["streams"]:
                 if stream["codec_type"] == "audio":
