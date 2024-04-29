@@ -179,14 +179,23 @@ class Stage1:
                 ),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                universal_newlines=True,
             )
 
             all_outputs = []
             line_prefix = os.path.basename(file) + ": "
             for line in proc.stdout:
-                messageWriter.report_state(line_prefix + line.strip())
-                all_outputs.append(line)
+                try:
+                    line_decoded = line.decode("utf-8")
+                    messageWriter.report_state(line_prefix + line_decoded.strip())
+                    all_outputs.append(line_decoded)
+                except UnicodeDecodeError as ude:
+                    journalWriter.report(
+                        f"[WARN] Process {file} with command [{cmd}] Results in non utf-8 decodable line in the output. Hexdump of line in interest: |{line.hex().strip()}|. Skipping the decode for the line and continuing\n"
+                    )
+                except Exception as e:
+                    journalWriter.report_error(
+                        f"[ERROR] Failed to process {file} with command [{cmd}] [EXCEPTION: {e}]\n"
+                    )
 
             proc.wait()
 
@@ -207,14 +216,23 @@ class Stage1:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                universal_newlines=True,
                 shell=True,
             )
 
             read_format_results = []
             for line in proc.stdout:
-                read_format_results.append(line)
-                messageWriter.report_state(f"[{file}] ffprobe in progress")
+                try:
+                    line_decoded = line.decode("utf-8")
+                    read_format_results.append(line_decoded.strip())
+                    messageWriter.report_state(f"[{file}] ffprobe in progress")
+                except UnicodeDecodeError as ude:
+                    journalWriter.report(
+                        f"Process {file} with command [{cmd}] Results in non utf-8 decodable line in the output. Hexdump of line in interest: |{line.hex().strip()}|. Skipping the decode for the line and continuing\n"
+                    )
+                except Exception as e:
+                    journalWriter.report_error(
+                        f"Failed to process {file} with command [{cmd}] [EXCEPTION: {e}]\n"
+                    )
 
             proc.wait()
 
