@@ -123,6 +123,13 @@ class Stage2:
                 return
 
             outputWriter.write(json.dumps({"path": file}, ensure_ascii=False) + "\n")
+
+            # replace the original file with the normalized one
+            dst = work["dst"]
+            src = work["src"]
+            os.remove(src)
+            os.rename(dst, src)
+
             journalWriter.report_completed(f"Completed {file}\n")
         except Exception as e:
             journalWriter.report_error(
@@ -177,7 +184,7 @@ class Stage2:
         output_writer = OutputWriter(output_path)
 
         processor = StatAutoMuxMultiProcessor(
-            os.cpu_count() // 2,
+            os.cpu_count() // 4,
             journal_writer,
             output_writer,
         )

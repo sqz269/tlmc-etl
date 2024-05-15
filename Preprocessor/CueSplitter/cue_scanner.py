@@ -5,11 +5,7 @@ import subprocess
 from Preprocessor.CueSplitter.output.path_definitions import CUE_SCANNER_OUTPUT_NAME
 from Shared.utils import check_cuesheet_attr, get_file_relative
 
-TARGET_TYPES = (
-    ".flac",
-    ".wav",
-    ".mp3",
-)
+TARGET_TYPES = (".flac", ".wav", ".mp3", ".m4a")
 
 output_root = get_file_relative(__file__, "output")
 os.makedirs(output_root, exist_ok=True)
@@ -47,7 +43,7 @@ def assign_confidence(potential: dict):
     if num_flac_files == 0:
         return 0  # Avoid division by zero
 
-    score = min(num_cue_files / num_flac_files, 1)
+    score = min(num_cue_files / num_flac_files, 0.8)
 
     # Adjust score based on the total count of FLAC files
     if num_flac_files > 7:  # Arbitrary threshold for high FLAC count

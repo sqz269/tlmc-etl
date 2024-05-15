@@ -87,7 +87,7 @@ def manual_designate(root, cues, audios):
         print("Cached pairs:")
         for idx, pair in enumerate(pairs):
             print(f"[{idx}] {pair[0]} {pair[1]}")
-        response = input("Do you want to use the cached pairs? [y/n] ") or "y"
+        response = input("Do you want to use the cached pairs? [Y/n] ") or "y"
         if response == "y":
             return pairs
         else:
