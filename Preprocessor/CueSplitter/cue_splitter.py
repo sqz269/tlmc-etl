@@ -72,9 +72,9 @@ def process_one(profile):
 
             for line in proc.stdout:
                 progress_time = cap_time.search(line)
-                print_logs[
-                    ident
-                ] = f"[{idx + 1}/{len(profile['Tracks'])}] ({progress_time.group(1) if progress_time else 'NO_INFO'}) {file_name}"
+                print_logs[ident] = (
+                    f"[{idx + 1}/{len(profile['Tracks'])}] ({progress_time.group(1) if progress_time else 'NO_INFO'}) {file_name}"
+                )
 
             proc.wait()
 
@@ -92,7 +92,9 @@ def process_one(profile):
                 )
 
             if os.path.getsize(out) == 0:
-                raise Exception(f"Track {track} is empty after processing (FFmpeg Cmd Executed: {cmd_exec[idx]})")
+                raise Exception(
+                    f"Track {track} is empty after processing (FFmpeg Cmd Executed: {cmd_exec[idx]})"
+                )
 
         stats["processed"] += 1
 
@@ -105,7 +107,8 @@ def process_one(profile):
             else profile["AudioFilePathGuessed"]
         )
 
-        os.unlink(profile["CueFilePath"])
+        if profile["CueFilePath"] != "<EMBEDDED>":
+            os.unlink(profile["CueFilePath"])
         os.unlink(audio_track)
     except Exception as e:
         stats["failed"] += 1
@@ -119,7 +122,7 @@ def process(profiles):
     queued = 0
     processes = []
     try:
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ThreadPoolExecutor(max_workers=os.cpu_count() // 4) as executor:
             for id, profile in profiles.items():
                 processes.append(executor.submit(process_one, profile))
                 queued += 1

@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 
 import Shared.utils as utils
 from Shared.json_utils import json_dump, json_load
-from InfoCollector.AlbumInfo.output.path_definitions import (
+from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
     DISC_SCANNER_OUTPUT_NAME,
 )
 
@@ -13,7 +13,7 @@ os.makedirs(output_root, exist_ok=True)
 scanned_output_file = os.path.join(output_root, DISC_SCANNER_OUTPUT_NAME)
 
 
-ACCEPTED_AUDIO_FILE_EXTENSIONS = (".flac", ".mp3", ".wav", ".wv")
+ACCEPTED_AUDIO_FILE_EXTENSIONS = (".flac", ".mp3", ".wav", ".wv", ".m4a")
 
 INTEGER_EXTRACTOR = re.compile(r"(\d+)")
 POTENTIAL_DISC_EXTRACTOR = re.compile(r"^\d+\D\d+.+$")

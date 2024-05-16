@@ -1,7 +1,7 @@
 import os
 import re
 
-from InfoCollector.ArtistInfo.output.path_definitions import (
+from Processor.InfoCollector.ArtistInfo.output.path_definitions import (
     EXISTING_ARTIST_NAME_DUMP_OUTPUT_PATH,
     ARTIST_DISCOVERY_NEW_ARTISTS_OUTPUT_PATH,
 )
