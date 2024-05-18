@@ -1,3 +1,6 @@
 pythonnet
 colorama
 mslex
+mwparserfromhell
+bs4
+httpx
