@@ -356,7 +356,7 @@ This process transforms an unstructured directory of album tracks into a structu
 #### Exectuion
 
 1. Run `InfoCollector\AlbumInfo\info_scanner_ph1.py` to initiate the first phase of information extraction. This script scans the album directory, categorizes content, and generates a preliminary JSON structure for each album.
-2. Review all documents that is flagged with `"NeedsManualReview": true` in file `InfoCollector/AlbumInfo/output/info_scanner.phase1.output.json`. Correct any issues with file or directory structures as needed. See field `"NeedsManualReviewReason": []` for potential issues. Do not edit the file directly, rather correct any mistakes from disc tagging and file organization level instead.
+2. Review all documents that is flagged with `"NeedsManualReview": true` in file `InfoCollector/AlbumInfo/output/info_scanner.phase1.output.json`. Correct any issues with file or directory structures as needed. See field `"NeedsManualReviewReason": []` for potential issues. Do not edit the file directly, rather correct any mistakes from disc tagging and file organization level instead. (If Unidentified tracks are left unresolved, these tracks will be added as an asset and the album marked as containing asset of interest during Section 7)
 3. If certain albums are incomplete or missing files that can't be fixed, you may skip these files.
 4. After making corrections, rerun the `info_scanner_ph1.py` script. Repeat this process as many times as necessary.
 
@@ -503,7 +503,33 @@ This step is only nessarily if the files will be added to an existing database
             }
             ```
 
-### 6. Final Merge and Unique Identifier Assignment
+### 6. Artist Identification Phase 2
+
+This script will assign an unique identifier for all circles and reference the linked circles in a collab via unique identifiers. It will also create a new circle based of non standalone linked entry.
+
+#### Prerequisites
+
+- N/A
+
+#### Preparation
+
+- N/A
+
+#### Execution
+1. Run `python Processor/InfoCollector/ArtistInfo/artist_scanner_ph3.py`
+
+### 7. Unique Identifier Assignment and Artist & Ablum Metadata Merge
+
+This script will assign an Universally Unique Identifier (UUID) to all albums, discs, tracks, and assets. This script will assign any unidentified/uncategorized tracks into the album's asset. This process will assign the proper circle id for each album from section 6. In addition, it will also mark albums as `Containing Asset of Interest` if the assets may have other media files that are not music. Note that both Album ID and Disc ID may be assigned for albums with only one disc, which in that case the pushing to db operation will prioritize the album ID over the disc ID for the created Album row. However, if there are multiple discs, then the album ID will be used for the Master Disc for the schema while Disc ID are for the actual Discs for proper normalization.
+
+#### Prerequisites
+
+- N/A
+
+#### Preparation
+
+- N/A
+
 
 ## SECTION: HLS TRANSCODING
 
