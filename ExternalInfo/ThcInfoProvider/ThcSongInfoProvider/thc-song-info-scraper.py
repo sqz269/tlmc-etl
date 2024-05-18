@@ -332,8 +332,6 @@ def import_data():
 
 
 def process_album(album: Album):
-    if album.album_id == "68edbb0e-27ef-4d6d-a939-e03eb8369ab9":
-        pass
     try:
         album_info, track_info, seller_info = ThWikiCc.process(album.data_source)
     except:

@@ -1,13 +1,15 @@
-from InfoProviders.CacheInfoProvider.Model.CacheModel import SourceCacheTable
-from InfoProviders.CacheInfoProvider.Cache import get_cache_id
+from Processor.ExternalInfoCollector.CacheInfoProvider.Model.CacheModel import (
+    SourceCacheTable,
+)
+from Processor.ExternalInfoCollector.CacheInfoProvider.Cache import get_cache_id
 
-if (__name__ == '__main__'):
+if __name__ == "__main__":
     print("Enter list of cache id in form of URL to purge:")
 
     cache_ids = []
-    while (True):
+    while True:
         cache_id = input()
-        if (cache_id == ""):
+        if cache_id == "":
             break
         cache_ids.append(cache_id)
 
@@ -15,7 +17,7 @@ if (__name__ == '__main__'):
     not_found = []
     for cache_id in cache_ids:
         path_id = get_cache_id(cache_id, "thc")
-        if (SourceCacheTable.select().where(SourceCacheTable.path == path_id).exists()):
+        if SourceCacheTable.select().where(SourceCacheTable.path == path_id).exists():
             to_delete.append(path_id)
         else:
             not_found.append(path_id)
@@ -27,7 +29,7 @@ if (__name__ == '__main__'):
         print("Not Found " + path_id)
 
     print("Proceed? (y/n)")
-    if (input() == "y"):
+    if input() == "y":
         for path_id in to_delete:
             SourceCacheTable.delete().where(SourceCacheTable.path == path_id).execute()
             print("Purged " + path_id)
@@ -35,4 +37,3 @@ if (__name__ == '__main__'):
         # if (SourceCacheTable.select().where(SourceCacheTable.path == path_id).exists()):
         #     SourceCacheTable.delete().where(SourceCacheTable.path == path_id).execute()
         #     print("Purged " + cache_id)
-        

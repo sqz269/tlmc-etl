@@ -9,10 +9,12 @@ import unicodedata
 
 import httpx
 
-from InfoProviders.BasicInfoProvider.Model.BasicInfoModel import (
-    BasicAlbum, BasicTrack)
-from InfoProviders.ThcInfoProvider.ThcQueryProvider.Model.QueryModel import (
-    QueryData, QueryDataDb, QueryStatus)
+from Processor.ExternalInfoCollector.ThcInfoProvider.ThcQueryProvider.Model.QueryModel import (
+    QueryData,
+    QueryDataDb,
+    QueryStatus,
+)
+
 
 def import_data():
     print("Importing data from Basic Info Provider Databse...")
@@ -24,33 +26,33 @@ def import_data():
             "album_name": album.album_name,
             "query_result": None,
             "query_exact_result": None,
-            "query_status": QueryStatus.PENDING
+            "query_status": QueryStatus.PENDING,
         }
 
         query_data = QueryData(**query_data_init)
         init_data.append(query_data)
         print(f"Fetching album: {album.album_id}", end="\r")
-    
+
     print("\nFetch complete")
 
     print("Saving data to Query Data Database...")
     BATCH_SIZE = 2000
     for i in range(0, len(init_data), BATCH_SIZE):
         print(f"Saving Query Data {i + BATCH_SIZE}/{len(init_data)}", end="\r")
-        QueryData.bulk_create(init_data[i:i+BATCH_SIZE])
+        QueryData.bulk_create(init_data[i : i + BATCH_SIZE])
     print("\nImport complete")
 
 
 def import_data_from_json(json_path):
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    
+
     init_data = []
     for entry in data:
         album_info = entry["AlbumInfo"]
 
         alb_id = None
-        if (len(entry["Discs"]) > 1):
+        if len(entry["Discs"]) > 1:
             alb_id = album_info["AlbumId"]
         else:
             alb_id = entry["Discs"][list(entry["Discs"].keys())[0]]["DiscId"]
@@ -60,7 +62,7 @@ def import_data_from_json(json_path):
             "album_name": album_info["AlbumName"],
             "query_result": None,
             "query_exact_result": None,
-            "query_status": QueryStatus.PENDING
+            "query_status": QueryStatus.PENDING,
         }
 
         q_data = QueryData(**q_data_init)
@@ -70,48 +72,54 @@ def import_data_from_json(json_path):
     BATCH_SIZE = 2000
     for i in range(0, len(init_data), BATCH_SIZE):
         print(f"Saving Query Data {i + BATCH_SIZE}/{len(init_data)}", end="\r")
-        QueryData.bulk_create(init_data[i:i+BATCH_SIZE])
+        QueryData.bulk_create(init_data[i : i + BATCH_SIZE])
     print("\nImport complete")
 
 
 def import_diff():
     pass
 
+
 def query_thc(query):
     HEADER = {
-        'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="102", "Google Chrome";v="102"',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Referer': 'https://thwiki.cc/',
-        'X-Requested-With': 'XMLHttpRequest',
-        'sec-ch-ua-mobile': '?0',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36',
-        'sec-ch-ua-platform': '"Windows"',
+        "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="102", "Google Chrome";v="102"',
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Referer": "https://thwiki.cc/",
+        "X-Requested-With": "XMLHttpRequest",
+        "sec-ch-ua-mobile": "?0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36",
+        "sec-ch-ua-platform": '"Windows"',
     }
 
     params = {
-        'action': 'opensearch',
-        'format': 'json',
-        'formatversion': '2',
-        'redirects': 'display',
-        'search': f'{query}',
-        'namespace': '0|4|12|102|108|506|508|512',
-        'limit': '12',
+        "action": "opensearch",
+        "format": "json",
+        "formatversion": "2",
+        "redirects": "display",
+        "search": f"{query}",
+        "namespace": "0|4|12|102|108|506|508|512",
+        "limit": "12",
     }
 
-    response = httpx.get('https://thwiki.cc/api.php', params=params, headers=HEADER)
+    response = httpx.get("https://thwiki.cc/api.php", params=params, headers=HEADER)
     search = json.loads(response.text)
     results = {
         "query": search[0],
-        "results": {kw.lower(): (link, desc) for kw, link, desc in zip(search[1], search[3], search[2])}
+        "results": {
+            kw.lower(): (link, desc)
+            for kw, link, desc in zip(search[1], search[3], search[2])
+        },
     }
     return results
 
+
 def remove_non_content_letters(text):
-    normalized = unicodedata.normalize('NFKD', text)
+    normalized = unicodedata.normalize("NFKD", text)
     for char in normalized:
-        if not unicodedata.category(char).startswith('L'):
-            normalized = normalized.replace(char, '')
+        if not unicodedata.category(char).startswith("L"):
+            normalized = normalized.replace(char, "")
     return normalized
+
 
 def get_result_value_and_status(query, results) -> Tuple[str, List[str]]:
     sani_query = remove_non_content_letters(query).lower()
@@ -126,37 +134,46 @@ def get_result_value_and_status(query, results) -> Tuple[str, List[str]]:
         return (QueryStatus.NO_RESULT, [])
 
     if len(sani_result) == 1:
-        if (sani_result.get(sani_query)):
+        if sani_result.get(sani_query):
             return (QueryStatus.RESULT_ONE_EXACT, sani_result.get(sani_query))
-        if ("同人" in list(sani_result.values())[0][1]):
+        if "同人" in list(sani_result.values())[0][1]:
             return (QueryStatus.RESULT_ONE_SUS, list(sani_result.values())[0])
         return (QueryStatus.RESULT_ONE_AMBIGUOUS, [])
 
-    if (r := sani_result.get(sani_query)):
+    if r := sani_result.get(sani_query):
         return (QueryStatus.RESULT_MANY_EXACT, r)
 
     return (QueryStatus.RESULT_MANY_AMBIGUOUS, [])
 
-def process_data():
-    total_unprocessed = QueryData.select().where(QueryData.query_status == QueryStatus.PENDING).count()
 
-    for idx, album in enumerate(QueryData.select().where(QueryData.query_status == QueryStatus.PENDING)):
+def process_data():
+    total_unprocessed = (
+        QueryData.select().where(QueryData.query_status == QueryStatus.PENDING).count()
+    )
+
+    for idx, album in enumerate(
+        QueryData.select().where(QueryData.query_status == QueryStatus.PENDING)
+    ):
         try:
             print(f"[{idx + 1}/{total_unprocessed}] Processing album: {album.album_id}")
             result = query_thc(album.album_name)
             album.query_result = json.dumps(result)
-            if (not result['results']):
+            if not result["results"]:
                 print("Processing complete: NO_RESULT")
                 album.query_status = QueryStatus.NO_RESULT
                 album.save()
                 time.sleep(1.5)
                 continue
-            
-            status, result = get_result_value_and_status(result["query"], result["results"])
+
+            status, result = get_result_value_and_status(
+                result["query"], result["results"]
+            )
             album.query_status = status
-            if (status == QueryStatus.RESULT_ONE_EXACT or 
-                status == QueryStatus.RESULT_MANY_EXACT or 
-                status == QueryStatus.RESULT_ONE_SUS):
+            if (
+                status == QueryStatus.RESULT_ONE_EXACT
+                or status == QueryStatus.RESULT_MANY_EXACT
+                or status == QueryStatus.RESULT_ONE_SUS
+            ):
                 album.query_exact_result = json.dumps(result)
             print(f"Process Complete: {status}")
             album.save()
@@ -164,6 +181,7 @@ def process_data():
         except Exception as e:
             print("Error: ", e)
             continue
+
 
 def quick_reprocess():
     total = QueryData.select().count()
@@ -173,22 +191,26 @@ def quick_reprocess():
             print(f"[{idx + 1}/{total} | {updated}] Processing album: {album.album_id}")
             result = json.loads(album.query_result)
             # print(result)
-            if (not result['results']):
+            if not result["results"]:
                 # print("Processing complete: NO_RESULT")
-                if (album.query_status != QueryStatus.NO_RESULT):
+                if album.query_status != QueryStatus.NO_RESULT:
                     album.query_status = QueryStatus.NO_RESULT
                     album.save()
                     updated += 1
                 continue
-            
-            status, result = get_result_value_and_status(result["query"], result["results"])
+
+            status, result = get_result_value_and_status(
+                result["query"], result["results"]
+            )
             # print(f"Process Complete: {status} | {result}")
-            if (status == QueryStatus.RESULT_ONE_EXACT or 
-                status == QueryStatus.RESULT_MANY_EXACT or 
-                status == QueryStatus.RESULT_ONE_SUS):
+            if (
+                status == QueryStatus.RESULT_ONE_EXACT
+                or status == QueryStatus.RESULT_MANY_EXACT
+                or status == QueryStatus.RESULT_ONE_SUS
+            ):
                 album.query_exact_result = json.dumps(result)
 
-            if (album.query_status != status):
+            if album.query_status != status:
                 album.query_status = status
                 album.save()
                 updated += 1
@@ -196,6 +218,7 @@ def quick_reprocess():
         except Exception as e:
             print("Error: ", e)
             continue
+
 
 def import_updated():
     album: BasicAlbum
@@ -209,15 +232,19 @@ def import_updated():
             "album_name": album.album_name,
             "query_result": None,
             "query_exact_result": None,
-            "query_status": QueryStatus.PENDING
+            "query_status": QueryStatus.PENDING,
         }
 
         existing_query: QueryData
-        existing_query = QueryData.select().where(QueryData.album_name == album.album_name).get_or_none()
-        if (existing_query):
-            query_data_init['query_result'] = existing_query.query_result
-            query_data_init['query_exact_result'] = existing_query.query_exact_result
-            query_data_init['query_status'] = existing_query.query_status
+        existing_query = (
+            QueryData.select()
+            .where(QueryData.album_name == album.album_name)
+            .get_or_none()
+        )
+        if existing_query:
+            query_data_init["query_result"] = existing_query.query_result
+            query_data_init["query_exact_result"] = existing_query.query_exact_result
+            query_data_init["query_status"] = existing_query.query_status
             exist += 1
         else:
             new += 1
@@ -226,8 +253,11 @@ def import_updated():
 
         query_data = QueryData(**query_data_init)
         init_data.append(query_data)
-        print(f"[{curr}] Updating: {album.album_id} (New: {new} | Exist: {exist})", end="\r")
-    
+        print(
+            f"[{curr}] Updating: {album.album_id} (New: {new} | Exist: {exist})",
+            end="\r",
+        )
+
     print("\nUpdate complete")
 
     # need to drop the table first
@@ -239,37 +269,44 @@ def import_updated():
     BATCH_SIZE = 2000
     for i in range(0, len(init_data), BATCH_SIZE):
         print(f"Saving Query Data {i + BATCH_SIZE}/{len(init_data)}", end="\r")
-        QueryData.bulk_create(init_data[i:i+BATCH_SIZE])
+        QueryData.bulk_create(init_data[i : i + BATCH_SIZE])
 
     print("\nImport Diff Complete")
 
-if (__name__ == '__main__'):
+
+if __name__ == "__main__":
     if not QueryData.select().exists():
         # import_data()
-        import_data_from_json(r"D:\PROG\TlmcTagger\InfoProviderMk4\DbPush\tmp-merge-result-id-assignment.json")
+        import_data_from_json(
+            r"D:\PROG\TlmcTagger\InfoProviderMk4\DbPush\tmp-merge-result-id-assignment.json"
+        )
     else:
         print("Query Data already exists")
         print("Existing Query Data count: ", QueryData.select().count())
         print("Existing Basic Album count: ", BasicAlbum.select().count())
-        if (QueryData.select().count() != BasicAlbum.select().count()):
+        if QueryData.select().count() != BasicAlbum.select().count():
             import_updated()
             # re ensure that the data is the same
             recheck = input("Recheck? (y/n)")
 
-            if (recheck == "y"):
+            if recheck == "y":
                 mc = QueryData.select().count()
                 c = 0
                 for album in BasicAlbum.select():
                     existing_query: QueryData
-                    existing_query = QueryData.select().where(QueryData.album_name == album.album_name).get()
+                    existing_query = (
+                        QueryData.select()
+                        .where(QueryData.album_name == album.album_name)
+                        .get()
+                    )
                     c += 1
                     print(f"[{c}/{mc}] Checking: {album.album_id}", end="\r")
                     a = existing_query.album_id
-                    if (not existing_query):
+                    if not existing_query:
                         print(f"\nMissing: {album.album_name} ({album.album_id})")
-            
+
             reprocess = input("Reprocess? (y/n)")
-            if (reprocess == "y"):
+            if reprocess == "y":
                 quick_reprocess()
                 exit(0)
 

@@ -1,19 +1,28 @@
 import os
 from typing import Dict, Union
 import unicodedata
-from InfoProviders.ThcInfoProvider.ThcOriginalTrackMapper.SongQuery import SongQuery, get_original_song_query_params
-from InfoProviders.ThcInfoProvider.ThcSongInfoProvider.Model.ThcSongInfoModel import Track, Album, ProcessStatus
-from InfoProviders.BasicInfoProvider.Model.BasicInfoModel import BasicTrack, BasicAlbum
-from InfoProviders.ThcInfoProvider.ThcSongInfoFomatter.Model.InfoFormattedModel import AlbumFormatted, TrackFormatted, ProcessStatusFormatted
-from InfoProviders.ThcInfoProvider.ThcSongInfoFomatter.thc_song_info_format \
-    import \
-        load_original_song_map, \
-        resolve_original_tracks, \
-        load_original_song_map \
-
+from Processor.ExternalInfoCollector.ThcInfoProvider.ThcOriginalTrackMapper.SongQuery import (
+    SongQuery,
+    get_original_song_query_params,
+)
+from Processor.ExternalInfoCollector.ThcInfoProvider.ThcSongInfoProvider.Model.ThcSongInfoModel import (
+    Track,
+    Album,
+    ProcessStatus,
+)
+from Processor.ExternalInfoCollector.ThcInfoProvider.ThcSongInfoFomatter.Model.InfoFormattedModel import (
+    AlbumFormatted,
+    TrackFormatted,
+    ProcessStatusFormatted,
+)
+from Processor.ExternalInfoCollector.ThcInfoProvider.ThcSongInfoFomatter.thc_song_info_format import (
+    load_original_song_map,
+    resolve_original_tracks,
+    load_original_song_map,
+)
 import json
 
-ID_ASSIGNMENT_JSON = R'D:\PROG\TlmcTagger\InfoProviderMk4\DbPush\id-assignment.json'
+ID_ASSIGNMENT_JSON = R"D:\PROG\TlmcTagger\InfoProviderMk4\DbPush\id-assignment.json"
 
 
 def normalize_text(text):
@@ -22,11 +31,17 @@ def normalize_text(text):
     # 2. Remove all spaces
     # 3. Keep chars whose category is L
     # 4. Convert to lowercase
-    return "".join([c for c in unicodedata.normalize("NFKC", text) if c.isspace() or unicodedata.category(c).startswith("L")]).lower()
+    return "".join(
+        [
+            c
+            for c in unicodedata.normalize("NFKC", text)
+            if c.isspace() or unicodedata.category(c).startswith("L")
+        ]
+    ).lower()
 
 
 def get_album_id(entry):
-    if (len(entry["Discs"]) == 1):
+    if len(entry["Discs"]) == 1:
         return entry["Discs"][list(entry["Discs"].keys())[0]]["DiscId"]
     else:
         return entry["AlbumInfo"]["AlbumId"]
@@ -37,26 +52,28 @@ def collect_tracks(entry):
     for _, disc in entry["Discs"].items():
         for track in disc["Tracks"]:
             all_tracks.append(track)
-    
+
     return all_tracks
 
 
 def match_src_thw_tracks(src_tracks, thc_tracks) -> Union[Dict[str, dict], None]:
-    title_map = { normalize_text(json.loads(track.title_jp)[0]): track for track in thc_tracks }
-    if (len(title_map) != len(thc_tracks)):
+    title_map = {
+        normalize_text(json.loads(track.title_jp)[0]): track for track in thc_tracks
+    }
+    if len(title_map) != len(thc_tracks):
         # do we really care about track with same title?
         pass
 
     mapped_entry = {}
     for tracks in src_tracks:
-        title = normalize_text(tracks["title"].replace(".flac", ""))# # 
+        title = normalize_text(tracks["title"].replace(".flac", ""))  # #
         track_id = tracks["TrackId"]
-        if (title in title_map):
+        if title in title_map:
             thc_track = title_map[title]
             mapped_entry[track_id] = thc_track
         else:
             return None
-    
+
     return mapped_entry
 
 
@@ -72,15 +89,22 @@ def generate_track_formatted(mapped_tracks, abbriv_map: Dict[str, str]):
         if not track.original:
             track_fmt_map["original"] = None
         else:
-            track_fmt_map["original"] = json.loads(resolve_original_tracks(track, abbriv_map))
+            track_fmt_map["original"] = json.loads(
+                resolve_original_tracks(track, abbriv_map)
+            )
 
-        track_fmt_map["vocal"] =  json.loads(track.vocal) if track.vocal else None
-        track_fmt_map["arrangement"] = json.loads(track.arrangement) if track.arrangement else None
-        track_fmt_map["lyricist"] = json.loads(track.lyrics_author) if track.lyrics_author else None
+        track_fmt_map["vocal"] = json.loads(track.vocal) if track.vocal else None
+        track_fmt_map["arrangement"] = (
+            json.loads(track.arrangement) if track.arrangement else None
+        )
+        track_fmt_map["lyricist"] = (
+            json.loads(track.lyrics_author) if track.lyrics_author else None
+        )
 
         fmt[remote_id] = track_fmt_map
 
     return fmt
+
 
 def generate_album_formatted(album: Album, remote_id: str):
     fmt = {}
@@ -90,32 +114,38 @@ def generate_album_formatted(album: Album, remote_id: str):
 
     return fmt
 
+
 def main():
     with open(ID_ASSIGNMENT_JSON, "r", encoding="utf-8") as f:
         id_assignment = json.load(f)
-    
+
     abbriv_map = load_original_song_map()
 
     coll_trk_fmt = {}
     coll_alb_fmt = {}
     for entry in id_assignment:
         album_id = get_album_id(entry)
-        
+
         thc_album = Album.get_or_none(Album.album_id == album_id)
-        if (thc_album is None):
+        if thc_album is None:
             print("Album {} not found".format(album_id), end="\r")
             continue
 
         src_tracks = collect_tracks(entry)
         thc_tracks = list(Track.select().where(Track.album == thc_album))
 
-        if (len(src_tracks) > len(thc_tracks)):
-        # if (len(src_tracks) != len(thc_tracks)):
-            print("Album {} track count mismatch: {} != {}".format(album_id, len(src_tracks), len(thc_tracks)), end="\r")
+        if len(src_tracks) > len(thc_tracks):
+            # if (len(src_tracks) != len(thc_tracks)):
+            print(
+                "Album {} track count mismatch: {} != {}".format(
+                    album_id, len(src_tracks), len(thc_tracks)
+                ),
+                end="\r",
+            )
             continue
 
         mapped_tracks = match_src_thw_tracks(src_tracks, thc_tracks)
-        if (mapped_tracks is None):
+        if mapped_tracks is None:
             print("Album {} no match".format(album_id), end="\r")
             continue
         else:
@@ -134,5 +164,6 @@ def main():
     with open("thc-album-info-format-src.json", "w", encoding="utf-8") as f:
         json.dump(coll_alb_fmt, f, indent=4, ensure_ascii=False)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

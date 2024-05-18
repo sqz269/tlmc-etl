@@ -1,11 +1,10 @@
 import re
 import json
-from googletrans import Translator
-from InfoProviders.ThcInfoProvider.ThcArtistInfoProvider.Model.CircleData import CircleData
+from Processor.ExternalInfoCollector.ThcInfoProvider.ThcArtistInfoProvider.Model.CircleData import (
+    CircleData,
+)
 
 import httpx
-
-translator = Translator()
 
 country_map = {
     "日本": "jpn",
@@ -45,6 +44,7 @@ status_map = {
     "寒暑假活动": "Active",
 }
 
+
 def mk_json_patch(data: CircleData) -> str:
     website = json.loads(data.circle_web) if (data.circle_web is not None) else {}
     patch = []
@@ -54,7 +54,7 @@ def mk_json_patch(data: CircleData) -> str:
 
     for key, value in website.items():
         # if a website only have desc, then ignore
-        if (value.get("url") is None):
+        if value.get("url") is None:
             continue
 
         isInvalid = isInvalidRegex.search(value.get("desc", "")) is not None
@@ -90,50 +90,43 @@ def mk_json_patch(data: CircleData) -> str:
     #         "value": status_map[data.circle_status]
     #     })
 
-    if (data.circle_query_url is not None):
-        patch.append({
-            "op": "add",
-            "path": "/DataSource/-",
-            "value": data.circle_query_url
-        })
+    if data.circle_query_url is not None:
+        patch.append(
+            {"op": "add", "path": "/DataSource/-", "value": data.circle_query_url}
+        )
 
     return json.dumps(patch)
 
+
 def send_request(patch: str, circle_id: int):
     url = f"http://localhost:5217/api/internal/circle/{circle_id}"
-    headers = {
-        "Content-Type": "application/json-patch+json"
-    }
+    headers = {"Content-Type": "application/json-patch+json"}
     response = httpx.patch(url, data=patch, headers=headers, verify=False)
 
-    if (response.status_code != 200):
+    if response.status_code != 200:
         raise Exception(f"Response: {response.status_code} {response.text}")
 
     print(f"Patched {circle_id} successfully")
 
+
 def reformat_special_char(s: str) -> str:
-    special = [
-        "/",
-        "\\",
-        "?",
-        ",",
-        "%",
-        "#"
-    ]
+    special = ["/", "\\", "?", ",", "%", "#"]
 
     for c in special:
         s = s.replace(c, "_")
 
     return s
 
+
 def get_id_from_name(name: str) -> int:
     url = f"http://localhost:5217/api/entity/circle/{reformat_special_char(name)}"
     response = httpx.get(url, verify=False)
 
-    if (response.status_code != 200):
+    if response.status_code != 200:
         raise Exception(f"Response: {response.status_code} {response.text}")
 
     return response.json()["id"]
+
 
 def main():
     id_map = {}
@@ -164,5 +157,6 @@ def main():
             print(f"Failed to patch {name}: {e}")
             input("Press enter to continue...")
 
-if (__name__ == '__main__'):
+
+if __name__ == "__main__":
     main()
