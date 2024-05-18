@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple
 import Shared.utils as utils
 from Shared.json_utils import json_dump, json_load
 import Shared.cache_utils as cache
-from InfoCollector.AlbumInfo.output.path_definitions import (
+from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
     DISC_SCANNER_OUTPUT_NAME,
     DISC_MANUAL_CHECKER_OUTPUT_NAME,
 )

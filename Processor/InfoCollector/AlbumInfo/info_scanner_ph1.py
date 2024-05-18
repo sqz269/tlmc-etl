@@ -5,10 +5,12 @@ from typing import List, Tuple
 import Shared.utils as utils
 from Shared.json_utils import json_dump, json_load
 
-from InfoCollector.AlbumInfo.output.path_definitions import (
+from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
     DISC_MANUAL_CHECKER_OUTPUT_NAME,
     INFO_SCANNER_FILELIST_OUTPUT_NAME,
     INFO_SCANNER_PROBED_RESULT_OUTPUT_NAME,
+    INFO_SCANNER_PROBED_RESULT_TMP_LINES_OUTPUT_NAME,
+    INFO_SCANNER_PROBED_RESULT_DEBUG_NAME,
     INFO_SCANNER_PHASE1_OUTPUT_NAME,
 )
 
@@ -17,18 +19,39 @@ output_root = utils.get_file_relative(__file__, "output")
 os.makedirs(output_root, exist_ok=True)
 disc_final_output_file = os.path.join(output_root, DISC_MANUAL_CHECKER_OUTPUT_NAME)
 probed_results_path = os.path.join(output_root, INFO_SCANNER_PROBED_RESULT_OUTPUT_NAME)
+probed_results_path_tmp_lines = os.path.join(
+    output_root, INFO_SCANNER_PROBED_RESULT_TMP_LINES_OUTPUT_NAME
+)
+probed_results_path_debug = os.path.join(
+    output_root, INFO_SCANNER_PROBED_RESULT_DEBUG_NAME
+)
 filelist_output_path = os.path.join(output_root, INFO_SCANNER_FILELIST_OUTPUT_NAME)
 phase1_output_path = os.path.join(output_root, INFO_SCANNER_PHASE1_OUTPUT_NAME)
 
-ACCEPTED_AUDIO_FILE_EXTENSIONS = {"flac", "mp3", "wav", "wv", "m4a", "mp4"}
+ACCEPTED_AUDIO_FILE_EXTENSIONS = {"flac", "mp3", "wav", "wv", "m4a"}
 THUMBNAIL_FILE_NAMES = {"folder", "cover"}
 IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "bmp", "svg", "webp", "ico", "tif"}
-IGNORED_ALBUMS = (
-    "[クロネコラウンジ]/.mp3",
-    "[サウンドカタログ推進委員会]/2009.10.11 [PSSC-001] Sound Catalog 001 [M3-24]",
-    "[R-note] あ～るの～と/2014.10.12 [RNCD-0009] 東方M-1ぐらんぷり～Sound Collection～ [東方紅楼夢10]",
-    "Various Artists/project-SIGMA - Sound Catalog 001 (2009 Autumn Version)",
-)
+# Video, DVD, and other media of interest
+ASSET_OF_INTEREST_EXTENSIONS = {
+    "pdf",
+    "vob",
+    "ifo",
+    "bup",
+    "mkv",
+    "vtt",
+    "swf",
+    "mpg",
+    "avi",
+    "iso",
+    "zip",
+    "mp4",
+}
+# IGNORED_ALBUMS = (
+#     "[クロネコラウンジ]/.mp3",
+#     "[サウンドカタログ推進委員会]/2009.10.11 [PSSC-001] Sound Catalog 001 [M3-24]",
+#     "[R-note] あ～るの～と/2014.10.12 [RNCD-0009] 東方M-1ぐらんぷり～Sound Collection～ [東方紅楼夢10]",
+#     "Various Artists/project-SIGMA - Sound Catalog 001 (2009 Autumn Version)",
+# )
 
 
 def filter_probe_list(file_list):
@@ -181,6 +204,24 @@ class Phase01:
                 return asset
         return None
 
+    def has_asset_of_interest(self, asset_list):
+        """
+        Checks if a list of asset paths contains an asset of interest.
+
+        Args:
+            asset_list (list): A list of asset paths.
+
+        Returns:
+            bool: True if an asset of interest is found, False otherwise.
+
+        """
+        for asset in asset_list:
+            file_name = os.path.basename(asset).lower()
+            file_ext = file_name[file_name.rfind(".") + 1 :].lower()
+            if file_ext in ASSET_OF_INTEREST_EXTENSIONS:
+                return True
+        return False
+
     def process_one(self, dir_path: str, dir_info: dict):
         """
         Processes a single directory and returns the generated information.
@@ -250,6 +291,7 @@ class Phase01:
                 }
                 for track in unid_track_list
             ],
+            "HasAssetOfInterest": self.has_asset_of_interest(asset_list),
             "NeedsManualReview": needs_manual_review,
             "NeedsManualReviewReason": needs_manual_review_reason,
         }
@@ -389,9 +431,9 @@ class Phase01:
         """
         results = []
         for dir_path, dir_info in self.file_list.items():
-            if dir_path.endswith(IGNORED_ALBUMS):
-                print(f"Skipping {dir_path}")
-                continue
+            # if dir_path.endswith(IGNORED_ALBUMS):
+            #     print(f"Skipping {dir_path}")
+            #     continue
             if dir_path in self.discs_info:
                 results.append(self.process_discs(dir_path, dir_info))
                 continue
@@ -451,6 +493,22 @@ def gen_probe_results(file_list):
         result = utils.probe_flac("ffprobe", file_path)
         if result:
             json_result = json.loads(result)
+            utils.append_file(
+                probed_results_path_tmp_lines,
+                json.dumps(json_result, ensure_ascii=False) + "\n",
+            )
+            utils.append_file(
+                probed_results_path_debug,
+                json.dumps(
+                    {
+                        "index": index,
+                        "path": file_path,
+                        "format": json_result.get("format"),
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
+            )
             probe_results.append(json_result)
     return probe_results
 
@@ -461,23 +519,20 @@ def main():
             f"Disc scanner output file not found: {disc_final_output_file}"
         )
 
-    if not os.path.exists(probed_results_path) and not os.path.exists(
-        filelist_output_path
-    ):
+    if not os.path.exists(filelist_output_path):
         tlmc_root = input("Enter TLMC root: ")
         print("Generating file list...")
         file_list = gen_file_list(tlmc_root)
         json_dump(file_list, filelist_output_path)
 
+    if not os.path.exists(probed_results_path):
         print("Generating probe results...")
-
         probe_results = gen_probe_results(file_list)
         reformat_probed_results = reformat_probed(probe_results)
         json_dump(reformat_probed_results, probed_results_path)
-    else:
-        print("Existing Filelist and Probe Results Detected. Skipping Generation")
-        file_list = json_load(filelist_output_path)
-        reformat_probed_results = json_load(probed_results_path)
+
+    file_list = json_load(filelist_output_path)
+    reformat_probed_results = json_load(probed_results_path)
 
     print("Loading discs info...")
     discs_info = json_load(disc_final_output_file)

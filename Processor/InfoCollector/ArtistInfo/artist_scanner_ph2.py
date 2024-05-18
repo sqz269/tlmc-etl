@@ -34,7 +34,18 @@ def main():
     for entry in artist_list:
         circle_data = CIRCLE_INFO_EXTRACTOR.match(entry)
         if not circle_data:
-            print(f"Failed to parse {entry}")
+            print(f"Failed to parse {entry} Using complete entry as name.")
+            name = entry
+            alias = ""
+
+            circle_json = {
+                "raw": entry,
+                "name": name,
+                "alias": [] if not alias else [alias.strip()],
+                "linked": [],
+            }
+            circles.append(circle_json)
+
             continue
         name = circle_data.group(1)
         alias = circle_data.group(2)
@@ -65,6 +76,8 @@ def main():
                 new_names[raw_lower]["known_id"] = []
 
         print(f"Matched {matched} names out of {len(circles)} circles")
+    else:
+        new_names = {circle["raw"].lower(): circle for circle in circles}
     json_dump(new_names, artist_new_name_dump_output)
 
 

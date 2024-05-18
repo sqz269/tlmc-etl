@@ -7,7 +7,7 @@ from typing import Iterable, List, Tuple
 import Shared.utils as utils
 from Shared.json_utils import json_dump, json_load
 
-from InfoCollector.AlbumInfo.output.path_definitions import (
+from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
     INFO_SCANNER_PROBED_RESULT_OUTPUT_NAME,
     INFO_SCANNER_PHASE1_OUTPUT_NAME,
     INFO_SCANNER_PHASE2_ALBUMINFO_OUTPUT_NAME,

@@ -7,7 +7,7 @@ from typing import Iterable, List, Tuple
 import Shared.utils as utils
 from Shared.json_utils import json_dump, json_load
 
-from InfoCollector.AlbumInfo.output.path_definitions import (
+from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
     INFO_SCANNER_PHASE1_OUTPUT_NAME,
     INFO_SCANNER_PHASE2_ALBUMINFO_OUTPUT_NAME,
     INFO_SCANNER_PHASE2_TRACKINFO_OUTPUT_NAME,
@@ -48,6 +48,14 @@ def merge(ph1, ph2_track, ph2_album):
                 track_metadata = ph2_track[track["TrackPath"]]
                 rm_man_check_props(track_metadata)
                 track["TrackMetadata"] = track_metadata
+                if track["TrackMetadata"]["title"] == "":
+                    print(
+                        f"Empty title for track [{track['TrackPath']}], assigning basename (without extension)"
+                    )
+                    track["TrackMetadata"]["title"] = os.path.splitext(
+                        os.path.basename(track["TrackPath"])
+                    )[0]
+
                 if track["TrackMetadata"]["track"] == -1:
                     print(
                         f"Sequentially assigned track number [{idx + 1}] for",
