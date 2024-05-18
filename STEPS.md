@@ -225,7 +225,7 @@ More details about the dual pass and loudnorm filter can be found here: https://
 #### Execution
 
 - Run `python ./Preprocessor/AudioNormalizer/normalizer_pass1.py` to detect the file's loudness and generate normalization parameters for pass 2.
-- Run `python ./Preprocessor/AudioNormalizer/normalizer_pass1.py` to apply the loudnorm parameters by modifying the file.
+- Run `python ./Preprocessor/AudioNormalizer/normalizer_pass2.py` to apply the loudnorm parameters by modifying the file.
 
 ### 4. Cue Splitting
 
@@ -334,13 +334,16 @@ To structure tracks and extract metadata accurately, it's essential to identify,
         - Correct any instances of `disc_numbers: -1` to the appropriate disc number. The script defaults to -1 when it can't determine the number from the file name.
         - Optionally, add descriptive names to each disc, based off it's directory name
 
+2. **Sequence Checking**
+    - Run `Processor/InfoCollector/AlbumInfo/disc_auto_assign.py` to automatically check if disc assignment forms an sequence, and automatically assign numbers if they are not in a sequence.
+
 ### 2. Information Extraction Phase 1
 
 This process transforms an unstructured directory of album tracks into a structured JSON format. The goal is to organize and identify tracks, discs, and associated assets for easier access during information extraction.
 
 #### Important Notices
 
-- _**Manual Intervention**_: The tutomated processes may not accurately organize all tracks due to non-standard file naming or missing files. Refer to the Execution section for detailed instructions on manual review.
+- _**Manual Intervention**_: The automated processes may not accurately organize all tracks due to non-standard file naming or missing files. Refer to the Execution section for detailed instructions on manual review.
 
 #### Prerequisites
 
@@ -374,10 +377,22 @@ In the second phase of transforming an unstructured directory of album tracks in
 1. **Metadata Extraction**: Run `InfoCollector\AlbumInfo\info_scanner_ph2.py`. This script aggregates metadata from file properties and names, populating album and track details into a structured JSON.
 2. **Review Generated Files**
     - Inspect the output JSON files `InfoCollector/AlbumInfo/output/info_scanner.phase2.albuminfo.output.json` and `InfoCollector/AlbumInfo/output/info_scanner.phase2.trackinfo.output.json`. Address any entries flagged with `"NeedsManualReview": true`. Pay special attention to:
-        - **Empty Track Titles or Album Names**: Ensure all tracks and albums have appropriate titles. Empty fields often indicate missing or unreadable metadata and **_must_** be manually corrected.
+        - **Empty Track Titles or Album Names**: Ensure all tracks and albums have appropriate titles. Empty fields often indicate missing or unreadable metadata and empty album names **_must_** be manually corrected. While empty track names will be automatically filled in with the file name (excluding extensions) during phase 3.
         - **Track Numbering**: While fixing empty track numbers is **_optional_**, any track with an index of -1 will be uniquely indexed in Phase 3. However, correctly numbering tracks here can aid in organizing and understanding the album's structure.
 
 ### 3. Information Extraction Phase 3
+Phase 3 will aggregate all collected info from the previous two phases and organize them into one single file with the complete metadata for each track and album. The script will automatically assign any unassigned track index with a sequential number and unassigned track name from the basename. However, this script **_WILL NOT_** handle empty album names, so it is necessary to assign a proper name to ALL albums in the output of phase 2.
+
+#### Prerequisites
+
+- N/A
+
+#### Preparation
+
+- N/A
+
+#### Exectuion
+1. Run `Processor/InfoCollector/AlbumInfo/info_scanner_ph3.py`
 
 ### 4. Artist Identification Phase 1 (OPTIONAL)
 
@@ -474,6 +489,22 @@ This step is only nessarily if the files will be added to an existing database
             }
             ```
 
+        - Example 3: This is a special case where one of the artist in collaberative entries have no standalong entry. Here the circle `5884組` never appeared as an standalone circle in the list, but appears in the collab entry. Notice we still put a linked entry but with brackets wrapped around the name as if it appears as an standalone entry. In this case, the phase 3 processing will take care of the unlisted circles in collab and create standalone entry for them.
+
+            ```json
+            "[cool＆create／5884組]": {
+                "raw": "[COOL＆CREATE／5884組]",
+                "name": "COOL＆CREATE／5884組",
+                "alias": [],
+                "linked": [
+                    "[COOL&CREATE]",
+                    "[5884組]"
+                ]
+            }
+            ```
+
+### 6. Final Merge and Unique Identifier Assignment
+
 ## SECTION: HLS TRANSCODING
 
 flac is a lossless format meaning that the file prioritizes quality over compression, but it's large file size make it undesireable in mobile streaming which have constrainted bandwidth. This section details the process to transcode flac files into HLS (fMP4 format) which is optimized for streaming and allows for adaptive bitrate switching. However, do note that the HLS transcoding may SIGNIFICANTLY alter the original file's audio quality which depends on the bitrate of the conversion. It is advised to backup the original flac files if needed.
@@ -496,11 +527,3 @@ Transcoding media files is often computationally expensive. In the case of video
 - N/A
 
 #### Execution
-
-## SECTION: FINALIZATION AND PUSHING TO DB
-
-### 2. Merge Information
-
-### 3
-
-## SECTION: EXTENDED METADATA COLLECTION AND TAGGING
