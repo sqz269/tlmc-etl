@@ -2,7 +2,7 @@ import os
 import re
 import uuid
 
-from InfoCollector.ArtistInfo.output.path_definitions import (
+from Processor.InfoCollector.ArtistInfo.output.path_definitions import (
     EXISTING_ARTIST_NAME_DUMP_OUTPUT_PATH,
     ARTIST_DISCOVERY_NEW_ARTISTS_OUTPUT_PATH,
     ARTIST_DISCOVERY_MERGED_ARTISTS_OUTPUT_PATH,
@@ -27,7 +27,7 @@ artist_merged_name_dump_output = os.path.join(
 
 
 def main():
-    artist_existing
+    artist_existing = {}
     if os.path.exists(artist_existing_name_dump_output):
         print("Loading existing artist dump")
         artist_existing = json_load(artist_existing_name_dump_output)
