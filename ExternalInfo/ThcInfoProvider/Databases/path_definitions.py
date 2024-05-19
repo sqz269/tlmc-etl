@@ -1,0 +1,1 @@
+THWIKI_QUERY_PROVIDER_DATABASE = "query_data.db"

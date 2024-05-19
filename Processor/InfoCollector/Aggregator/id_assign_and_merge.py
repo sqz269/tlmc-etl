@@ -82,6 +82,15 @@ def assign_id(info_phase3):
                 track["TrackMetadata"]["TrackId"] = str(uuid4())
 
 
+def transform_with_album_id_as_key(info_phase3):
+    transformed = {}
+    for entry in info_phase3:
+        album_id = entry["AlbumMetadata"]["AlbumId"]
+        transformed[album_id] = entry
+
+    return transformed
+
+
 def main():
     circle_list = json_utils.json_load(circle_list_output)
     info_phase3 = json_utils.json_load(info_phase3_output)
@@ -99,6 +108,9 @@ def main():
 
     print("Assigning IDs...")
     assign_id(info_phase3)
+
+    print("Transforming with album id as key...")
+    info_phase3 = transform_with_album_id_as_key(info_phase3)
 
     print("Writing output...")
     json_utils.json_dump(info_phase3, assigned_merged_output)

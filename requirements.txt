@@ -4,3 +4,5 @@ mslex
 mwparserfromhell
 bs4
 httpx
+peewee
+tabulate

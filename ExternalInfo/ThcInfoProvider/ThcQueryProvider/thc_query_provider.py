@@ -9,53 +9,35 @@ import unicodedata
 
 import httpx
 
-from Processor.ExternalInfoCollector.ThcInfoProvider.ThcQueryProvider.Model.QueryModel import (
+from ExternalInfo.ThcInfoProvider.ThcQueryProvider.Model.QueryModel import (
     QueryData,
     QueryDataDb,
     QueryStatus,
 )
+from Shared import utils
+import Processor.InfoCollector.Aggregator.output.path_definitions as MergedOutput
 
-
-def import_data():
-    print("Importing data from Basic Info Provider Databse...")
-
-    init_data = []
-    for album in BasicAlbum.select():
-        query_data_init = {
-            "album_id": album.album_id,
-            "album_name": album.album_name,
-            "query_result": None,
-            "query_exact_result": None,
-            "query_status": QueryStatus.PENDING,
-        }
-
-        query_data = QueryData(**query_data_init)
-        init_data.append(query_data)
-        print(f"Fetching album: {album.album_id}", end="\r")
-
-    print("\nFetch complete")
-
-    print("Saving data to Query Data Database...")
-    BATCH_SIZE = 2000
-    for i in range(0, len(init_data), BATCH_SIZE):
-        print(f"Saving Query Data {i + BATCH_SIZE}/{len(init_data)}", end="\r")
-        QueryData.bulk_create(init_data[i : i + BATCH_SIZE])
-    print("\nImport complete")
+merged_output_path = utils.get_output_path(MergedOutput, MergedOutput.ID_ASSIGNED_PATH)
 
 
 def import_data_from_json(json_path):
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    init_data = []
-    for entry in data:
-        album_info = entry["AlbumInfo"]
+    total_entry = len(data)
+    if QueryData.select().count() == total_entry:
+        print("Data already imported")
+        return
 
-        alb_id = None
-        if len(entry["Discs"]) > 1:
-            alb_id = album_info["AlbumId"]
-        else:
-            alb_id = entry["Discs"][list(entry["Discs"].keys())[0]]["DiscId"]
+    print("Importing data from JSON...")
+    # Clear existing data
+    QueryData.delete().execute()
+
+    init_data = []
+    for id, entry in data.items():
+        album_info = entry["AlbumMetadata"]
+
+        alb_id = album_info["AlbumId"]
 
         q_data_init = {
             "album_id": alb_id,
@@ -220,94 +202,7 @@ def quick_reprocess():
             continue
 
 
-def import_updated():
-    album: BasicAlbum
-    init_data = []
-    curr = 0
-    exist = 0
-    new = 0
-    for album in BasicAlbum.select():
-        query_data_init = {
-            "album_id": album.album_id,
-            "album_name": album.album_name,
-            "query_result": None,
-            "query_exact_result": None,
-            "query_status": QueryStatus.PENDING,
-        }
-
-        existing_query: QueryData
-        existing_query = (
-            QueryData.select()
-            .where(QueryData.album_name == album.album_name)
-            .get_or_none()
-        )
-        if existing_query:
-            query_data_init["query_result"] = existing_query.query_result
-            query_data_init["query_exact_result"] = existing_query.query_exact_result
-            query_data_init["query_status"] = existing_query.query_status
-            exist += 1
-        else:
-            new += 1
-
-        curr += 1
-
-        query_data = QueryData(**query_data_init)
-        init_data.append(query_data)
-        print(
-            f"[{curr}] Updating: {album.album_id} (New: {new} | Exist: {exist})",
-            end="\r",
-        )
-
-    print("\nUpdate complete")
-
-    # need to drop the table first
-    print("Dropping Query Data table...")
-    QueryData.drop_table()
-    print("Creating Query Data table...")
-    QueryData.create_table()
-
-    BATCH_SIZE = 2000
-    for i in range(0, len(init_data), BATCH_SIZE):
-        print(f"Saving Query Data {i + BATCH_SIZE}/{len(init_data)}", end="\r")
-        QueryData.bulk_create(init_data[i : i + BATCH_SIZE])
-
-    print("\nImport Diff Complete")
-
-
 if __name__ == "__main__":
-    if not QueryData.select().exists():
-        # import_data()
-        import_data_from_json(
-            r"D:\PROG\TlmcTagger\InfoProviderMk4\DbPush\tmp-merge-result-id-assignment.json"
-        )
-    else:
-        print("Query Data already exists")
-        print("Existing Query Data count: ", QueryData.select().count())
-        print("Existing Basic Album count: ", BasicAlbum.select().count())
-        if QueryData.select().count() != BasicAlbum.select().count():
-            import_updated()
-            # re ensure that the data is the same
-            recheck = input("Recheck? (y/n)")
-
-            if recheck == "y":
-                mc = QueryData.select().count()
-                c = 0
-                for album in BasicAlbum.select():
-                    existing_query: QueryData
-                    existing_query = (
-                        QueryData.select()
-                        .where(QueryData.album_name == album.album_name)
-                        .get()
-                    )
-                    c += 1
-                    print(f"[{c}/{mc}] Checking: {album.album_id}", end="\r")
-                    a = existing_query.album_id
-                    if not existing_query:
-                        print(f"\nMissing: {album.album_name} ({album.album_id})")
-
-            reprocess = input("Reprocess? (y/n)")
-            if reprocess == "y":
-                quick_reprocess()
-                exit(0)
+    import_data_from_json(merged_output_path)
 
     process_data()

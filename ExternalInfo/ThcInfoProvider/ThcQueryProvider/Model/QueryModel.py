@@ -1,12 +1,21 @@
 from peewee import *
 import os
 
-QueryDataDb = SqliteDatabase(r'./InfoProviders/ThcInfoProvider/ThcQueryProvider/Data/query_data.db')
-# QueryDataDb = SqliteDatabase(None) # Deferring database initialization
+from Shared import utils
+
+import ExternalInfo.ThcInfoProvider.Databases.path_definitions as DatabasesPathDef
+
+query_data_db_path = utils.get_output_path(
+    DatabasesPathDef, DatabasesPathDef.THWIKI_QUERY_PROVIDER_DATABASE
+)
+
+QueryDataDb = SqliteDatabase(query_data_db_path)
+
 
 class BaseModel(Model):
     class Meta:
         database = QueryDataDb
+
 
 class QueryStatus:
     PENDING = "PENDING"
@@ -21,12 +30,14 @@ class QueryStatus:
 
     RESULT_SUSPICOUS = "SUS"
 
+
 class QueryData(BaseModel):
     album_id = TextField(primary_key=True, unique=True)
     album_name = TextField()
     query_result = TextField(null=True)
     query_exact_result = TextField(null=True)
     query_status = TextField()
+
 
 QueryDataDb.connect()
 QueryDataDb.create_tables([QueryData])
