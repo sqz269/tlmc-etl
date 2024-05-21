@@ -26,11 +26,21 @@ from ExternalInfo.ThcInfoProvider.ThcQueryProvider.Model.QueryModel import (
 )
 from Shared import utils
 import Processor.InfoCollector.Aggregator.output.path_definitions as MergedOutput
+import ExternalInfo.ThcInfoProvider.Output.path_definitions as ThwikiOutput
 
 from fuzzywuzzy import fuzz, process
 
 merged_output_path = utils.get_output_path(MergedOutput, MergedOutput.ID_ASSIGNED_PATH)
 
+album_formatted_output_path = utils.get_output_path(
+    ThwikiOutput, ThwikiOutput.THWIKI_ALBUM_FORMAT_RESULT_OUTPUT
+)
+track_formatted_output_path = utils.get_output_path(
+    ThwikiOutput, ThwikiOutput.THWIKI_TRACK_FORMAT_RESULT_OUTPUT
+)
+score_debug_output_path = utils.get_output_path(
+    ThwikiOutput, ThwikiOutput.THWIKI_ALBUM_FORMAT_SCORE_DEBUG_OUTPUT
+)
 
 non_offical_works = {
     "地灵殿PH音乐名",
@@ -99,11 +109,6 @@ def load_original_song_map() -> Dict:
 
 
 def normalize_text(text):
-    # Normalize text
-    # 1. Convert to NFKC
-    # 2. Remove all spaces
-    # 3. Keep chars whose category is L
-    # 4. Convert to lowercase
     return "".join(
         [
             c
@@ -126,29 +131,8 @@ def collect_tracks(entry):
     return all_tracks
 
 
-def match_src_thw_tracks(src_tracks, thc_tracks) -> Union[Dict[str, dict], None]:
-    title_map = {
-        normalize_text(json.loads(track.title_jp)[0]): track for track in thc_tracks
-    }
-    if len(title_map) != len(thc_tracks):
-        # do we really care about track with same title?
-        pass
-
-    mapped_entry = {}
-    for tracks in src_tracks:
-        track_title = tracks["TrackMetadata"]["title"]
-        title = normalize_text(track_title)  # #
-        track_id = tracks["TrackMetadata"]["TrackId"]
-        if title in title_map:
-            thc_track = title_map[title]
-            mapped_entry[track_id] = thc_track
-        else:
-            return None
-
-    return mapped_entry
-
-
 def match_src_thw_tracks_fuzzy(src_tracks, thc_tracks) -> Union[Dict[str, dict], None]:
+
     title_map = {
         normalize_text(json.loads(track.title_jp)[0]): track for track in thc_tracks
     }
@@ -158,15 +142,35 @@ def match_src_thw_tracks_fuzzy(src_tracks, thc_tracks) -> Union[Dict[str, dict],
         for track in src_tracks
     }
 
+    unique_normalized_src_titles = set(
+        [normalize_text(track["TrackMetadata"]["title"]) for track in src_tracks]
+    )
+
     if len(src_tracks) == 0 or len(thc_tracks) == 0:
         return None
+
+    album_key = thc_tracks[0].album_id
 
     mapped_entry = calc_optimal_name_mapping(
         [track["TrackMetadata"]["title"] for track in src_tracks], thc_tracks
     )
 
     sum_score = sum([entry["score"] for entry in mapped_entry.values()])
-    total_potential = len(src_tracks) * 100
+    total_potential = len(unique_normalized_src_titles) * 100
+
+    debug_info = {
+        "album_key": album_key,
+        "src_track_len": len(src_tracks),
+        "thc_track_len": len(thc_tracks),
+        "total_potential": total_potential,
+        "actual_score": sum_score.item(),
+        "score_ratio": (sum_score / total_potential).item(),
+    }
+
+    utils.append_file(
+        score_debug_output_path, json.dumps(debug_info, ensure_ascii=False) + "\n"
+    )
+
     if sum_score < total_potential * 0.8:
         return None
 
@@ -174,6 +178,7 @@ def match_src_thw_tracks_fuzzy(src_tracks, thc_tracks) -> Union[Dict[str, dict],
         title_to_id[track_title]: entry["matched_with"]
         for track_title, entry in mapped_entry.items()
     }
+
     return result
 
 
@@ -248,7 +253,8 @@ def generate_album_formatted(album: Album, remote_id: str):
     fmt["catalog"] = album.catalogno
     fmt["website"] = album.website
     fmt["data_source"] = album.data_source
-
+    fmt["genre"] = json.loads(album.genre) if album.genre else None
+    fmt["cover_char"] = json.loads(album.cover_char) if album.cover_char else None
     return fmt
 
 
@@ -273,20 +279,6 @@ def main():
         src_tracks = collect_tracks(entry)
         thc_tracks = list(Track.select().where(Track.album == thc_album))
 
-        # if len(src_tracks) > len(thc_tracks):
-        #     # if (len(src_tracks) != len(thc_tracks)):
-        #     print(
-        #         "[{}/{}] Album {} track count mismatch: {} != {}".format(
-        #             matched_total,
-        #             len(id_assignment),
-        #             album_id,
-        #             len(src_tracks),
-        #             len(thc_tracks),
-        #         ),
-        #         end="\r",
-        #     )
-        #     continue
-
         mapped_tracks = match_src_thw_tracks_fuzzy(src_tracks, thc_tracks)
         if mapped_tracks is None:
             no_match_total += 1
@@ -310,13 +302,13 @@ def main():
             coll_trk_fmt.update(trk_fmt)
             coll_alb_fmt[album_id] = alb_fmt
 
-    with open("thc-song-info-format-src.json", "w", encoding="utf-8") as f:
+    with open(track_formatted_output_path, "w", encoding="utf-8") as f:
         json.dump(coll_trk_fmt, f, indent=4, ensure_ascii=False)
 
     print()
-    print(len(coll_trk_fmt))
+    print("Matched ", len(coll_trk_fmt), " tracks")
 
-    with open("thc-album-info-format-src.json", "w", encoding="utf-8") as f:
+    with open(album_formatted_output_path, "w", encoding="utf-8") as f:
         json.dump(coll_alb_fmt, f, indent=4, ensure_ascii=False)
 
 

@@ -6,3 +6,9 @@ bs4
 httpx
 peewee
 tabulate
+requests
+lxml
+fuzzywuzzy
+python-Levenshtein
+scipy
+numpy

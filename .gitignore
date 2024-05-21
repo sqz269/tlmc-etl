@@ -1,3 +1,8 @@
+TODO.md
+*.db
+
+ExternalInfo/ThcInfoProvider/Cache
+
 # ignore program temp outputs
 *.output.*
 **/output/*
