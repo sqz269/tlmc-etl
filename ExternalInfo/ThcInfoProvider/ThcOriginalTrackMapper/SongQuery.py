@@ -6,7 +6,7 @@ import uuid
 import requests
 from bs4 import BeautifulSoup
 
-from Processor.ExternalInfoCollector.ThcInfoProvider.ThcOriginalTrackMapper.Model.OriginalTrackMapModel import (
+from ExternalInfo.ThcInfoProvider.ThcOriginalTrackMapper.Model.OriginalTrackMapModel import (
     OriginalTrackDb,
     OriginalTrack,
     TrackSource,

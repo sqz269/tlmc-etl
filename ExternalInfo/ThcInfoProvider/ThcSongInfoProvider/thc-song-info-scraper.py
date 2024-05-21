@@ -13,22 +13,30 @@ from bs4 import BeautifulSoup
 from mwparserfromhell.nodes.template import Template
 from mwparserfromhell.wikicode import Wikicode
 
-from Processor.ExternalInfoCollector.ThcInfoProvider.ThcSongInfoProvider.Model.ThcSongInfoModel import (
+from ExternalInfo.ThcInfoProvider.ThcSongInfoProvider.Model.ThcSongInfoModel import (
     Track,
     Album,
     SaleSource,
     ProcessStatus,
     ThccDb,
 )
-from Processor.ExternalInfoCollector.ThcInfoProvider.ThcQueryProvider.Model.QueryModel import (
+from ExternalInfo.ThcInfoProvider.ThcQueryProvider.Model.QueryModel import (
     QueryStatus,
     QueryData,
 )
-from Processor.ExternalInfoCollector.CacheInfoProvider.Cache import cached
+from ExternalInfo.CacheInfoProvider.Cache import cached
+
+import ExternalInfo.ThcInfoProvider.Cache.path_definitions as CachePathDef
+
+from Shared import utils
+
+song_wiki_page_cache_path = utils.get_output_path(
+    CachePathDef, CachePathDef.THWIKI_SONG_INFO_WIKI_PAGE_CACHE_DIR
+)
 
 
 class ThWikiCc:
-    PAGE_SRC_URL = "https://thwiki.cc/index.php?title={path}&action=edit&viewsource=1"
+    PAGE_SRC_URL = "https://thwiki.cc/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={path}&utf8=1"
     # Full Width Comma
     FW_COMMA = "，"
     HEADER = {
@@ -103,7 +111,7 @@ class ThWikiCc:
     @staticmethod
     @cached(
         cache_id="thc",
-        cache_dir="./InfoProviders/ThcInfoProvider/ThcSongInfoProvider/Cached",
+        cache_dir=song_wiki_page_cache_path,
     )
     def get_source(url):
         url = ThWikiCc.PAGE_SRC_URL.format(path=ThWikiCc.get_title_from_url(url))
@@ -120,9 +128,9 @@ class ThWikiCc:
                 )
             )
 
-        bs = BeautifulSoup(response.text, "lxml")
-        src = bs.find("textarea", {"id": "wpTextbox1"})
-        return mw.parse(src.text)
+        j = response.json()
+        page = list(j["query"]["pages"].values())[0]
+        return mw.parse(page["revisions"][0]["*"])
 
     @staticmethod
     def _fmt_album_metadata(data: Dict[str, str]):
@@ -156,9 +164,12 @@ class ThWikiCc:
 
     @staticmethod
     def parse_album_info(data: Wikicode):
-        template: Template = list(
-            filter(lambda x: x.name == "同人专辑信息", data.filter_templates())
-        )[0]
+        try:
+            template: Template = list(
+                filter(lambda x: x.name == "同人专辑信息", data.filter_templates())
+            )[0]
+        except IndexError:
+            template = None
         if template is None:
             raise Exception("No album info template found")
 
@@ -192,11 +203,14 @@ class ThWikiCc:
                     fmt_track_info[k] = v
                     continue
                 if k in ThWikiCc.TRACK_VALUE_SINGLE_ITEM:
-                    fmt_track_info[k] = map(transformer, v)[0]
+                    fmt_track_info[k] = list(map(transformer, v))[0]
                     continue
 
-                fmt_track_info[k] = map(
-                    transformer, [r for i in v for r in i.split(ThWikiCc.FW_COMMA) if r]
+                fmt_track_info[k] = list(
+                    map(
+                        transformer,
+                        [r for i in v for r in i.split(ThWikiCc.FW_COMMA) if r],
+                    )
                 )
             new_data.append(fmt_track_info)
 
@@ -222,8 +236,7 @@ class ThWikiCc:
         return track_list
 
     @staticmethod
-    def _parse_track_info(data: str):
-        data = mw.parse(data)
+    def _parse_track_info(data: Wikicode):
         track_templates = list(
             filter(lambda x: x.name.strip() == "同人曲目信息", data.filter_templates())
         )
@@ -284,13 +297,8 @@ class ThWikiCc:
     def process(url):
         src = ThWikiCc.get_source(url)
         album_info = ThWikiCc.parse_album_info(src)
-        # pprint(album_info)
-        track_list = ThWikiCc.get_track_info(src)
         parsed_tracklist = {}
-        for disc, track_info in track_list.items():
-            parsed_tracklist[disc] = ThWikiCc._parse_track_info(track_info)
-
-        # pprint(parsed_tracklist)
+        parsed_tracklist[-1] = ThWikiCc._parse_track_info(src)
         seller_info = ThWikiCc.parse_seller(src)
 
         return (album_info, parsed_tracklist, seller_info)
@@ -334,8 +342,12 @@ def import_data():
 def process_album(album: Album):
     try:
         album_info, track_info, seller_info = ThWikiCc.process(album.data_source)
-    except:
+    except Exception as e:
         print(f"Error processing {album.album_id}")
+        utils.append_file(
+            "mistagged.txt",
+            f"Potential Mistag [{album.album_id}]\n",
+        )
         album.process_status = ProcessStatus.FAILED
         album.save()
         return

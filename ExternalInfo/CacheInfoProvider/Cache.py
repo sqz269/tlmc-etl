@@ -4,7 +4,7 @@ import re
 import mwparserfromhell as mw
 from urllib.parse import unquote, urlparse
 
-from Processor.ExternalInfoCollector.CacheInfoProvider.Model.CacheModel import (
+from ExternalInfo.CacheInfoProvider.Model.CacheModel import (
     SourceCacheTable,
 )
 

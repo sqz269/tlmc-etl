@@ -1,19 +1,33 @@
 import json
 import re
-from Processor.ExternalInfoCollector.ThcInfoProvider.ThcOriginalTrackMapper.SongQuery import (
+from ExternalInfo.ThcInfoProvider.ThcOriginalTrackMapper.SongQuery import (
     SongQuery,
     get_original_song_query_params,
 )
-from Processor.ExternalInfoCollector.ThcInfoProvider.ThcOriginalTrackMapper.Model.OriginalTrackMapModel import (
+from ExternalInfo.ThcInfoProvider.ThcOriginalTrackMapper.Model.OriginalTrackMapModel import (
     OriginalTrack,
     TrackSource,
 )
-from Processor.ExternalInfoCollector.ThcInfoProvider.ThcSongInfoProvider.Model.ThcSongInfoModel import (
+from ExternalInfo.ThcInfoProvider.ThcSongInfoProvider.Model.ThcSongInfoModel import (
     Track,
     ProcessStatus,
 )
 
 exc = {"かごめかごめ"}
+
+non_offical_works = {
+    "地灵殿PH音乐名",
+    "东方夏夜祭音乐名",
+    "Cradle音乐名",
+    "东方音焰火音乐名",
+    "东方魔宝城音乐名",
+    "8MPF音乐名",
+    "东方梦旧市音乐名",
+    "神魔讨绮传音乐名",
+    "风神录PH音乐名",
+    "TLM音乐名",
+    "かごめかごめ",
+}
 
 
 def strict_split(str, sep=",", brackets={"(": ")", "{": "}", "[": "]"}):
@@ -59,18 +73,13 @@ def discover():
                 f"Queried {count} tracks, {original_songs} Original songs [{len(qp)}]",
                 end="\r",
             )
+
+            if q[0] in non_offical_works:
+                continue
+
             SongQuery.query(
                 q[0],
                 q[1],
-                autofail={
-                    "地灵殿PH音乐名",
-                    "东方夏夜祭音乐名",
-                    "Cradle音乐名",
-                    "东方音焰火音乐名",
-                    "东方魔宝城音乐名",
-                    "8MPF音乐名",
-                },
-                default="<ERROR>",
             ).title_en
 
 

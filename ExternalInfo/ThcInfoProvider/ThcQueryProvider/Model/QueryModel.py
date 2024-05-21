@@ -30,6 +30,11 @@ class QueryStatus:
 
     RESULT_SUSPICOUS = "SUS"
 
+    RESULT_MANUAL_ASSIGNED = "MANUAL_ASSIGNED"
+    RESULT_MANUAL_IGNORED = "MANUAL_IGNORED"
+
+    RESULT_ASSIGNED_BY_CIRCLE = "ASSIGNED_BY_CIRCLE"
+
 
 class QueryData(BaseModel):
     album_id = TextField(primary_key=True, unique=True)

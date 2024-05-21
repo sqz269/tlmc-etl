@@ -1,12 +1,21 @@
 from operator import truediv
 from peewee import *
+import ExternalInfo.ThcInfoProvider.Databases.path_definitions as DatabasesPathDef
+from Shared import utils
 
-ThccDb = SqliteDatabase('./InfoProviders/ThcInfoProvider/ThcSongInfoProvider/Data/thc_song_data.db')
+song_data_db_path = utils.get_output_path(
+    DatabasesPathDef, DatabasesPathDef.THWIKI_SONG_INFO_DATABASE
+)
+
+ThccDb = SqliteDatabase(
+    song_data_db_path,
+)
 
 
 class BaseModel(Model):
     class Meta:
         database = ThccDb
+
 
 class ProcessStatus:
     PENDING = "PENDING"
@@ -21,6 +30,7 @@ class ProcessStatus:
     DB_PATCH_OK = "DB_PATCH_OK"
     DB_ABORTED_TRACK_MISMATCH = "DB_ABORTED_TRACK_MISMATCH"
     DB_ABORTED_TRACK_NAME_MISMATCH = "DB_ABORTED_TRACK_NAME_MISMATCH"
+
 
 class Album(BaseModel):
     album_id = TextField(primary_key=True, unique=True)
@@ -57,7 +67,7 @@ class Album(BaseModel):
 
 class Track(BaseModel):
     track_id = TextField(primary_key=True, unique=True)
-    album = ForeignKeyField(Album, backref='tracks')
+    album = ForeignKeyField(Album, backref="tracks")
     disc_no = IntegerField(null=True)
     index = IntegerField(null=True)
     title_jp = TextField(null=True)
@@ -76,7 +86,7 @@ class Track(BaseModel):
     original_title = TextField(null=True)
     original_release_album = TextField(null=True)
     original_release_title = TextField(null=True)
-    
+
     src_album_not_th = TextField(null=True)
     src_track_not_th = TextField(null=True)
 
@@ -84,9 +94,10 @@ class Track(BaseModel):
 
     process_status = TextField(null=True)
 
+
 class SaleSource(BaseModel):
     sell_id = TextField(primary_key=True, unique=True)
-    album = ForeignKeyField(Album, backref='sales')
+    album = ForeignKeyField(Album, backref="sales")
     type = TextField(null=True)
     path = TextField(null=True)
     title = TextField(null=True)

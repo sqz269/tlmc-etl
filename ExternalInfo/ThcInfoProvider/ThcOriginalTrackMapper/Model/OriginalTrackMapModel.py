@@ -4,7 +4,18 @@ from typing import Text
 from uuid import uuid4
 from peewee import *
 
-OriginalTrackDb = SqliteDatabase(r'InfoProviders/ThcInfoProvider/ThcOriginalTrackMapper/Data/OriginalTrackMap.db')
+from operator import truediv
+from peewee import *
+import ExternalInfo.ThcInfoProvider.Databases.path_definitions as DatabasesPathDef
+from Shared import utils
+
+original_track_map_db_path = utils.get_output_path(
+    DatabasesPathDef, DatabasesPathDef.THWIKI_ORIGINAL_TRACK_MAP_DATABASE
+)
+
+OriginalTrackDb = SqliteDatabase(
+    original_track_map_db_path,
+)
 
 
 class BaseModel(Model):
@@ -20,9 +31,10 @@ class TrackSource(BaseModel):
     title_zh = TextField(null=True)
     abbriv = TextField(null=True)
 
+
 class OriginalTrack(BaseModel):
     id = TextField(primary_key=True, unique=True)
-    source = ForeignKeyField(TrackSource, backref='songs')
+    source = ForeignKeyField(TrackSource, backref="songs")
     index = TextField(null=True)
     sp_index = TextField(null=True)
     sp_idx_e = TextField(null=True)
