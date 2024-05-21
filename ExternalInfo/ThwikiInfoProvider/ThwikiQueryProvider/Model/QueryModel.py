@@ -3,7 +3,7 @@ import os
 
 from Shared import utils
 
-import ExternalInfo.ThcInfoProvider.Databases.path_definitions as DatabasesPathDef
+import ExternalInfo.ThwikiInfoProvider.Databases.path_definitions as DatabasesPathDef
 
 query_data_db_path = utils.get_output_path(
     DatabasesPathDef, DatabasesPathDef.THWIKI_QUERY_PROVIDER_DATABASE

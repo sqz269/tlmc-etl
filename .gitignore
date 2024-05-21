@@ -1,7 +1,7 @@
 TODO.md
 *.db
 
-ExternalInfo/ThcInfoProvider/Cache
+ExternalInfo/ThwikiInfoProvider/Cache
 
 # ignore program temp outputs
 *.output.*
