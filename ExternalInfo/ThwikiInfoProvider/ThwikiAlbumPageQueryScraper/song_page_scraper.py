@@ -6,7 +6,7 @@ from typing import List, Tuple
 import httpx
 
 import Processor.InfoCollector.Aggregator.output.path_definitions as MergedOutput
-from ExternalInfo.ThwikiInfoProvider.ThwikiQueryProvider.Model.QueryModel import (
+from ExternalInfo.ThwikiInfoProvider.ThwikiAlbumPageQueryScraper.Model.QueryModel import (
     QueryData,
     QueryStatus,
 )

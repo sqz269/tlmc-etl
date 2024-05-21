@@ -9,12 +9,12 @@ import mwparserfromhell as mw
 from mwparserfromhell.nodes.template import Template
 from mwparserfromhell.wikicode import Wikicode
 
-import ExternalInfo.ThwikiInfoProvider.Cache.path_definitions as CachePathDef
+import ExternalInfo.ThwikiInfoProvider.cache.path_definitions as CachePathDef
 from ExternalInfo.CacheInfoProvider.Cache import cached
-from ExternalInfo.ThwikiInfoProvider.ThwikiQueryProvider.Model.QueryModel import (
+from ExternalInfo.ThwikiInfoProvider.ThwikiAlbumPageQueryScraper.Model.QueryModel import (
     QueryData,
 )
-from ExternalInfo.ThwikiInfoProvider.ThwikiSongInfoProvider.Model.ThcSongInfoModel import (
+from ExternalInfo.ThwikiInfoProvider.ThwikiAlbumPageScraper.Model.ThcSongInfoModel import (
     Album,
     ProcessStatus,
     SaleSource,

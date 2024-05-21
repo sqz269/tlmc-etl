@@ -18,6 +18,14 @@ class Lang:
     ZH = "中文"
 
 
+original_track_aliases = {
+    "花映冢": "花映塚",
+    "緋想天": "绯想天",
+    "萃夢想": "萃梦想",
+    "憑依華": "凭依华",
+    "イザナギオブジェクト": "伊奘诺物质",
+}
+
 param_extr = re.compile("\{\{(.+)\|\d+\|(.+)\}\}")
 
 
@@ -63,21 +71,13 @@ def get_original_song_query_params(songs: List[str]) -> List[Tuple[str, str]]:
                 continue
             groups = list(param.groups())
 
-            groups[0] = (
-                groups[0]
-                .strip()
-                .replace("花映冢", "花映塚")
-                .replace("緋想天", "绯想天")
-                .replace("萃夢想", "萃梦想")
-                .replace("憑依華", "凭依华")
-                .replace("イザナギオブジェクト", "伊奘诺物质")
-            )
+            groups[0] = original_track_aliases.get(groups[0], groups[0])
             querable.append((groups[0], groups[1].strip("|")))
 
     return querable
 
 
-class SongQuery:
+class OriginalTrackMap:
     TABLE_URL = "https://thwiki.cc/特殊:管理映射方案?view={query}/{lang}"
 
     HEADER = {
@@ -137,11 +137,13 @@ class SongQuery:
         songs_all_lang = {}
         key_index = {}
         for lang in [Lang.JP, Lang.EN, Lang.ZH]:
-            url = SongQuery.TABLE_URL.format(query=query, lang=lang)
-            r = requests.get(url, headers=SongQuery.HEADER)
+            url = OriginalTrackMap.TABLE_URL.format(query=query, lang=lang)
+            r = requests.get(url, headers=OriginalTrackMap.HEADER)
             bs = BeautifulSoup(r.text, "lxml")
             rst = bs.find("textarea", {"id": "array-0"})
-            (song_info, sp_ind, sp_ind_e, sp_ind_a) = SongQuery.parse_table(rst.text)
+            (song_info, sp_ind, sp_ind_e, sp_ind_a) = OriginalTrackMap.parse_table(
+                rst.text
+            )
             songs_all_lang[lang] = song_info
             if not key_index:
                 key_index = set(song_info.keys())
@@ -197,7 +199,7 @@ class SongQuery:
         if not src_query.exists():
             # print(source)
             print(f"No song found for source: {source}. Caching")
-            SongQuery.cache_data(source)
+            OriginalTrackMap.cache_data(source)
         if not query.exists():
             print(f"No song found for source: {source} index: {index}. Aborting")
             if not default:
@@ -207,5 +209,5 @@ class SongQuery:
 
 
 if __name__ == "__main__":
-    pprint(SongQuery.query("地灵殿音乐名", "E"))
-    pprint(SongQuery.query("绯想天音乐名", "S"))
+    pprint(OriginalTrackMap.query("地灵殿音乐名", "E"))
+    pprint(OriginalTrackMap.query("绯想天音乐名", "S"))

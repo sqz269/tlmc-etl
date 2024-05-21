@@ -7,13 +7,13 @@ import numpy as np
 from fuzzywuzzy import fuzz
 from scipy.optimize import linear_sum_assignment
 
-import ExternalInfo.ThwikiInfoProvider.Output.path_definitions as ThwikiOutput
+import ExternalInfo.ThwikiInfoProvider.output.path_definitions as ThwikiOutput
 import Processor.InfoCollector.Aggregator.output.path_definitions as MergedOutput
-from ExternalInfo.ThwikiInfoProvider.ThwikiOriginalTrackMapper.SongQuery import (
-    SongQuery,
+from ExternalInfo.ThwikiInfoProvider.ThwikiOriginalTrackMapper.original_track_map import (
+    OriginalTrackMap,
     get_original_song_query_params,
 )
-from ExternalInfo.ThwikiInfoProvider.ThwikiSongInfoProvider.Model.ThcSongInfoModel import (
+from ExternalInfo.ThwikiInfoProvider.ThwikiAlbumPageScraper.Model.ThcSongInfoModel import (
     Album,
     Track,
 )
@@ -56,7 +56,7 @@ def resolve_original_tracks(track: Track, abbriv_map: Dict):
         try:
             if qp[0] in non_offical_works:
                 continue
-            result = SongQuery.query(
+            result = OriginalTrackMap.query(
                 qp[0],
                 qp[1],
             )

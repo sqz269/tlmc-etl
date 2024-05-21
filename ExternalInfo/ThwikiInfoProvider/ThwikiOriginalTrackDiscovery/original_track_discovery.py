@@ -1,14 +1,14 @@
 import json
 
-from ExternalInfo.ThwikiInfoProvider.ThcOriginalTrackMapper.Model.OriginalTrackMapModel import (
+from ExternalInfo.ThwikiInfoProvider.ThwikiOriginalTrackMapper.Model.OriginalTrackMapModel import (
     OriginalTrack,
     TrackSource,
 )
-from ExternalInfo.ThwikiInfoProvider.ThcOriginalTrackMapper.SongQuery import (
-    SongQuery,
+from ExternalInfo.ThwikiInfoProvider.ThwikiOriginalTrackMapper.original_track_map import (
+    OriginalTrackMap,
     get_original_song_query_params,
 )
-from ExternalInfo.ThwikiInfoProvider.ThcSongInfoProvider.Model.ThcSongInfoModel import (
+from ExternalInfo.ThwikiInfoProvider.ThwikiAlbumPageScraper.Model.ThcSongInfoModel import (
     Track,
 )
 
@@ -76,7 +76,7 @@ def discover():
             if q[0] in non_offical_works:
                 continue
 
-            SongQuery.query(
+            OriginalTrackMap.query(
                 q[0],
                 q[1],
             ).title_en

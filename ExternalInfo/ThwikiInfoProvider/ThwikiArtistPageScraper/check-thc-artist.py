@@ -1,7 +1,7 @@
 import json
 import unicodedata
 
-from ExternalInfo.ThwikiInfoProvider.ThwikiSongInfoProvider.Model.ThcSongInfoModel import (
+from ExternalInfo.ThwikiInfoProvider.ThwikiAlbumPageScraper.Model.ThcSongInfoModel import (
     Album,
 )
 
