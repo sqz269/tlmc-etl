@@ -1,12 +1,12 @@
-import re
 import os
+import re
 from typing import Dict, List, Tuple
 
 import Shared.utils as utils
-from Shared.json_utils import json_dump, json_load
 from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
     DISC_SCANNER_OUTPUT_NAME,
 )
+from Shared.json_utils import json_dump, json_load
 
 output_root = utils.get_file_relative(__file__, "output")
 os.makedirs(output_root, exist_ok=True)

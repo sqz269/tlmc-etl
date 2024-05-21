@@ -1,8 +1,9 @@
-from peewee import *
 import datetime
-from Shared import utils
+
+from peewee import *
 
 import ExternalInfo.ThcInfoProvider.Databases.path_definitions as DatabasesPathDef
+from Shared import utils
 
 cache_db_path = utils.get_output_path(DatabasesPathDef, DatabasesPathDef.CACHE_DATABASE)
 CacheDb = SqliteDatabase(cache_db_path)

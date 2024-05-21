@@ -1,11 +1,11 @@
 import json
 import os
 from typing import List
+
 import xxhash
 
-from Shared.utils import get_output_path
-
 import Preprocessor.Extract.output.path_definitions as ExtractOutputPaths
+from Shared.utils import get_output_path
 
 output_path = get_output_path(
     ExtractOutputPaths, ExtractOutputPaths.EXTRACTED_FILESYSTEM_SNAPSHOT_OUTPUT_NAME

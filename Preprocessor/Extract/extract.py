@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 from typing import List
+
 from Preprocessor.Extract.output.path_definitions import EXTRACTION_LOG_ERROR_FILE_NAME
 from Shared import utils
 

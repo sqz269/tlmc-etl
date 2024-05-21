@@ -1,21 +1,22 @@
-from dataclasses import dataclass
 import json
 import os
 import subprocess
+from dataclasses import dataclass
 from typing import Dict
+
+import Preprocessor.AudioNormalizer.output.path_definitions as AudioNormalizerOutputPaths
 from Preprocessor.AudioNormalizer.normalizer_pass1 import (
-    NormalizationParameters,
     NORMALIZATION_TARGET,
+    NormalizationParameters,
     Stage1WorkResult,
 )
-from Shared.utils import get_file_relative, oslex_quote, get_output_path
 from Shared.reporting_multi_processor import (
     JournalWriter,
     OutputWriter,
     PrintMessageReporter,
     StatAutoMuxMultiProcessor,
 )
-import Preprocessor.AudioNormalizer.output.path_definitions as AudioNormalizerOutputPaths
+from Shared.utils import get_file_relative, get_output_path, oslex_quote
 
 stage_1_output = get_output_path(
     AudioNormalizerOutputPaths,

@@ -1,24 +1,20 @@
-import os
 import json
+import os
 import re
 import subprocess
 import threading
 import time
 import traceback
+from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor, wait
+
+from Preprocessor.CueSplitter.output.path_definitions import CUE_DESIGNATER_OUTPUT_NAME
+from Shared.json_utils import json_dump, json_load
 from Shared.utils import (
     check_cuesheet_attr,
-    max_common_prefix,
     get_file_relative,
+    max_common_prefix,
     oslex_quote,
 )
-
-from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
-
-from Shared.json_utils import json_dump, json_load
-from Preprocessor.CueSplitter.output.path_definitions import (
-    CUE_DESIGNATER_OUTPUT_NAME,
-)
-
 
 output_root = get_file_relative(__file__, "output")
 input_designated = os.path.join(output_root, CUE_DESIGNATER_OUTPUT_NAME)

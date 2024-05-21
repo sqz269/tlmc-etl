@@ -1,15 +1,15 @@
-from pprint import pprint
-import re
 import os
+import re
+from pprint import pprint
 from typing import Dict, List, Tuple
 
-import Shared.utils as utils
-from Shared.json_utils import json_dump, json_load
 import Shared.cache_utils as cache
+import Shared.utils as utils
 from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
-    DISC_SCANNER_OUTPUT_NAME,
     DISC_MANUAL_CHECKER_OUTPUT_NAME,
+    DISC_SCANNER_OUTPUT_NAME,
 )
+from Shared.json_utils import json_dump, json_load
 
 output_root = utils.get_file_relative(__file__, "output")
 os.makedirs(output_root, exist_ok=True)

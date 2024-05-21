@@ -1,13 +1,12 @@
 import os
 import re
 
-from Processor.InfoCollector.ArtistInfo.output.path_definitions import (
-    EXISTING_ARTIST_NAME_DUMP_OUTPUT_PATH,
-    ARTIST_DISCOVERY_NEW_ARTISTS_OUTPUT_PATH,
-)
-
-from Shared.json_utils import json_load, json_dump
 import Shared.utils as utils
+from Processor.InfoCollector.ArtistInfo.output.path_definitions import (
+    ARTIST_DISCOVERY_NEW_ARTISTS_OUTPUT_PATH,
+    EXISTING_ARTIST_NAME_DUMP_OUTPUT_PATH,
+)
+from Shared.json_utils import json_dump, json_load
 
 output_root = utils.get_file_relative(__file__, "output")
 os.makedirs(output_root, exist_ok=True)

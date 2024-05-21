@@ -1,22 +1,25 @@
-import os
 import json
+import os
 from uuid import uuid4
+
 from pythonnet import load, set_runtime
-from Shared.utils import (
-    recurse_search,
-    check_cuesheet_attr,
-    get_cuesheet_attr,
-    max_common_prefix,
-    get_file_relative,
-)
+
 import Shared.cache_utils as cache_utils
 from Shared.json_utils import json_dump
+from Shared.utils import (
+    check_cuesheet_attr,
+    get_cuesheet_attr,
+    get_file_relative,
+    max_common_prefix,
+    recurse_search,
+)
 
 set_runtime("coreclr")
 load("coreclr")
 
-import clr
 import sys
+
+import clr
 
 # TODO: NEED TO FIX SUCH THAT RESTUCTURED DIRECTORY STRUCTURE IS UPDATED
 # COMMENT STEPS.MD: PREPROCESSING -> SECTION 3 -> EXECUTION -> 2 REVIEW
@@ -48,9 +51,9 @@ clr.AddReference(utf_unknown_path)
 print("DLL loaded.")
 
 from Preprocessor.CueSplitter.output.path_definitions import (
-    CUE_SCANNER_OUTPUT_NAME,
     CUE_DESIGNATER_OUTPUT_NAME,
     CUE_DESIGNATER_USER_PAIR_CACHE_NAME,
+    CUE_SCANNER_OUTPUT_NAME,
 )
 
 output_root = get_file_relative(__file__, "output")

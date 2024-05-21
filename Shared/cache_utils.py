@@ -1,5 +1,5 @@
-import os
 import json
+import os
 
 
 def check_cache(key, store_path):

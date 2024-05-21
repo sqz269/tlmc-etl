@@ -1,7 +1,7 @@
-from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
-from os import PathLike
 import os
 import threading
+from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor, wait
+from os import PathLike
 from typing import Any, Callable, List
 
 

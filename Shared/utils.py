@@ -1,10 +1,11 @@
-from io import TextIOWrapper
 import json
 import os
+import shlex
 import subprocess
 import typing
+from io import TextIOWrapper
+
 import mslex
-import shlex
 
 
 def append_file(fp: str, content: str, create_if_not_exist: bool = True):

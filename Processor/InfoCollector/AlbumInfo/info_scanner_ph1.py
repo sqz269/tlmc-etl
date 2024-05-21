@@ -1,19 +1,14 @@
-import os
 import json
+import os
 from typing import List, Tuple
 
 import Shared.utils as utils
-from Shared.json_utils import json_dump, json_load
-
 from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
-    DISC_MANUAL_CHECKER_OUTPUT_NAME,
-    INFO_SCANNER_FILELIST_OUTPUT_NAME,
+    DISC_MANUAL_CHECKER_OUTPUT_NAME, INFO_SCANNER_FILELIST_OUTPUT_NAME,
+    INFO_SCANNER_PHASE1_OUTPUT_NAME, INFO_SCANNER_PROBED_RESULT_DEBUG_NAME,
     INFO_SCANNER_PROBED_RESULT_OUTPUT_NAME,
-    INFO_SCANNER_PROBED_RESULT_TMP_LINES_OUTPUT_NAME,
-    INFO_SCANNER_PROBED_RESULT_DEBUG_NAME,
-    INFO_SCANNER_PHASE1_OUTPUT_NAME,
-)
-
+    INFO_SCANNER_PROBED_RESULT_TMP_LINES_OUTPUT_NAME)
+from Shared.json_utils import json_dump, json_load
 
 output_root = utils.get_file_relative(__file__, "output")
 os.makedirs(output_root, exist_ok=True)

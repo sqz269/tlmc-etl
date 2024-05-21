@@ -1,12 +1,11 @@
 import datetime
 import os
 import re
-import mwparserfromhell as mw
 from urllib.parse import unquote, urlparse
 
-from ExternalInfo.CacheInfoProvider.Model.CacheModel import (
-    SourceCacheTable,
-)
+import mwparserfromhell as mw
+
+from ExternalInfo.CacheInfoProvider.Model.CacheModel import SourceCacheTable
 
 
 def NormalizePath(path, subchar="_"):

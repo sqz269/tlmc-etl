@@ -2,14 +2,13 @@ import os
 import re
 import uuid
 
-from Processor.InfoCollector.ArtistInfo.output.path_definitions import (
-    EXISTING_ARTIST_NAME_DUMP_OUTPUT_PATH,
-    ARTIST_DISCOVERY_NEW_ARTISTS_OUTPUT_PATH,
-    ARTIST_DISCOVERY_MERGED_ARTISTS_OUTPUT_PATH,
-)
-
-from Shared.json_utils import json_load, json_dump
 import Shared.utils as utils
+from Processor.InfoCollector.ArtistInfo.output.path_definitions import (
+    ARTIST_DISCOVERY_MERGED_ARTISTS_OUTPUT_PATH,
+    ARTIST_DISCOVERY_NEW_ARTISTS_OUTPUT_PATH,
+    EXISTING_ARTIST_NAME_DUMP_OUTPUT_PATH,
+)
+from Shared.json_utils import json_dump, json_load
 
 CIRCLE_INFO_EXTRACTOR = re.compile(r"\[(.+)\](.+)?")
 

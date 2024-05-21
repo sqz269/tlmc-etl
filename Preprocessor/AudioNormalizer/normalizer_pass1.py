@@ -1,16 +1,17 @@
-from dataclasses import dataclass
 import json
 import os
 import subprocess
+from dataclasses import dataclass
 from typing import Dict
-from Shared.utils import get_file_relative, oslex_quote, get_output_path
+
+import Preprocessor.AudioNormalizer.output.path_definitions as AudioNormalizerOutputPaths
 from Shared.reporting_multi_processor import (
     JournalWriter,
     OutputWriter,
     PrintMessageReporter,
     StatAutoMuxMultiProcessor,
 )
-import Preprocessor.AudioNormalizer.output.path_definitions as AudioNormalizerOutputPaths
+from Shared.utils import get_file_relative, get_output_path, oslex_quote
 
 FILE_EXT = (".flac", ".wav", ".mp3", ".m4a")
 

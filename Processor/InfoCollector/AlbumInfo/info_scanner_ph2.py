@@ -1,18 +1,17 @@
-from collections import Counter
-import os
 import json
+import os
 import re
+from collections import Counter
 from typing import Iterable, List, Tuple
 
 import Shared.utils as utils
-from Shared.json_utils import json_dump, json_load
-
 from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
-    INFO_SCANNER_PROBED_RESULT_OUTPUT_NAME,
     INFO_SCANNER_PHASE1_OUTPUT_NAME,
     INFO_SCANNER_PHASE2_ALBUMINFO_OUTPUT_NAME,
     INFO_SCANNER_PHASE2_TRACKINFO_OUTPUT_NAME,
+    INFO_SCANNER_PROBED_RESULT_OUTPUT_NAME,
 )
+from Shared.json_utils import json_dump, json_load
 
 TRACK_INFO_EXTRACTOR_V2 = re.compile(
     r"\((\d{2})\) \[([^]]+)\] (.+)\.flac", re.IGNORECASE

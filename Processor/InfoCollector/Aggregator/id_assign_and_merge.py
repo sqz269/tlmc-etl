@@ -1,11 +1,10 @@
 import os
 from uuid import uuid4
-from Shared import utils
-from Shared import json_utils
 
-import Processor.InfoCollector.ArtistInfo.output.path_definitions as ArtistInfoPathDef
-import Processor.InfoCollector.AlbumInfo.output.path_definitions as AlbumInfoPathDef
 import Processor.InfoCollector.Aggregator.output.path_definitions as AggregatorPathDef
+import Processor.InfoCollector.AlbumInfo.output.path_definitions as AlbumInfoPathDef
+import Processor.InfoCollector.ArtistInfo.output.path_definitions as ArtistInfoPathDef
+from Shared import json_utils, utils
 
 circle_list_output = utils.get_output_path(
     ArtistInfoPathDef, ArtistInfoPathDef.ARTIST_DISCOVERY_MERGED_ARTISTS_OUTPUT_PATH
