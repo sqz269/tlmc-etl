@@ -2,7 +2,7 @@ import datetime
 
 from peewee import *
 
-import ExternalInfo.ThcInfoProvider.Databases.path_definitions as DatabasesPathDef
+import ExternalInfo.ThwikiInfoProvider.Databases.path_definitions as DatabasesPathDef
 from Shared import utils
 
 cache_db_path = utils.get_output_path(DatabasesPathDef, DatabasesPathDef.CACHE_DATABASE)

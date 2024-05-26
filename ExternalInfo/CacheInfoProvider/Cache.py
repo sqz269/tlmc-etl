@@ -21,7 +21,7 @@ def get_cache_id(url, id):
     return id + "__" + NormalizePath(unquote(get_url_path(url)))
 
 
-def cached(cache_id, cache_dir, debug=False):
+def cached(cache_id, cache_dir, debug=False, disable_parse=False):
     if not os.path.isdir(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -41,6 +41,8 @@ def cached(cache_id, cache_dir, debug=False):
                     if debug:
                         print("Cache Hit for " + url)
                     with open(cached, "r", encoding="utf-8") as f:
+                        if disable_parse:
+                            return f.read()
                         return mw.parse(f.read())
             if debug:
                 print("Cache Miss for " + url)

@@ -232,6 +232,9 @@ def generate_track_formatted(mapped_tracks, abbriv_map: Dict[str, str]):
             json.loads(track.lyrics_author) if track.lyrics_author else None
         )
 
+        track_fmt_map["remote_id"] = remote_id
+        track_fmt_map["thwiki_id"] = track.track_id
+
         fmt[remote_id] = track_fmt_map
 
     return fmt
