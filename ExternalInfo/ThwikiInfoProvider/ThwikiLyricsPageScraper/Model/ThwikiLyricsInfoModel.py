@@ -32,6 +32,10 @@ class LyricsInfo(BaseModel):
 
     lyrics = TextField(null=True)
 
+    original_language = TextField(null=True)
+
+    translator = TextField(null=True)
+
     process_status = TextField(null=True)
 
 

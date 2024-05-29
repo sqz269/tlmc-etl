@@ -101,9 +101,17 @@ def import_data():
 
 
 def follow_redirect(src) -> Optional[str]:
-    if not '#重定向' in src:
-        return None
+    redirect_keywords = ["#重定向", "#redirect"]
+    is_redirect = False
+    for keyword in redirect_keywords:
+        if keyword in src.lower():
+            is_redirect = True
+            break
     
+    if not is_redirect:
+        return None
+
+
     parsed = mw.parse(src)
     redirect_link = parsed.filter_wikilinks()[0]
     return redirect_link.title
@@ -209,7 +217,7 @@ def get_lyrics_actual(raw_page_src: str) -> Dict[str, Dict[str, str]]:
             current_timestamp = None
             continue
 
-        if line.startswith("lyrics="):
+        if line.replace(" ", "").startswith("lyrics="):
             is_in_lyrics_section = not is_in_lyrics_section
             continue
         
@@ -286,6 +294,8 @@ def process_one(entry: LyricsInfo):
     
     lyrics = get_lyrics_actual(src)
     entry.lyrics = json.dumps(lyrics, ensure_ascii=False)
+    entry.original_language = metadata.get("src_lang", None)
+    entry.translator = metadata.get("translator", None)
     entry.process_status = LyricsProcessingStatus.PROCESSED
     entry.save()
 
