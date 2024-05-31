@@ -1,12 +1,18 @@
 from peewee import *
 import os
 
-QueryDataDb = SqliteDatabase(r'./InfoProviders/ThcInfoProvider/ThcArtistInfoProvider/Data/query_data.db')
-# QueryDataDb = SqliteDatabase(None) # Deferring database initialization
+import ExternalInfo.ThwikiInfoProvider.Databases.path_definitions as DatabasesPathDef
+from Shared import utils
+
+circle_data_db_path = utils.get_output_path(
+    DatabasesPathDef, DatabasesPathDef.THWIKI_CIRCLES_INFO_DATABASE
+)
+
+CircleDataDb = SqliteDatabase(circle_data_db_path)
 
 class BaseModel(Model):
     class Meta:
-        database = QueryDataDb
+        database = CircleDataDb
 
 class CircleStatus:
     ACTIVE = "ACTIVE"
@@ -15,9 +21,7 @@ class CircleStatus:
     UNKNOWN = "UNKNOWN"
 
 class QueryStatus:
-    SCRAPE_OK = "SCRAPE_OK"
-
-    SCRAPE_FAILED = "SCRAPE_FAILED"
+    PENDING = "PENDING"
 
     # Query result returned a valid result
     SUCCESS = "SUCCESS"
@@ -31,9 +35,16 @@ class QueryStatus:
     # Query failed due to network error
     FAILED = "FAILED"
 
+    # Circle data has been scraped 
+    SCRAPE_OK = "SCRAPE_OK"
+
+    SCRAPE_FAILED = "SCRAPE_FAILED"
+
 class CircleData(BaseModel):
-    circle_name = TextField(primary_key=True, unique=True)
-    circle_query_url = TextField(null=True)
+    circle_remote_id = TextField(primary_key=True, unique=True)
+    circle_name = TextField(unique=True)
+    circle_wiki_url = TextField(null=True)
+    
     circle_status = TextField(null=True)
     circle_est = TextField(null=True)
     circle_country = TextField(null=True)
@@ -41,11 +52,8 @@ class CircleData(BaseModel):
     # In form of { "Presence Type": "Uri", ... }
     circle_web = TextField(null=True)
 
-    # Indicates whether the circle has been scraped
-    circle_scraped = BooleanField(default=False)
-
     # Indicates whether the query was successful
     circle_query_status = TextField(null=True)
 
-QueryDataDb.connect()
-QueryDataDb.create_tables([CircleData])
+CircleDataDb.connect()
+CircleDataDb.create_tables([CircleData])
