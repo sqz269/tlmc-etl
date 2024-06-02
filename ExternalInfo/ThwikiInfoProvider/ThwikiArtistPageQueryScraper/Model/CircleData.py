@@ -24,16 +24,13 @@ class QueryStatus:
     PENDING = "PENDING"
 
     # Query result returned a valid result
-    SUCCESS = "SUCCESS"
+    QUERY_RESULT_FOUND = "QUERY_RESULT_FOUND"
 
     # Query returned a result but the result is invalid
-    INVALID = "INVALID"
+    QUERY_NO_RESULTS = "QUERY_NO_RESULTS"
+    QUERY_AMBIGUOUS_RESULTS = "QUERY_AMBIGUOUS_RESULTS"
 
-    # Query returned no result
-    NO_RESULT = "NO_RESULT"
-
-    # Query failed due to network error
-    FAILED = "FAILED"
+    SCRAPE_FAILED = "FAILED"
 
     # Circle data has been scraped 
     SCRAPE_OK = "SCRAPE_OK"

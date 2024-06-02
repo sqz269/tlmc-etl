@@ -1,4 +1,5 @@
 CACHE_DATABASE = "cache.db"
+ADVANCED_CACHE_DATABASE = "advanced_cache.db"
 
 THWIKI_QUERY_PROVIDER_DATABASE = "query_data.db"
 THWIKI_SONG_INFO_DATABASE = "thc_song_data.db"
