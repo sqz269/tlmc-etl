@@ -1,7 +1,7 @@
 import json
 import re
 from typing import Dict, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 import furl
 
 import httpx
@@ -20,6 +20,7 @@ song_wiki_page_cache_path = utils.get_output_path(
 def extract_title_from_url(url):
     parsed = furl.furl(url)
     return parsed.path.segments[-1]
+    # return url.split("/")[-1]
 
 
 def __extract_redirect_link(src) -> Optional[str]:
@@ -113,7 +114,9 @@ def get_thwiki_source_raw_resp(page_title, cache_id, cache_path) -> Optional[Dic
             "sec-ch-ua-platform": '"Windows"',
         }
 
-        page_title = PAGE_SRC_URL.format(path=page_title)
+        # URL encode the page title
+        page_title_encoded = quote_plus(page_title)
+        page_title = PAGE_SRC_URL.format(path=page_title_encoded)
         response = httpx.get(page_title, headers=HEADER)
         if response.status_code != 200:
             print(

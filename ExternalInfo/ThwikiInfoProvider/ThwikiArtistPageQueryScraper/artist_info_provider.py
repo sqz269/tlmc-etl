@@ -1,9 +1,12 @@
 from collections import defaultdict
+import json
 import os
 import re
 from typing import List, Optional, Set, Tuple
 import uuid
 import time
+
+import mwparserfromhell as mw
 
 import Shared.utils as utils
 from ExternalInfo.ThwikiInfoProvider.ThwikiArtistPageQueryScraper.Model.CircleData import (
@@ -108,10 +111,87 @@ def process_query():
         print(f"Found {circle.circle_name} at {circle_url}")
 
 
-def process_page():
+def __proc_page(raw_src: set) -> Optional[dict]:
+    source = mw.parse(raw_src)
+    template = list(
+        filter(lambda x: x.name.strip() == "同人社团信息", source.filter_templates())
+    )
+
+    if not template:
+        return None
+
+    metadata = {}
+
+    key_params = {
+        "社团名": "name",
+        "成立时间": "founded",
+        "当前状态": "status",
+        "地区": "country",
+    }
+
+    web_link_prefix = "官网"
+    web_link_desc_prefix = "官网说明"
+    web_link_addi_prefix = "官网补充"
+
+    web_links = {}
+
+    for param in template[0].params:
+        if not param.value.strip():
+            continue
+
+        if param.name.strip().startswith(web_link_desc_prefix):
+            idx = param.name.strip().replace(web_link_desc_prefix, "")
+            if idx:
+                idx = int(idx)
+            else:
+                idx = 1
+
+            if idx not in web_links:
+                web_links[idx] = {}
+
+            web_links[idx]["desc"] = param.value.strip()
+            continue
+
+        if param.name.strip().startswith(web_link_addi_prefix):
+            idx = param.name.strip().replace(web_link_addi_prefix, "")
+            if idx:
+                idx = int(idx)
+            else:
+                idx = 1
+
+            if idx not in web_links:
+                web_links[idx] = {}
+
+            web_links[idx]["addi"] = param.value.strip()
+            continue
+
+        if param.name.strip().startswith(web_link_prefix):
+            idx = param.name.strip().replace(web_link_prefix, "")
+            if idx:
+                idx = int(idx)
+            else:
+                idx = 1
+
+            if idx not in web_links:
+                web_links[idx] = {}
+
+            web_links[idx]["url"] = param.value.strip()
+            continue
+
+        if param.name.strip() in key_params:
+            metadata[key_params[param.name.strip()]] = param.value.strip()
+            continue
+
+        print(param.name.strip(), param.value.strip())
+
+    metadata["web_links"] = web_links
+
+    return metadata
+
+
+def process_page() -> None:
     circle: CircleData
     for idx, circle in enumerate(CircleData.select().where(CircleData.circle_query_status == QueryStatus.QUERY_RESULT_FOUND)):
-        st = time.time()
         result = ThwikiUtils.get_thwiki_page_content_after_redirects(
             ThwikiUtils.extract_title_from_url(circle.circle_wiki_url), 
             "thwiki_artist1_info_cache", 
@@ -120,8 +200,21 @@ def process_page():
         if not result:
             print(f"Failed to find {circle.circle_name}")
             continue
-        dt = time.time() - st
-        print(f"Got page content for {circle.circle_name} in {dt:.2f}s")
+
+        
+        metadata = __proc_page(result)
+        if not metadata:
+            print(f"Failed to find metadata for {circle.circle_name}")
+            continue
+
+        # set metadata
+        circle.circle_est = metadata.get("founded", None)
+        circle.circle_country = metadata.get("country", None)
+        circle.circle_status = metadata.get("status", None)
+        circle.circle_web = json.dumps(metadata.get("web_links", {}))
+        circle.circle_query_status = QueryStatus.SCRAPE_OK
+        circle.save()
+        print(f"Processed {circle.circle_name}")
 
 
 def main():
