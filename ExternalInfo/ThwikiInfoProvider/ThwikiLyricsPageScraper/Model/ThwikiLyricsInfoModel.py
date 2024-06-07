@@ -16,6 +16,10 @@ class BaseModel(Model):
 class LyricsProcessingStatus:
     PENDING = "PENDING"
     PROCESSED = "PROCESSED"
+
+    PARSE_PROCESSED = "PARSE_PROCESSED"
+    PARSE_FAILED_MANUL_REQUIRED = "PARSE_FAILED_MANUL_REQUIRED"
+
     NO_LYRICS_FOUND = "NO_LYRICS_FOUND"
     FAILED = "FAILED"
 
@@ -31,6 +35,8 @@ class LyricsInfo(BaseModel):
     wiki_page_title_actual = TextField(null=True)
 
     lyrics = TextField(null=True)
+
+    lyrics_annotated = TextField(null=True)
 
     original_language = TextField(null=True)
 
