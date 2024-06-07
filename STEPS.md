@@ -121,6 +121,8 @@ Install the .NET SDK (version 6 or above) as per your operating system's instruc
 
 ### Python Environment
 
+**Note: Python 3.10 or above is required**
+
 1. Navigate to the repository's directory: `cd TlmcInfoProviderV2`.
 2. Create a virtual environment: `python -m venv .`
 3. Adding project root to python execution context
@@ -148,7 +150,7 @@ This section details the process of snapshotting the downloaded collection files
 ### Preparation
 
 - Ensure that you have moved `!Misc` in the TLMC release to the root folder so that it's properly merged with the rest of the directory.
-    - Can be achieved via `cp * .. -r` in the `!Misc` directory or `cp !Misc/* . -r` in TLMC root directory then with `rm -r !Misc`
+  - Can be achieved via `cp * .. -r` in the `!Misc` directory or `cp !Misc/* . -r` in TLMC root directory then with `rm -r !Misc`
 
 ### Execution
 
@@ -190,7 +192,6 @@ This section details the process of snapshotting the extracted files for their h
 - Execute the snapshot script by running `python Preprocessor/Extract/extracted_snapshot.py`
 - Ensure you keep/backup the output located at `Preprocessor/Extract/output/extracted_filesystem_snapshot.output.json` for the time when upgrading releases.
 
-
 ### 3. Track Audio Normalization
 
 This section explains how to normalize the volume levels of audio tracks. Since web apps and the HLS protocol don't support ReplayGain tags, we'll directly modify the files to normalize their volume. This is a lossy process, so it's advised to back up your files if you wish to retain lossless copies.
@@ -198,6 +199,7 @@ This section explains how to normalize the volume levels of audio tracks. Since 
 The normalization uses the EBU R128 loudness normalization profile.
 
 Detailed Parameter:
+
 - Integrated Loudness Target `I=-24` LUFS
 - Loudness range target`LRA=7` LU
 - True peak target `tp=-2.0` dBTP
@@ -206,7 +208,7 @@ You can edit this profile by editing the file `Preprocessor/AudioNormalizer/norm
 
 This normalization process will be a two pass process, with the first pass detecting the file's loudness levels and the second pass applying the gains to the file to achieve the targeted profile.
 
-More details about the dual pass and loudnorm filter can be found here: https://k.ylo.ph/2016/04/04/loudnorm.html
+More details about the dual pass and loudnorm filter can be found here: <https://k.ylo.ph/2016/04/04/loudnorm.html>
 
 #### Important Noticies
 
@@ -381,6 +383,7 @@ In the second phase of transforming an unstructured directory of album tracks in
         - **Track Numbering**: While fixing empty track numbers is **_optional_**, any track with an index of -1 will be uniquely indexed in Phase 3. However, correctly numbering tracks here can aid in organizing and understanding the album's structure.
 
 ### 3. Information Extraction Phase 3
+
 Phase 3 will aggregate all collected info from the previous two phases and organize them into one single file with the complete metadata for each track and album. The script will automatically assign any unassigned track index with a sequential number and unassigned track name from the basename. However, this script **_WILL NOT_** handle empty album names, so it is necessary to assign a proper name to ALL albums in the output of phase 2.
 
 #### Prerequisites
@@ -392,6 +395,7 @@ Phase 3 will aggregate all collected info from the previous two phases and organ
 - N/A
 
 #### Exectuion
+
 1. Run `Processor/InfoCollector/AlbumInfo/info_scanner_ph3.py`
 
 ### 4. Artist Identification Phase 1 (OPTIONAL)
@@ -507,6 +511,8 @@ This step is only nessarily if the files will be added to an existing database
 
 This script will assign an unique identifier for all circles and reference the linked circles in a collab via unique identifiers. It will also create a new circle based of non standalone linked entry.
 
+In addition, this script will also attempt to identify any potential duplicated circles in the list. If any of the circles have been identified as duplicates, it will prompt the user to
+
 #### Prerequisites
 
 - N/A
@@ -516,6 +522,7 @@ This script will assign an unique identifier for all circles and reference the l
 - N/A
 
 #### Execution
+
 1. Run `python Processor/InfoCollector/ArtistInfo/artist_scanner_ph3.py`
 
 ### 7. Unique Identifier Assignment and Artist & Ablum Metadata Merge
@@ -529,7 +536,6 @@ This script will assign an Universally Unique Identifier (UUID) to all albums, d
 #### Preparation
 
 - N/A
-
 
 ## SECTION: HLS TRANSCODING
 
@@ -553,3 +559,25 @@ Transcoding media files is often computationally expensive. In the case of video
 - N/A
 
 #### Execution
+
+# EXTERNAL DATA SOURCE RUN INSTRUCTIONS
+
+Ensure all steps in above sections are completed before proceeding
+
+## Adding Album/Track Metadata from Thwiki.cc
+
+### 1. Link Albums with Thwiki Articles By Search
+
+Run `ExternalInfo\ThwikiInfoProvider\ThwikiAlbumPageQueryScraper\song_page_scraper.py`
+
+### 2. Scrape Album/Track Metadata from Thwiki
+
+Run `ExternalInfo\ThwikiInfoProvider\ThwikiAlbumPageScraper\song_page_scraper.py`
+
+### 3. Map Original Tracks Templates
+
+Run `ExternalInfo\ThwikiInfoProvider\ThwikiOriginalTrackDiscovery\original_track_discovery.py`
+
+### 4. Match Thwiki Album & Tracks with Local Album & Tracks
+
+Run `ExternalInfo\ThwikiInfoProvider\ThwikiAlbumInfoMatcher\song_info_matcher.py`
