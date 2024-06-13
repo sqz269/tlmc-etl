@@ -12,3 +12,4 @@ fuzzywuzzy
 python-Levenshtein
 scipy
 numpy
+furl

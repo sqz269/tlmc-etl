@@ -13,6 +13,7 @@ from ExternalInfo.ThwikiInfoProvider.ThwikiLyricsPageScraper.Model.ThwikiLyricsI
     LyricsInfo,
     LyricsProcessingStatus,
 )
+import ExternalInfo.ThwikiInfoProvider.ThwikiLyricsPageScraper.Model.ThwikiLyricsModel as LyricsModel
 import ExternalInfo.ThwikiInfoProvider.cache.path_definitions as CachePathDef
 
 import ExternalInfo.ThwikiInfoProvider.output.path_definitions as ThwikiOutput
@@ -20,6 +21,7 @@ import mwparserfromhell as mw
 from mwparserfromhell.nodes.template import Template
 from mwparserfromhell.wikicode import Wikicode
 from ExternalInfo.CacheInfoProvider.Cache import cached
+from ExternalInfo.ThwikiInfoProvider.Shared import ThwikiUtils
 
 album_formatted_output_path = utils.get_output_path(
     ThwikiOutput, ThwikiOutput.THWIKI_ALBUM_FORMAT_RESULT_OUTPUT
@@ -117,7 +119,7 @@ def follow_redirect(src) -> Optional[str]:
     return redirect_link.title
         
 
-@cached("lyric_page_src", lyrics_wiki_page_cache_path, disable_parse=True)
+@cached("lyric_page_src", lyrics_wiki_page_cache_path, disable_parse=True, debug=True)
 def get_page_source(page_title) -> Optional[str]:
     PAGE_SRC_URL = "https://thwiki.cc/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={path}&utf8=1"
     HEADER = {
@@ -160,45 +162,39 @@ def get_wiki_page_source(quersrc: str) -> Optional[str]:
     
     return page["revisions"][0]["*"]
 
-def get_lyrical_line(text_line=str) -> Optional[str]:
-    # Need to detect temaplates embedded in the text
-    # Example ぼくらが、{{ruby-ja|歩いていく|歩く}}この道が、
-    # We need to separate token into it's own string compartment
-    # then call mwpaserfromhell to parse the template and insert 
-    # it's content back into it's original position
+
+def get_lyrics_actual_handle_table(full_src: str) -> LyricsModel.ThwikiLyrics:
+    lyrics = LyricsModel.ThwikiLyrics(sections=[])
+
+    # check for tabbers and sections
+    parsed = mw.parse(full_src)
+    tabbers = [tabber for tabber in parsed.filter_tags() if tabber.tag == 'tabber'] 
+    if len(tabbers) == 0:
+        lyrics.sections.append(get_lyrics_actual(full_src, None))
+        return lyrics
     
-    string_compartments = []
+    assert len(tabbers) == 1, "Multiple tabbers found in the lyrics page"
 
-    start_offset = 0
-    while True:
-        start = text_line.find("{{", start_offset)
-        if start == -1:
-            string_compartments.append(text_line[start_offset:])
-            break
+    tabber_contents = tabbers[0].contents
+    l = [l for l in str(tabber_contents).split("\n") if l]
+    # the first line going to be the first tab's header
+    # and after that, each separate tab is splitted by `|-|` 
+    # with the tab header immediately after
 
-        end = text_line.find("}}", start)
-        if end == -1:
-            raise Exception("Parse failed, unclosed template brackets in", text_line)
-        
-        string_compartments.append(text_line[start_offset:start])
-        string_compartments.append(text_line[start:end+2])
-        start_offset = end + 2
+    tab_segments = [i for i, x in enumerate(l) if x == "|-|"]
+    tab_segments.append(len(l))
+    tab_segments.insert(0, 0)
+    tab_segment_contents = [l[tab_segments[i]:tab_segments[i+1]] for i in range(len(tab_segments)-1)]
+    # Remove the |-| lines if they exists for each segments
+    tab_segment_contents = [list(filter(lambda x: x != "|-|", segment)) for segment in tab_segment_contents]
+    for segment in tab_segment_contents:
+        segment_title = segment[0].split("=")[0].strip()
+        lyrics.sections.append(get_lyrics_actual("\n".join(segment), segment_title))
 
-    result_string = ""
-    for compartment in string_compartments:
-        if compartment.startswith("{{"):
-            template = mw.parse(compartment).filter_templates()[0]
-            if template.name.strip() not in ["ruby-ja", "ruby-cn"]:
-                print("Unknown template", template.name)
-                input()
+    return lyrics
 
-            result_string += template.get(1).value.strip()
-        else:
-            result_string += compartment
-
-    return result_string
-
-def get_lyrics_actual(raw_page_src: str) -> Dict[str, Dict[str, str]]:
+def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsModel.ThwikiLyricsSection:
+    section = LyricsModel.ThwikiLyricsSection(section_title, time_instants={})
     lyrics = {}
     is_in_lyrics_section = False
     current_timestamp = None
@@ -208,7 +204,11 @@ def get_lyrics_actual(raw_page_src: str) -> Dict[str, Dict[str, str]]:
         "__",
     ]
     check_lyrics_line = r'^[A-Za-z]{2}=$'
-    for line in raw_page_src.split("\n"):
+
+    # used in case there is no timestamp
+    current_timestamp_default = 0
+
+    for line in src_section.split("\n"):
         if not line.strip():
             continue
 
@@ -226,6 +226,9 @@ def get_lyrics_actual(raw_page_src: str) -> Dict[str, Dict[str, str]]:
         
         if line.startswith("time="):
             current_timestamp = line.split("=")[1]
+            if not current_timestamp:
+                current_timestamp = f"<line-{current_timestamp_default}>"
+                current_timestamp_default += 1
             lyrics[current_timestamp] = {}
             continue
 
@@ -245,7 +248,11 @@ def get_lyrics_actual(raw_page_src: str) -> Dict[str, Dict[str, str]]:
             current_timestamp = None
             is_in_lyrics_section = False
 
-    return lyrics
+    for timestamp, lines in lyrics.items():
+        lines = [LyricsModel.ThwikiLyricsLineLang(lang, text) for lang, text in lines.items()]
+        section.time_instants[timestamp] = LyricsModel.ThwikiLyricsTimeInstant(timestamp, lines)
+
+    return section
 
 def get_lyrics_metadata(data: Wikicode) -> Optional[Dict[str, str]]:
     lyrics_templates = list(
@@ -292,8 +299,8 @@ def process_one(entry: LyricsInfo):
         entry.save()
         return 
     
-    lyrics = get_lyrics_actual(src)
-    entry.lyrics = json.dumps(lyrics, ensure_ascii=False)
+    lyrics = get_lyrics_actual_handle_table(src)
+    entry.lyrics = json.dumps(lyrics.to_json(), ensure_ascii=False)
     entry.original_language = metadata.get("src_lang", None)
     entry.translator = metadata.get("translator", None)
     entry.process_status = LyricsProcessingStatus.PROCESSED
