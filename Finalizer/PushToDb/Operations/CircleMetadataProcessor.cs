@@ -46,11 +46,14 @@ public static class CircleMetadataProcessor
                 continue;
             }
 
+            knownIdsTracking.Add(id);
+
             Console.WriteLine($"Creating Circle Object {name}");
             var circle = new Circle
             {
                 Id = Guid.Parse(id),
                 Name = name,
+                Status = CircleStatus.Unset,
                 Alias = aliases
             };
 

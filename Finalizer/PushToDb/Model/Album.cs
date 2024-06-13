@@ -44,6 +44,7 @@ public class Album
 
     public List<Album>? ChildAlbums { get; set; } = new();
 
+    public Guid? ImageId { get; set; }
     public Asset? Image { get; set; }
 
     public Thumbnail? Thumbnail { get; set; }

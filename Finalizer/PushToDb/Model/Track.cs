@@ -36,6 +36,7 @@ public class Track
     //[Column(TypeName = "jsonb")] 
     //public LyricsCollection? Lyrics { get; set; }
 
+    public Guid AlbumId { get; set; }
     public Album Album { get; set; }
 
     public List<OriginalTrack> Original { get; set; } = new();

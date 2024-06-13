@@ -48,7 +48,13 @@ public class AppDbContext : DbContext
             .Property(p => p.Type)
             .HasConversion(v => v.ToString(),
                 v => Enum.Parse<HlsPlaylistType>(v));
-        
+
+
+        modelBuilder.Entity<Album>()
+            .HasOne(a => a.Image)
+            .WithOne()
+            .HasForeignKey<Album>(a => a.ImageId);
+
         base.OnModelCreating(modelBuilder);
     }
 }

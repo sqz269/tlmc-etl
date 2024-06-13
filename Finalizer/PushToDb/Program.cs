@@ -1,11 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using PushToDb;
 using PushToDb.Operations;
 using PushToDb.UserOptions;
 using Sharprompt;
 
-const string POSTGRES_CONNECTION_STRING = "Host=localhost;Port=30011;Username=postgres;Password=postgrespw;Database=postgres";
+NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
+
+const string POSTGRES_CONNECTION_STRING = "Host=192.168.29.223;Port=30064;Username=postgres;Password=postgrespw;Database=postgres";
 
 Console.WriteLine("Initializing DB Connection");
 
@@ -18,7 +21,6 @@ try
         .LogTo(Console.WriteLine, LogLevel.Warning);
 
     appDbContext = new AppDbContext(dbContext.Options);
-    appDbContext.Database.Migrate();
 
     Console.WriteLine("DB Connection Initialized");
 }
