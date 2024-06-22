@@ -45,7 +45,7 @@ def import_data_from_json(json_path):
         print(f"Saving Query Data {i + BATCH_SIZE}/{len(init_data)}", end="\r")
         QueryData.bulk_create(init_data[i : i + BATCH_SIZE])
     print("\nImport complete")
-    
+
 
 def process_data():
     total_unprocessed = QueryData.select().where(QueryData.query_status == QueryStatus.PENDING).count()
@@ -53,6 +53,7 @@ def process_data():
         print("No unprocessed data")
         return
     
+    data: QueryData
     for idx, data in enumerate(QueryData.select().where(QueryData.query_status == QueryStatus.PENDING)):
         print(f"Processing {idx + 1}/{total_unprocessed}", end="\r")
         album_id = data.album_id
