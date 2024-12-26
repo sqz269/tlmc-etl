@@ -3,10 +3,10 @@ import os
 
 from Shared import utils
 
-import ExternalInfo.ThwikiInfoProvider.Databases.path_definitions as DatabasesPathDef
+import ExternalInfo.TouhouDbInfoProvider.Databases.path_definitions as DatabasesPathDef
 
 query_data_db_path = utils.get_output_path(
-    DatabasesPathDef, DatabasesPathDef.THWIKI_QUERY_PROVIDER_DATABASE
+    DatabasesPathDef, DatabasesPathDef.THDB_QUERY_PROIVDER_DATABASE
 )
 
 QueryDataDb = SqliteDatabase(query_data_db_path)
