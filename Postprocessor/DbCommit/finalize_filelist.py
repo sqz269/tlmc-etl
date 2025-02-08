@@ -1,5 +1,5 @@
-import InfoCollector.AlbumInfo.output.path_definitions as AlbumInfoOutputPaths
-import InfoCollector.ArtistInfo.output.path_definitions as ArtistInfoOutputPaths
+import Processor.InfoCollector.AlbumInfo.output.path_definitions as AlbumInfoOutputPaths
+import Processor.InfoCollector.ArtistInfo.output.path_definitions as ArtistInfoOutputPaths
 import Postprocessor.HlsTranscode.output.path_definitions as HlsTranscodeOutputPaths
 import Postprocessor.DbCommit.output.path_definitions as DbCommitOutputPaths
 from Shared.utils import get_output_path
@@ -23,6 +23,19 @@ artist_list_output = get_output_path(
 db_commit_output = get_output_path(
     DbCommitOutputPaths, DbCommitOutputPaths.FINALIZED_FILELIST_OUTPUT_NAME
 )
+
+def scan_hls_result_files(target_root):
+    pass
+
+def scan_hls_master_playlist()
+
+def transform_transcode_filelist_to_fp_key(transcode_filelist) -> dict:
+    result = {}
+    for k, entry in transcode_filelist.items():
+        src = entry[list(entry.keys())[0]]['src']
+        
+        for quality, target_info in entry.items():
+            dst = target_info["dst_root"]
 
 
 def generate_track_hls_assets(track_path, transcode_filelist):
@@ -94,7 +107,7 @@ def generate(album_info, artist_info, transcode_filelist):
         # assign additional assets id
         for asset in album["Assets"]:
             asset["Id"] = str(uuid.uuid4())
-            if asset["AssetPath"] == album["AlbumMetadata"]["Thumbnail"]:
+            if asset["AssetPath"] == album["Thumbnail"]:
                 album["ThumbnailAssetId"] = asset["Id"]
 
         # assign each disc an UUID

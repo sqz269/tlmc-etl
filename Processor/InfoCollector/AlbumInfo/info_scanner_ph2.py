@@ -1,8 +1,8 @@
 import json
 import os
 import re
-from collections import Counter
-from typing import Iterable, List, Tuple
+from collections import Counter, defaultdict
+from typing import Dict, Iterable, List, Set, Tuple
 
 import Shared.utils as utils
 from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
@@ -190,6 +190,8 @@ class Phase02AlbumExtractor:
         # remove all brackets from dirname
         # may be inaccurate if the album name contains brackets
         album_name = str_rm_substrings(album_name, brackets)
+        # Remove empty brackets
+
         album_name = album_name.strip()
         return album_name
 
@@ -217,9 +219,14 @@ class Phase02AlbumExtractor:
             "九": 9,
         }
         catalog = Phase02AlbumExtractor.try_extract_catalog_number(album_name, brackets)
-        # thing that is not a catalog and contains at least one digit and one letter (unicode included)
+        # remove catalog from brackets
+        brackets = [b for b in brackets if b != catalog]
+
+        if len(brackets) == 1 and len(brackets[0]) >= 1 and len(brackets[0]) <= 10:
+            return brackets[0]
+        
         for bracket in brackets:
-            if bracket != catalog and len(bracket) >= 5 and len(bracket) <= 15:
+            if len(bracket) >= 1 and len(bracket) <= 10:
                 digits = [c for c in bracket if c.isdigit() or c in other_numerals]
                 letters = [c for c in bracket if c.isalpha()]
 
@@ -273,27 +280,29 @@ class Phase02AlbumExtractor:
             "ReleaseConvention": "",
         }
         brackets = []
-        dirname = os.path.basename(album_path)
-        brackets = extract_bracket_content(dirname)
+        filename = os.path.basename(album_path)
+        brackets = extract_bracket_content(filename)
         brackets = Phase02AlbumExtractor.remove_auxiliary_info(brackets)
 
         # get circle part of the path. (parent of album dir)
         dirname = os.path.basename(os.path.dirname(album_path))
         artist = dirname
         data["AlbumArtist"] = artist
-
-        if len(brackets) == 0:
-            return data
-
-        data["ReleaseDate"] = Phase02AlbumExtractor.try_extract_date(dirname, brackets)
-        data["AlbumName"] = Phase02AlbumExtractor.try_extract_album_name(
-            dirname, brackets
-        )
+        data["ReleaseDate"] = Phase02AlbumExtractor.try_extract_date(filename, brackets)        
         data["CatalogNumber"] = Phase02AlbumExtractor.try_extract_catalog_number(
-            dirname, brackets
+            filename, brackets
         )
         data["ReleaseConvention"] = Phase02AlbumExtractor.try_extract_event_number(
-            dirname, brackets
+            filename, brackets
+        )
+        # Remove all previously extracted data from the string
+        prev_extracted = [data["ReleaseDate"], data["CatalogNumber"], data["ReleaseConvention"]]
+        filename = str_rm_substrings(filename, prev_extracted)
+        filename = str_rm_substrings(filename, brackets)
+        filename = str_rm_substrings(filename, ["[]", "{}", "()"])
+
+        data["AlbumName"] = Phase02AlbumExtractor.try_extract_album_name(
+            filename, brackets
         )
 
         return data
@@ -326,10 +335,25 @@ class Phase02AlbumExtractor:
 
     def process(self):
         info = {}
+        # collect release convention infomation so we can assign release dates
+        # for albums that have the same release convention, but no release date
+        # Use a counter to keep track of the release dates for each release convention
+        release_conventions: Dict[str, Dict[str, int]] = defaultdict(Counter)
         for album in self.phase_1_result:
             album_root = album["AlbumRoot"]
             pi = self.extract_and_merge_album_info(album)
             info[album_root] = pi
+
+            if pi["ReleaseConvention"] != "" and pi["ReleaseDate"] != "":
+                release_conventions[pi["ReleaseConvention"]] += {pi["ReleaseDate"]: 1}
+
+        # assign release date to albums that have the same release convention
+        # but no release date
+        for album in info.values():
+            if album["ReleaseDate"] == "" and album["ReleaseConvention"] != "":
+                release_dates = release_conventions[album["ReleaseConvention"]]
+                if len(release_dates) > 0:
+                    album["ReleaseDate"] = release_dates.most_common(1)[0][0]
 
         return info
 
