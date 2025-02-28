@@ -13,4 +13,5 @@ python-Levenshtein
 scipy
 numpy
 furl
-./ExternalInfo/TouhouDbInfoProvider/touhoudb_api_client/
+# ./ExternalInfo/TouhouDbInfoProvider/touhoudb_api_client/
+./Finalizer/ApiPushToDb/backend-api-client

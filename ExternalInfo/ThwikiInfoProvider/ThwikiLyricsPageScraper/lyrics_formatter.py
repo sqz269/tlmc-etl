@@ -40,6 +40,13 @@ class RubyAnnotation:
     def to_json(self):
         return {"index": self.index, "length": self.length, "text": self.text}
 
+    @staticmethod
+    def from_json(data: Any):
+        return RubyAnnotation(
+            index=int(data["index"]), length=int(data["length"]), text=data["text"]
+        )
+
+
 @dataclass
 class LyricsAnnotatedLine:
     time: Optional[str]
@@ -52,6 +59,14 @@ class LyricsAnnotatedLine:
             "text": self.text,
             "annotations": [annotation.to_json() for annotation in self.annotations],
         }
+
+    @staticmethod
+    def from_json(data: Any):
+        return LyricsAnnotatedLine(
+            data["time"],
+            data["text"],
+            [RubyAnnotation.from_json(i) for i in data["annotations"]],
+        )
 
 
 def validate_timespan(time: str) -> Optional[timedelta]:
