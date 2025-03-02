@@ -1,3 +1,8 @@
+"""
+TODO: Investigate edge case:
+    https://thwiki.cc/%E6%AD%8C%E8%AF%8D:%E8%8F%AF%E9%B3%A5%E9%A2%A8%E6%9C%88
+"""
+
 import json
 import re
 import time
