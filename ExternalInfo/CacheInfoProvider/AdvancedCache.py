@@ -3,10 +3,15 @@ import os
 import re
 from typing import Any, Callable, Optional
 
+import hashlib
 import ExternalInfo.ThwikiInfoProvider.Databases.path_definitions as DatabasesPathDef
 from ExternalInfo.CacheInfoProvider.Model.AdvancedCacheModel import (
     AdvancedSourceCacheTable
 )
+
+
+def adv_cache_hashed_id_generator(*args):
+    return hashlib.md5("".join([str(x) for x in args]).encode()).hexdigest()
 
 
 def advanced_cache(
@@ -16,6 +21,7 @@ def advanced_cache(
     # not using pickle cuz we might be caching stuff that is from the internet
     cache_save_transformer: Optional[Callable[[Any], str]] = lambda x: str(x),
     cache_load_transformer: Optional[Callable[[str], Any]] = lambda x: x,
+    cache_filename_generator: Optional[Callable[[Any], str]] = lambda x: str(x),
 ):
     norm_path = lambda path, subchar="_": re.sub(r"\<|\>|\:|\"|\/|\\|\||\?|\*", subchar, path)
 
@@ -26,6 +32,8 @@ def advanced_cache(
 
         def wrapper(*args, **kwargs):
             path_id = cache_id + "__" + "__".join([str(norm_path(x)) for x in args])
+            if cache_filename_generator:
+                path_id = cache_filename_generator(path_id)
             if (
                 AdvancedSourceCacheTable.select()
                 .where(AdvancedSourceCacheTable.path == path_id)
@@ -69,5 +77,5 @@ def advanced_cache(
             return src
 
         return wrapper
-    
+
     return actual_decorator
