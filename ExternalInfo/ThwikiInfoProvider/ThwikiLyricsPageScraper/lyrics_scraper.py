@@ -156,16 +156,18 @@ def get_page_source(page_title) -> Optional[str]:
     return json.dumps(j, ensure_ascii=False, indent=4)
 
 def get_wiki_page_source(quersrc: str) -> Optional[str]:
+    if not quersrc:
+        return None
     j = json.loads(quersrc)
     page = list(j["query"]["pages"].values())[0]
     if "missing" in page:
         return None
-    
+
     try:
         page["revisions"][0]["*"]
     except KeyError:
         return None
-    
+
     return page["revisions"][0]["*"]
 
 
@@ -228,6 +230,9 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
             current_timestamp = None
             continue
 
+        if not line.strip("x"):
+            continue
+
         if line.replace(" ", "").startswith("lyrics="):
             is_in_lyrics_section = not is_in_lyrics_section
             continue
@@ -252,11 +257,18 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
         if current_timestamp is None:
             continue
 
-        lang, _ = line.split("=", 1)
+        try:
+            lang, _ = line.split("=", 1)
+        except:
+            pass
+
         possible_langs.add(lang)
 
     for line in src_section.split("\n"):
         if not line.strip():
+            continue
+
+        if not line.strip("x"):
             continue
 
         if any([line.startswith(term) for term in lyrics_section_term]):
