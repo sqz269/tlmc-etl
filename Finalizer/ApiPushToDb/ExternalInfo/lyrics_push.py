@@ -81,7 +81,7 @@ def fix_mistyped_timestamp(timespan: Optional[str]) -> Optional[str]:
 def json_to_lyrics(lyrics_info: LyricsInfo) -> Lyrics:
     if not lyrics_info.lyrics:
         return None
-    
+
     data: Dict[str, Dict[str, Any]] = json.loads(lyrics_info.lyrics)
 
     # Tuple of variant type, and a time indexed annotation lines
@@ -99,7 +99,7 @@ def json_to_lyrics(lyrics_info: LyricsInfo) -> Lyrics:
         for lang, lyrics in lang_lyrics.items():
             for idx, line in enumerate(lyrics):
                 annotated_line = LyricsAnnotatedLine.from_json(line)
-                
+
                 rubies: List[Ruby] = []
                 for annotation in annotated_line.annotations:
                     if annotation.text is None:
@@ -124,7 +124,7 @@ def json_to_lyrics(lyrics_info: LyricsInfo) -> Lyrics:
                 time_mapped[annotated_line.time][lang].append(
                     (idx, text)
                 )
-    
+
         # format time_mapped into lines
         index_lines: Dict[int, LyricsLine] = {}
         # lyrics_variant = LyricsVariant(variant=None, lines=lines)
@@ -135,10 +135,9 @@ def json_to_lyrics(lyrics_info: LyricsInfo) -> Lyrics:
                         index_lines[index] = LyricsLine(
                             index=index,
                             time=pad_timespan(
-                                fix_mistyped_timestamp(
-                                    timespan
-                                )),
-                            blocks=[text]
+                                fix_mistyped_timestamp(timespan),
+                            ),
+                            blocks=[text],
                         )
                     else:
                         index_lines[index].blocks.append(
@@ -150,7 +149,7 @@ def json_to_lyrics(lyrics_info: LyricsInfo) -> Lyrics:
         )
 
         lyrics_variants.append(lyrics_variant)
-            
+
     return Lyrics(
         id=str(uuid.uuid4()),
         variants=lyrics_variants,

@@ -168,7 +168,7 @@ def llm_heal_line(raw_line: str) -> Optional[Dict[Any, Any]]:
 
     **Example:**
     Input:
-    {{ruby-ja|{{color:#EE0000|寒風にかき消され}}|{{color:#1E90FF|寒さに呑まれて}}}}
+    {{ruby-ja|{{color:\#EE0000|寒風にかき消され}}|{{color:\#1E90FF|寒さに呑まれて}}}}
 
     Expected JSON:
     {
@@ -290,10 +290,12 @@ def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
 
         # Ensure the template has exactly 2 parameters
         if len(template.params) != 2:
+            raise ValueError(
+                f"Unexpected number of parameters in template {template.name}"
+            )
             breakpoint()
             need_review.append(True)
             return _extract_text(template.params[0]), ""
-            # raise ValueError(f"Unexpected number of parameters in template {template.name}")
 
         result = []
         params: Parameter
@@ -398,7 +400,7 @@ def main():
     entry: LyricsInfo
     i = 0
     for entry in LyricsInfo.select().where(
-        (LyricsInfo.process_status == LyricsProcessingStatus.PARSE_PROCESSED)
+        (LyricsInfo.process_status == LyricsProcessingStatus.PROCESSED)
     ):
         # if entry.remote_track_id()
         lyrics_src = entry.lyrics_src
