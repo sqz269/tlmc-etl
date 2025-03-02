@@ -264,6 +264,9 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
 
         possible_langs.add(lang)
 
+    if "ja" in possible_langs:
+        possible_langs.discard("en")
+
     for line in src_section.split("\n"):
         if not line.strip():
             continue
@@ -303,7 +306,7 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
         try:
             lang, text = line.split("=", 1)
             # Explicitly exclude lang: en, b/c sometimes it is in japanese lyrics
-            if lang == "en" and "jp" in possible_langs:
+            if lang == "en" and "ja" in possible_langs:
                 all_langs = lyrics.values()
                 # we are making big assumptions here
                 if "ja" not in lyrics[current_timestamp]:
@@ -311,8 +314,12 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
                 elif "zh" not in lyrics[current_timestamp]:
                     lyrics[current_timestamp]["zh"] = text
                 else:
+                    # terrible
+                    lyrics[current_timestamp]["ja"] = (
+                        lyrics[current_timestamp]["ja"] + text
+                    )
                     print("wtf")
-                    breakpoint()
+                    # breakpoint()
                 continue
 
             lyrics[current_timestamp][lang] = text
@@ -356,7 +363,7 @@ def process_one(entry: LyricsInfo):
         entry.process_status = LyricsProcessingStatus.NO_LYRICS_FOUND
         entry.save()
         return
-    
+
     redirect = follow_redirect(src)
 
     if redirect is not None:
@@ -370,9 +377,9 @@ def process_one(entry: LyricsInfo):
         entry.process_status = LyricsProcessingStatus.NO_LYRICS_FOUND
         entry.save()
         return 
-    
+
     lyrics = get_lyrics_actual_handle_table(src)
-    entry.lyrics = json.dumps(lyrics.to_json(), ensure_ascii=False)
+    entry.lyrics_src = json.dumps(lyrics.to_json(), ensure_ascii=False)
     entry.original_language = metadata.get("src_lang", None)
     entry.translator = metadata.get("translator", None)
     entry.process_status = LyricsProcessingStatus.PROCESSED
@@ -382,9 +389,12 @@ def process_one(entry: LyricsInfo):
 def process():
     total = LyricsInfo.select().where(LyricsInfo.process_status == LyricsProcessingStatus.PENDING).count()
     current = 0
+    pending: LyricsInfo
     for pending in LyricsInfo.select().where(
-        LyricsInfo.process_status == LyricsProcessingStatus.FAILED
+        LyricsInfo.process_status == LyricsProcessingStatus.PENDING
     ):
+        # if pending.remote_track_id != "33a63b2b-94a6-4988-b7f1-54dba801e2f0":
+        # continue
         current += 1
         print(f"Processing {current}/{total}")
         try:

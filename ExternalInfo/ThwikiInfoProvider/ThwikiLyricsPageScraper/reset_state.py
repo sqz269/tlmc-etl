@@ -25,8 +25,12 @@ from ExternalInfo.ThwikiInfoProvider.Shared import ThwikiUtils
 
 e: LyricsInfo
 i = 0
-for e in LyricsInfo.select().where(LyricsInfo.process_status == LyricsProcessingStatus.PROCESSED):
+for e in LyricsInfo.select().where(
+    LyricsInfo.process_status == LyricsProcessingStatus.PARSE_PROCESSED
+):
     i += 1
     print(i)
     e.process_status = LyricsProcessingStatus.PENDING
+    e.lyrics_src = None
+    e.lyrics = None
     e.save()

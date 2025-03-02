@@ -201,16 +201,16 @@ def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
 
 def main():
     entry: LyricsInfo
+    i = 0
     for entry in LyricsInfo.select().where(
         (LyricsInfo.process_status == LyricsProcessingStatus.PROCESSED)
     ):
-        if entry.remote_track_id != "33a63b2b-94a6-4988-b7f1-54dba801e2f0":
+        lyrics_src = entry.lyrics_src
+        if lyrics_src is None:
             continue
-        lyrics = entry.lyrics
-        if lyrics is None:
-            continue
-
-        parsed = json.loads(lyrics)
+        i += 1
+        print(i)
+        parsed = json.loads(lyrics_src)
 
         try:
             parsed_lyrics: Dict[str, Dict[str, List[LyricsAnnotatedLine]]] = (
@@ -218,14 +218,14 @@ def main():
             )
             out_need_review = []
             for section_title, section_content in parsed.items():
-                for timespan, lyrics in section_content.items():
+                for timespan, lyrics_src in section_content.items():
                     is_valid = validate_timespan(timespan)
-                    for lang in lyrics.keys():
+                    for lang in lyrics_src.keys():
                         try:
-                            line_parsed = parse_line(lyrics[lang], out_need_review)
+                            line_parsed = parse_line(lyrics_src[lang], out_need_review)
                             if is_valid:
                                 line_parsed.time = timespan
-                            print(line_parsed)
+                            # print(line_parsed)
                             parsed_lyrics[section_title][lang].append(
                                 line_parsed.to_json()
                             )

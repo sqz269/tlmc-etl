@@ -27,8 +27,8 @@ def pad_timespan(timespan: Optional[str]) -> Optional[str]:
         return None
 
     # Regular expression to match "mm:ss.SSS" or "mm:ss.S" format (missing hours)
-    pattern = re.compile(r'^(\d{2}):(\d{2})\.(\d+)$')
-    
+    pattern = re.compile(r"^(\d{2}):(\d{2,3})\.(\d+)$")
+
     match = pattern.match(timespan)
     if match:
         minutes, seconds, milliseconds = match.groups()
@@ -37,21 +37,20 @@ def pad_timespan(timespan: Optional[str]) -> Optional[str]:
         corrected_seconds = total_seconds % 60
         corrected_minutes = int(minutes) + extra_minutes
         return f"00:{corrected_minutes:02}:{corrected_seconds:02}.{milliseconds}"
-    
+
     # Fix format like "mm:ss." to "mm:ss.00"
     pattern_missing_ms = re.compile(r'^(\d{2}):(\d{2})[.,]$')
     match_missing_ms = pattern_missing_ms.match(timespan)
     if match_missing_ms:
         minutes, seconds = match_missing_ms.groups()
         return f"00:{minutes}:{seconds}.00"
-    
+
     # Fix format like "mm.ss" to "mm:ss.00"
     pattern_alt_format = re.compile(r'^(\d{2})\.(\d{2})$')
     match_alt_format = pattern_alt_format.match(timespan)
     if match_alt_format:
         minutes, seconds = match_alt_format.groups()
         return f"00:{minutes}:{seconds}.00"
-    
 
     # Return original if already correct
     return timespan
@@ -181,7 +180,7 @@ def main():
             lyrics_id=lyrics.id,
             lyrics=lyrics
         )
-        
+
 
 if __name__ == '__main__':
     main()
