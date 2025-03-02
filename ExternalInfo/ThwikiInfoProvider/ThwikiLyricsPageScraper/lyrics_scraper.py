@@ -1,7 +1,8 @@
 import json
 import re
 import time
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Set
+import uuid
 import httpx
 from Shared import utils
 from Shared.json_utils import json_load, json_dump
@@ -42,7 +43,7 @@ cache_dir = utils.get_output_path(CachePathDef, CachePathDef.THWIKI_LYRICS_WIKI_
 def construct_potential_lyrics_page_title(entry: Track) -> Optional[str]:
     if (entry.lyrics_author is None) or (entry.lyrics_author == ""):
         return None
-    
+
     page_title: str;
 
     if (entry.lyrics):
@@ -51,7 +52,6 @@ def construct_potential_lyrics_page_title(entry: Track) -> Optional[str]:
         page_title = json.loads(entry.title_jp)[0]
 
     return f'歌词:{page_title}'
-
 
 
 def import_data():
@@ -69,7 +69,7 @@ def import_data():
     if total_tracks == 0:
         print("No tracks found in the database")
         return
-    
+
     tracks_with_lyrics = Track.select().where(Track.lyrics_author.is_null(False))
     tracks_with_lyrics_count = tracks_with_lyrics.count()
     track: Track
@@ -79,7 +79,7 @@ def import_data():
 
         if matched_entry is None:
             continue
-        
+
         page_title = construct_potential_lyrics_page_title(track)
         if page_title is None:
             continue
@@ -88,6 +88,7 @@ def import_data():
             LyricsInfo(
                 track_id=track.track_id,
                 remote_track_id=matched_entry["remote_id"],
+                lyrics_id=str(uuid.uuid4()),
                 wiki_page_title_constructed=page_title,
                 process_status=LyricsProcessingStatus.PENDING,
             )
@@ -95,7 +96,7 @@ def import_data():
 
     print(f"Total tracks with lyrics: {tracks_with_lyrics_count}")
     print(f"Total matched tracks with lyrics: {len(to_process)}")
-    
+
     BATCH_SIZE = 2000
     for i in range(0, len(to_process), BATCH_SIZE):
         print(f"Processing batch {i} to {i+BATCH_SIZE}")
@@ -109,17 +110,22 @@ def follow_redirect(src) -> Optional[str]:
         if keyword in src.lower():
             is_redirect = True
             break
-    
+
     if not is_redirect:
         return None
-
 
     parsed = mw.parse(src)
     redirect_link = parsed.filter_wikilinks()[0]
     return redirect_link.title
-        
 
-@cached("lyric_page_src", lyrics_wiki_page_cache_path, disable_parse=True, debug=True)
+
+@cached(
+    "lyric_page_src",
+    lyrics_wiki_page_cache_path,
+    disable_parse=True,
+    debug=True,
+    # restore=True,
+)
 def get_page_source(page_title) -> Optional[str]:
     PAGE_SRC_URL = "https://thwiki.cc/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={path}&utf8=1"
     HEADER = {
@@ -208,6 +214,11 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
     # used in case there is no timestamp
     current_timestamp_default = 0
 
+    # we need to handle original lyrics that are purely english
+    # and lyrics that mixes japanese and english
+    # it's weird
+    # do a first pass, scanning languages
+    possible_langs: Set[str] = set()
     for line in src_section.split("\n"):
         if not line.strip():
             continue
@@ -220,10 +231,46 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
         if line.replace(" ", "").startswith("lyrics="):
             is_in_lyrics_section = not is_in_lyrics_section
             continue
-        
+
         if not is_in_lyrics_section:
             continue
-        
+
+        if line.startswith("time="):
+            current_timestamp = line.split("=")[1]
+            if not current_timestamp:
+                current_timestamp = f"<line-{current_timestamp_default}>"
+                current_timestamp_default += 1
+            lyrics[current_timestamp] = {}
+            continue
+
+        if line.startswith("sep="):
+            sep_timestamp = line.split("=")[1]
+            lyrics[sep_timestamp] = {}
+            current_timestamp = None
+            continue
+
+        if current_timestamp is None:
+            continue
+
+        lang, _ = line.split("=", 1)
+        possible_langs.add(lang)
+
+    for line in src_section.split("\n"):
+        if not line.strip():
+            continue
+
+        if any([line.startswith(term) for term in lyrics_section_term]):
+            is_in_lyrics_section = False
+            current_timestamp = None
+            continue
+
+        if line.replace(" ", "").startswith("lyrics="):
+            is_in_lyrics_section = not is_in_lyrics_section
+            continue
+
+        if not is_in_lyrics_section:
+            continue
+
         if line.startswith("time="):
             current_timestamp = line.split("=")[1]
             if not current_timestamp:
@@ -243,6 +290,19 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
 
         try:
             lang, text = line.split("=", 1)
+            # Explicitly exclude lang: en, b/c sometimes it is in japanese lyrics
+            if lang == "en" and "jp" in possible_langs:
+                all_langs = lyrics.values()
+                # we are making big assumptions here
+                if "ja" not in lyrics[current_timestamp]:
+                    lyrics[current_timestamp]["ja"] = text
+                elif "zh" not in lyrics[current_timestamp]:
+                    lyrics[current_timestamp]["zh"] = text
+                else:
+                    print("wtf")
+                    breakpoint()
+                continue
+
             lyrics[current_timestamp][lang] = text
         except ValueError:
             current_timestamp = None
@@ -310,7 +370,9 @@ def process_one(entry: LyricsInfo):
 def process():
     total = LyricsInfo.select().where(LyricsInfo.process_status == LyricsProcessingStatus.PENDING).count()
     current = 0
-    for pending in LyricsInfo.select().where(LyricsInfo.process_status == LyricsProcessingStatus.PENDING):
+    for pending in LyricsInfo.select().where(
+        LyricsInfo.process_status == LyricsProcessingStatus.FAILED
+    ):
         current += 1
         print(f"Processing {current}/{total}")
         try:
@@ -319,7 +381,7 @@ def process():
             print(f"Failed to process {pending.track_id}. Error: {e}")
             pending.process_status = LyricsProcessingStatus.FAILED
             pending.save()
-    
+
 def main():
     if LyricsInfo.select().count() == 0:
         import_data()

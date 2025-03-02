@@ -204,6 +204,8 @@ def main():
     for entry in LyricsInfo.select().where(
         (LyricsInfo.process_status == LyricsProcessingStatus.PROCESSED)
     ):
+        if entry.remote_track_id != "33a63b2b-94a6-4988-b7f1-54dba801e2f0":
+            continue
         lyrics = entry.lyrics
         if lyrics is None:
             continue

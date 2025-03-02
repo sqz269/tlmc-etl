@@ -21,7 +21,7 @@ def get_cache_id(url, id):
     return id + "__" + NormalizePath(unquote(get_url_path(url)))
 
 
-def cached(cache_id, cache_dir, debug=False, disable_parse=False):
+def cached(cache_id, cache_dir, debug=False, disable_parse=False, restore=False):
     if not os.path.isdir(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -37,10 +37,34 @@ def cached(cache_id, cache_dir, debug=False, disable_parse=False):
                 cached = SourceCacheTable.get(
                     SourceCacheTable.path == path_id
                 ).cached_source_path
+
                 if cached != "" and os.path.exists(cached):
                     if debug:
                         print("Cache Hit for " + url)
                     with open(cached, "r", encoding="utf-8") as f:
+                        if disable_parse:
+                            return f.read()
+                        return mw.parse(f.read())
+                if restore and os.path.exists(os.path.join(cache_dir, path_id)):
+                    restore_path = os.path.join(cache_dir, path_id)
+                    if (
+                        SourceCacheTable.select()
+                        .where(SourceCacheTable.path == path_id)
+                        .exists()
+                    ):
+                        SourceCacheTable.replace(
+                            path=path_id,
+                            cached_source_path=restore_path,
+                            time_cached=datetime.datetime.now(),
+                        ).execute()
+
+                    else:
+                        SourceCacheTable.create(
+                            path=path_id,
+                            cached_source_path=restore_path,
+                            time_cached=datetime.datetime.now(),
+                        ).execute()
+                    with open(restore_path, "r", encoding="utf-8") as f:
                         if disable_parse:
                             return f.read()
                         return mw.parse(f.read())
@@ -64,13 +88,14 @@ def cached(cache_id, cache_dir, debug=False, disable_parse=False):
                         path=path_id,
                         cached_source_path=caced_src_path,
                         time_cached=datetime.datetime.now(),
-                    )
+                    ).execute()
+
                 else:
                     SourceCacheTable.create(
                         path=path_id,
                         cached_source_path=caced_src_path,
                         time_cached=datetime.datetime.now(),
-                    )
+                    ).execute()
             return src
 
         return wrapper

@@ -25,14 +25,18 @@ class LyricsProcessingStatus:
 
 class LyricsInfo(BaseModel):
     track_id = TextField(primary_key=True, unique=True)
-    
+
     remote_track_id = TextField(unique=True)
-    
+
+    lyrics_id = TextField(unique=True)
+
     wiki_page_title_constructed = TextField(null=True)
 
     # This is the actual page, in case the constructed one leaves a redirect
     # to the actual page
     wiki_page_title_actual = TextField(null=True)
+
+    lyrics_src = TextField(null=True)
 
     lyrics = TextField(null=True)
 
