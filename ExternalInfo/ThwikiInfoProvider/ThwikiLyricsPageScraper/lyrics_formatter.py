@@ -83,6 +83,10 @@ class LyricsAnnotatedLine:
             [RubyAnnotation.from_json(i) for i in data["annotations"]],
         )
 
+    @staticmethod
+    def empty():
+        return LyricsAnnotatedLine(time=None, text="", annotations=[])
+
 
 def validate_timespan(time: str) -> Optional[timedelta]:
     REGEX = re.compile(r"(?:\d{2}:)?\d{2}(?::|\.)\d{2}")
@@ -343,6 +347,8 @@ def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
                 annotations.append(ruby)
                 raw_text += raw
             elif isinstance(nodes, Tag):
+                if nodes.tag == "dd":
+                    continue
                 # excluded_tags = ['ref', 'hr']
                 # replacement_tags = {':': '\t', '*': '*'}
                 # if nodes.tag in excluded_tags:
@@ -376,8 +382,9 @@ def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
         print("Failed to parse line, falling back to AI healing")
         json = llm_heal_line(line)
         if json is None:
-            raise ValueError("Failed to heal line with AI")
-        r = LyricsAnnotatedLine.from_json(json)
+            r = LyricsAnnotatedLine.empty()
+        else:
+            r = LyricsAnnotatedLine.from_json(json)
         print(r)
         return r
     return LyricsAnnotatedLine(time=None, text=raw_text, annotations=annotations)

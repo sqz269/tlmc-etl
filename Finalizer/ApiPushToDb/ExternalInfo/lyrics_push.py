@@ -167,8 +167,6 @@ def main():
     for entry in LyricsInfo.select().where(
         (LyricsInfo.process_status == LyricsProcessingStatus.PARSE_PROCESSED)
     ):
-        if entry.remote_track_id != "33a63b2b-94a6-4988-b7f1-54dba801e2f0":
-            continue
         all_lyrics[entry.remote_track_id] = json_to_lyrics(entry)
 
     index = 0
