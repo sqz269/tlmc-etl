@@ -259,6 +259,7 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
 
         try:
             lang, _ = line.split("=", 1)
+            lang = lang.strip().lower()
         except:
             pass
 
@@ -308,6 +309,7 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
 
         try:
             lang, text = line.split("=", 1)
+            lang = lang.strip().lower()
             # Explicitly exclude lang: en, b/c sometimes it is in japanese lyrics
             if lang == "en" and "ja" in possible_langs:
                 all_langs = lyrics.values()
