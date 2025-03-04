@@ -84,6 +84,29 @@ def json_to_lyrics(lyrics_info: LyricsInfo) -> Lyrics:
 
     data: Dict[str, Dict[str, Any]] = json.loads(lyrics_info.lyrics)
 
+    data_remove_empty_lang: Dict[str, Dict[str, Any]] = {}
+    for variant, lang_lyrics in data.items():
+        if variant == "need_review":
+            continue
+
+        if variant == "null":
+            variant = None
+
+        langs_have_content: Dict[str, int] = defaultdict(int)
+        for lang, lyrics in lang_lyrics.items():
+            for line in lyrics:
+                if line["text"]:
+                    langs_have_content[lang] += 1
+
+        # iterate again, if lang has content, add to new dict
+        for lang, lyrics in lang_lyrics.items():
+            if langs_have_content[lang]:
+                if variant not in data_remove_empty_lang:
+                    data_remove_empty_lang[variant] = {}
+                data_remove_empty_lang[variant][lang] = lyrics
+
+    data = data_remove_empty_lang
+
     # Tuple of variant type, and a time indexed annotation lines
     lyrics_variants: List[LyricsVariant] = []
     for variant, lang_lyrics in data.items():
@@ -170,6 +193,7 @@ def main():
     for entry in LyricsInfo.select().where(
         (LyricsInfo.process_status == LyricsProcessingStatus.PARSE_PROCESSED)
     ):
+        print(f"Preprocessing: {entry.remote_track_id}")
         all_lyrics[entry.remote_track_id] = json_to_lyrics(entry)
 
     index = 0
