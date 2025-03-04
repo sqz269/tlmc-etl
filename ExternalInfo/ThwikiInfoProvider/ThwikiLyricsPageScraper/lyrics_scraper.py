@@ -1,8 +1,3 @@
-"""
-TODO: Investigate edge case:
-    https://thwiki.cc/%E6%AD%8C%E8%AF%8D:%E8%8F%AF%E9%B3%A5%E9%A2%A8%E6%9C%88
-"""
-
 import json
 import re
 import time
@@ -272,6 +267,9 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
     if "ja" in possible_langs:
         possible_langs.discard("en")
 
+    is_in_lyrics_section = False
+    current_timestamp = None
+
     for line in src_section.split("\n"):
         if not line.strip():
             continue
@@ -396,10 +394,10 @@ def process():
     current = 0
     pending: LyricsInfo
     for pending in LyricsInfo.select().where(
-        LyricsInfo.process_status == LyricsProcessingStatus.PENDING
+        # LyricsInfo.process_status == LyricsProcessingStatus.PENDING
+        LyricsInfo.remote_track_id
+        == "ccea0c82-d48d-4029-bea6-c628cb382c09"
     ):
-        # if pending.remote_track_id != "33a63b2b-94a6-4988-b7f1-54dba801e2f0":
-        # continue
         current += 1
         print(f"Processing {current}/{total}")
         try:

@@ -150,10 +150,14 @@ def json_to_lyrics(lyrics_info: LyricsInfo) -> Lyrics:
 
         lyrics_variants.append(lyrics_variant)
 
+    reference_title = lyrics_info.wiki_page_title_constructed
+    if lyrics_info.wiki_page_title_actual:
+        reference_title = lyrics_info.wiki_page_title_actual
+
     return Lyrics(
         id=str(uuid.uuid4()),
         variants=lyrics_variants,
-        referenceUrl=THWIKI_BASE_URL + lyrics_info.wiki_page_title_constructed
+        referenceUrl=THWIKI_BASE_URL + reference_title,
     )
 
 def main():
