@@ -394,9 +394,7 @@ def process():
     current = 0
     pending: LyricsInfo
     for pending in LyricsInfo.select().where(
-        # LyricsInfo.process_status == LyricsProcessingStatus.PENDING
-        LyricsInfo.remote_track_id
-        == "9f6fe0d9-7566-40a9-8796-eb5e427b19a6"
+        LyricsInfo.process_status == LyricsProcessingStatus.PENDING
     ):
         current += 1
         print(f"Processing {current}/{total}")
