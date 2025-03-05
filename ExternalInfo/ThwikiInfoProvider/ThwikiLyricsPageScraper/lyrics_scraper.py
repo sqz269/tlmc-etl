@@ -203,7 +203,6 @@ def get_lyrics_actual_handle_table(full_src: str) -> LyricsModel.ThwikiLyrics:
 
 def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsModel.ThwikiLyricsSection:
     section = LyricsModel.ThwikiLyricsSection(section_title, time_instants={})
-    lyrics = {}
     is_in_lyrics_section = False
     current_timestamp = None
     lyrics_section_term = [
@@ -240,17 +239,15 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
         if not is_in_lyrics_section:
             continue
 
-        if line.startswith("time="):
+        if line.replace(" ", "").startswith("time="):
             current_timestamp = line.split("=")[1]
             if not current_timestamp:
                 current_timestamp = f"<line-{current_timestamp_default}>"
                 current_timestamp_default += 1
-            lyrics[current_timestamp] = {}
             continue
 
-        if line.startswith("sep="):
+        if line.replace(" ", "").startswith("sep="):
             sep_timestamp = line.split("=")[1]
-            lyrics[sep_timestamp] = {}
             current_timestamp = None
             continue
 
@@ -270,6 +267,7 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
 
     is_in_lyrics_section = False
     current_timestamp = None
+    lyrics = {}
 
     for line in src_section.split("\n"):
         if not line.strip():
@@ -290,16 +288,16 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
         if not is_in_lyrics_section:
             continue
 
-        if line.startswith("time="):
-            current_timestamp = line.split("=")[1]
+        if line.replace(" ", "").startswith("time="):
+            current_timestamp = (line.replace(" ", "").split("=")[1]).strip()
             if not current_timestamp:
                 current_timestamp = f"<line-{current_timestamp_default}>"
                 current_timestamp_default += 1
             lyrics[current_timestamp] = {}
             continue
 
-        if line.startswith("sep="):
-            sep_timestamp = line.split("=")[1]
+        if line.replace(" ", "").startswith("sep="):
+            sep_timestamp = line.replace(" ", "").split("=")[1].strip()
             lyrics[sep_timestamp] = {}
             current_timestamp = None
             continue
@@ -327,7 +325,7 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
                     # breakpoint()
                 continue
 
-            lyrics[current_timestamp][lang] = text
+            lyrics[current_timestamp][lang] = text.strip()
         except ValueError:
             current_timestamp = None
             is_in_lyrics_section = False
@@ -398,7 +396,7 @@ def process():
     for pending in LyricsInfo.select().where(
         # LyricsInfo.process_status == LyricsProcessingStatus.PENDING
         LyricsInfo.remote_track_id
-        == "ccea0c82-d48d-4029-bea6-c628cb382c09"
+        == "9f6fe0d9-7566-40a9-8796-eb5e427b19a6"
     ):
         current += 1
         print(f"Processing {current}/{total}")
