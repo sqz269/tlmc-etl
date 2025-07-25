@@ -66,7 +66,7 @@ def generate_shaka_command(song_root):
         stream_commands.append(stream_cmd)
 
     if stream_commands:
-        output_mpd = os.path.join(song_root, "output_audio_dash.mpd")
+        output_mpd = os.path.join(song_root, "manifest.mpd")
         return {
             "project_path": song_root,
             "output_mpd": output_mpd,
