@@ -4,7 +4,8 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 import os
 import m3u8
-
+import os
+from datetime import timedelta
 import Postprocessor.DashRepackage.output.path_definitions as DashRepackagePathDef
 from Shared import utils
 
@@ -17,18 +18,31 @@ json_input_path = utils.get_output_path(
 with open(json_input_path, 'r', encoding='utf-8') as f:
     projects = json.load(f)
 
+def seconds_to_iso_duration(seconds: float) -> str:
+    """Converts seconds to ISO 8601 duration format (e.g., PT60S)."""
+    td = timedelta(seconds=seconds)
+    total_seconds = int(td.total_seconds())
+    return f"PT{total_seconds}S"
+
 def create_mpd(project):
     playlist_segment_durations: Dict[str, List[float]] = {}
+    max_total_duration = 0.0
 
+    # Load segment durations from each playlist and compute max total duration
     for rep in project["packager_args"]:
         playlist = m3u8.load(rep["playlist"])
         durations = [segment.duration for segment in playlist.segments]
+        total_duration = sum(durations)
         playlist_segment_durations[rep["bandwidth"]] = durations
+        max_total_duration = max(max_total_duration, total_duration)
+
+    # Format total duration as ISO 8601 string
+    mpd_duration = seconds_to_iso_duration(max_total_duration)
 
     mpd = Element("MPD", xmlns="urn:mpeg:dash:schema:mpd:2011",
                   profiles="urn:mpeg:dash:profile:isoff-on-demand:2011",
                   type="static", minBufferTime="PT1.5S",
-                  mediaPresentationDuration="PT60S")  # Placeholder duration
+                  mediaPresentationDuration=mpd_duration)
 
     period = SubElement(mpd, "Period", start="PT0S")
     adaptation_set = SubElement(period, "AdaptationSet", mimeType="audio/mp4",
