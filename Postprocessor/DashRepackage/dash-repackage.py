@@ -58,8 +58,10 @@ def create_mpd(project):
                                     id=str(rep["bandwidth"]),
                                     bandwidth=str(rep["bandwidth"]))
         base_url = SubElement(representation, "BaseURL")
-        base_url.text = os.path.relpath(base_path, start=os.path.dirname(project["output_mpd"])) + "/"
-
+        
+        base_url_actual = os.path.relpath(base_path, start=os.path.dirname(project["output_mpd"])) + "/"
+        base_url.text = base_url_actual.replace("hls/", "")
+        
         segment_template = SubElement(representation, "SegmentTemplate",
                                       initialization=init_file,
                                       media=media_template,
