@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Asset> Assets { get; set; }
     public DbSet<HlsPlaylist> HlsPlaylist { get; set; }
     public DbSet<HlsSegment> HlsSegment { get; set; }
+    public DbSet<DashPlaylist> DashPlaylists { get; set; }
     public DbSet<Thumbnail> Thumbnails { get; set; }
 
 
@@ -48,7 +49,6 @@ public class AppDbContext : DbContext
             .Property(p => p.Type)
             .HasConversion(v => v.ToString(),
                 v => Enum.Parse<HlsPlaylistType>(v));
-
 
         modelBuilder.Entity<Album>()
             .HasOne(a => a.Image)

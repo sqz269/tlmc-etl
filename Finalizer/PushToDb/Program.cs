@@ -45,6 +45,9 @@ switch (opt)
     case UserOptionDataOptions.CircleBasicMetadata:
         CircleMetadataProcessor.PushBasicCircleData(appDbContext);
         break;
+    case UserOptionDataOptions.MpegDashPlaylists:
+        MpegDashPlaylistProcessor.PushMpegDashPlaylists(appDbContext);
+        break;
     // case UserOptionDataOptions.ThwikiExtendedArtistCircleMetadata:
     //     UserThwikiExtendedArtistCircleMetadataOption.GetAndInvokeThwikiExtendedArtistCircleMetadataOption();
     //     break;

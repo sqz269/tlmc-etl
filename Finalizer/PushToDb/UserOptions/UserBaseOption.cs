@@ -15,5 +15,8 @@ public enum UserOptionDataOptions
     [Display(Name = "Thwiki Sourced Extended Album/Track metadata")]
     ThwikiExtendedAlbumTrackMetadata,
     [Display(Name = "Thwiki Sourced Lyrics Data")]
-    ThwikiLyricsData
+    ThwikiLyricsData,
+
+    [Display(Name = "MPEG DASH Repackaged Playlists")]
+    MpegDashPlaylists,
 }
