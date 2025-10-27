@@ -560,6 +560,24 @@ Transcoding media files is often computationally expensive. In the case of video
 
 #### Execution
 
+1. Run `Postprocessor/HlsTranscode/hls_assignment.py` to generate a target list
+2. Run `Postprocessor/HlsTranscode/hls_runner.py` to transcode the targeted files
+3. Run `Postprocessor/HlsTranscode/hls_finalizer.py` to finalize hls transcoding and generate master playlists.
+
+## SECTION: MPEG DASH REPACKAGING
+
+Although HLS is somewhat of a well known format for adaptive bitrate straming. But it appears that MPEG DASH are more widely supported for non-apple platforms, which is more compatible with web streaming (MSE). 
+
+To enable MPEG DASH support, we simply needs to repackage the playlist into DASH's `mpd` format. This process is purely for restructuring the metadata, no transcoding will be done since fMP4 is fully compatible with DASH.
+
+### Prepration
+
+### Execution
+
+1. Identify list of existing HLS directories
+    - Run `Postprocessor/DashRepackage/file-target.py`
+2. Repackage HLS into DASH Manifest
+    - Run `Postprocessor/DashRepackage/dash-repackage.py`
 
 ## Miscellaneous Scripts Documentation
 

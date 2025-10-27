@@ -16,3 +16,4 @@ furl
 openai
 # ./ExternalInfo/TouhouDbInfoProvider/touhoudb_api_client/
 ./Finalizer/ApiPushToDb/backend-api-client
+m3u8
