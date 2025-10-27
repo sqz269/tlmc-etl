@@ -31,7 +31,7 @@ def create_mpd(project):
     # Load segment durations from each playlist and compute max total duration
     for rep in project["packager_args"]:
         playlist = m3u8.load(rep["playlist"])
-        durations = [segment.duration for segment in playlist.segments]
+        durations = [segment.duration for segment in playlist.segments if segment.duration is not None]
         total_duration = sum(durations)
         playlist_segment_durations[rep["bandwidth"]] = durations
         max_total_duration = max(max_total_duration, total_duration)
