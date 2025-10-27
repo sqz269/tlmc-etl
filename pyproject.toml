@@ -1,0 +1,10 @@
+[project]
+name = "tlmc-etl"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pythonnet>=3.0.5",
+    "xxhash>=3.6.0",
+]
