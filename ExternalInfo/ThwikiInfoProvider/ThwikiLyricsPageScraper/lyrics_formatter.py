@@ -194,20 +194,7 @@ def llm_heal_line(raw_line: str) -> Optional[Dict[Any, Any]]:
     )
 
     try:
-        # Call OpenAI ChatCompletion
-        response = OPEN_AI_API_CONTEXT.chat.completions.create(
-            model="gpt-4o",  # or "gpt-3.5-turbo"
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
-
-        # Extract text from the response
-        response_text = response.choices[0].message.content
-
-        # Parse the JSON from the response
-        parsed_json = json.loads(response_text)
-
+        parsed_json = OpenaiUtils.get_completion(OPEN_AI_API_CONTEXT, "gpt-5", prompt)
         # Convert JSON to LyricsAnnotatedLine dataclass
         # return LyricsAnnotatedLine.from_json(parsed_json)
         return parsed_json
