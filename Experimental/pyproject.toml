@@ -5,17 +5,22 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
+    "accelerate>=1.11.0",
     "datasets>=2.19.1",
+    "ipynb>=0.5.1",
+    "jukemir",
     "librosa>=0.11.0",
     "nnaudio>=0.3.3",
     "torch==2.6.0+cu124",
     "torchaudio==2.6.0+cu124",
     "transformers>=4.57.1",
+    "wget>=3.2",
 ]
 
 [tool.uv.sources]
 torch = { index = "pytorch-cu124" }
 torchaudio = { index = "pytorch-cu124" }
+jukemir = { git = "https://github.com/p-lambda/jukemir.git" }
 
 [[tool.uv.index]]
 name = "pytorch-cu124"

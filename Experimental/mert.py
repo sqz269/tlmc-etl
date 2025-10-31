@@ -14,42 +14,38 @@ processor = Wav2Vec2FeatureExtractor.from_pretrained(
 )
 
 def embed_waveform(wav_np: np.ndarray, sr_in: int, layer_mix="last4"):
-  # resample if needed
+  # ensure mono (N,) and float32
+  if wav_np.ndim == 2:
+    wav_np = wav_np.mean(axis=0)  # average channels
+  wav_np = wav_np.astype(np.float32, copy=False)
+
+  # resample if needed (keep input & kernel dtypes aligned)
   sr = processor.sampling_rate
   if sr_in != sr:
-    wav = torch.from_numpy(wav_np)
-    wav = T.Resample(sr_in, sr)(wav).numpy()
-  else:
-    wav = wav_np
+    wav_t = torch.from_numpy(wav_np)                     # Float32
+    resampler = T.Resample(sr_in, sr, dtype=torch.float32)
+    wav_t = resampler(wav_t)                             # Float32
+    wav_np = wav_t.numpy()
 
-  # processor expects float32 mono 1D array
-  inputs = processor(wav.astype(np.float32), sampling_rate=sr, return_tensors="pt")
+  # processor expects 1D float32 mono at `sr`
+  inputs = processor(wav_np, sampling_rate=sr, return_tensors="pt")
   inputs = {k: v.to(device) for k, v in inputs.items()}
 
   with torch.inference_mode():
     out = model(**inputs, output_hidden_states=True)
-    # hidden_states: tuple(len=L+1 if includes conv feats); use last 25 for transformer blocks
-    hs = torch.stack(
-      out.hidden_states
-    )  # [layers, B, T, C] or [layers, T, C] depending on model
-    if hs.dim() == 3:  # [layers, T, C]
-      hs = hs.unsqueeze(1)  # -> [layers, 1, T, C]
-    hs = hs[:, 0]  # [layers, T, C]
+    # hidden_states is a tuple of [layer tensors shaped (B, T, C)]
+    hs = torch.stack(out.hidden_states)                  # [L, B, T, C]
+    hs = hs[:, 0]                                        # [L, T, C]
+    hs_time = hs.mean(dim=1)                             # [L, C]
 
-    # time pooling (mean over frames)
-    hs_time = hs.mean(dim=1)  # [layers, C]
-
-    # layer mixing
     if layer_mix == "last":
       vec = hs_time[-1]
     elif layer_mix == "last4":
       vec = hs_time[-4:].mean(dim=0)
     elif layer_mix == "mid":
-      mid = hs_time.shape[0] // 2
-      vec = hs_time[mid]
+      vec = hs_time[hs_time.shape[0] // 2]
     else:
       raise ValueError("layer_mix must be one of {'last','last4','mid'}")
 
-    # L2 normalize
-    vec = torch.nn.functional.normalize(vec, p=2, dim=0)  # [C]
+    vec = torch.nn.functional.normalize(vec, p=2, dim=0)
     return vec.detach().cpu().numpy()
