@@ -1,3 +1,5 @@
+checkpoint.tar.gz
+
 # Ignore openapi generated files
 ExternalInfo/TouhouDbInfoProvider/openapitools.json
 ExternalInfo/TouhouDbInfoProvider/touhoudb_api_client
