@@ -1,3 +1,6 @@
 data/
 *.wav
 *.flac
+*.pt
+*.npy
+*.ann
