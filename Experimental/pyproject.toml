@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
     "accelerate>=1.11.0",
+    "annoy>=1.17.3",
     "datasets>=2.19.1",
+    "dotenv>=0.9.9",
     "ipynb>=0.5.1",
     "jukemir",
     "librosa>=0.11.0",
