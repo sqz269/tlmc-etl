@@ -4,3 +4,4 @@ data/
 *.pt
 *.npy
 *.ann
+*.csv
