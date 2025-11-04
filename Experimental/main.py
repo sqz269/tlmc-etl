@@ -2,7 +2,7 @@
 from genericpath import isdir
 from importlib.metadata import files
 import os, sys
-from typing import Dict, List
+from typing import Dict, List, Set, Tuple
 
 try:
   import dotenv
@@ -39,12 +39,34 @@ from loader import load_flac, load_m3u8_playlist_remote, ChunkingConfig
 import mert
 from utils import utils
 
+POOLING_POLICY = "mean"
+EMBEDDING_DIRECTORY = f"embeddings/{POOLING_POLICY}"
 
 chunking_config = ChunkingConfig(
   target_sample_rate=16000, # for MERT
   chunk_size=20,
   overlap_size=5,
 )
+
+def parse_filename_genre_and_title(filename: str) -> Tuple[str, str]:
+  try:
+    # Assumes format "[{genre}] - {filename}.pt"
+    genre_part, filename_part = filename.split('] - ', 1)
+    genre = genre_part[1:]  # Remove the leading '['
+    title = os.path.splitext(filename_part)[0]  # Remove .pt extension
+    return genre, title
+  except ValueError:
+    return 'Unknown', os.path.splitext(filename)[0]
+
+def get_completed_embeddings(embedding_dir: str) -> Dict[str, Set[str]]:
+  completed: Dict[str, Set[str]] = {}
+  for fp, _, files in os.walk(embedding_dir):
+    for f in files:
+      if f.lower().endswith(".pt"):
+        genre, title = parse_filename_genre_and_title(f)
+        completed.setdefault(genre, set()).add(title)
+
+  return completed
 
 def get_flac_list(dir_path: str) -> Dict[str, List[str]]:
   # genre and list of songs
@@ -60,22 +82,34 @@ def get_flac_list(dir_path: str) -> Dict[str, List[str]]:
       for f in files:
         if f.lower().endswith(".flac"):
           full_path = os.path.join(fp, f)
-          if ("[ignore]" in full_path.lower()):
-            continue
+          # if ("[ignore]" in full_path.lower()):
+          #   continue
           flac_files[item].append(full_path)
 
   return flac_files
 
 def main():
   flac_list = get_flac_list("data/")
+  completed_embeddings = get_completed_embeddings(EMBEDDING_DIRECTORY)
 
   for genre, files in flac_list.items():
-    for i in files:
+    for i in files:      
       print("Processing track ID:", i)
-      audio_chunks_hls = load_flac(
-        fp=i,
-        chunking_config=chunking_config,
-      )
+
+      # get file name
+      filename = os.path.splitext(os.path.basename(i))[0]
+      if genre in completed_embeddings and filename in completed_embeddings[genre]:
+        print(f"Skipping {filename} in genre {genre}, already processed.")
+        continue
+
+      try:
+        audio_chunks_hls = load_flac(
+          fp=i,
+          chunking_config=chunking_config,
+        )
+      except Exception as e:
+        print(f"Could not load {i}: {e}")
+        continue
 
       embeddings_hls = mert.embed_waveforms_batched(
         chunks=audio_chunks_hls.chunks,
@@ -88,14 +122,12 @@ def main():
 
       print("Embeddings HLS shape:", embeddings_hls.shape)
 
-      hls_pooled = utils.pool(tensor=embeddings_hls, mode="mean+max");
+      hls_pooled = utils.pool(tensor=embeddings_hls, mode=POOLING_POLICY)
 
       print("Pooled HLS shape:", hls_pooled.shape)
 
-      # get file name
-      filename = os.path.splitext(os.path.basename(i))[0]
-
-      utils.save_tensor(hls_pooled, f"embeddings/[{genre}] - {filename}.pt")
+      write_path = os.path.join(EMBEDDING_DIRECTORY, f"[{genre}] - {filename}.pt")
+      utils.save_tensor(hls_pooled, write_path)
 
 if __name__ == "__main__":
   main()
