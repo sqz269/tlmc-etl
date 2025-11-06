@@ -5,3 +5,4 @@ data/
 *.npy
 *.ann
 *.csv
+*.html
