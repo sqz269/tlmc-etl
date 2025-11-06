@@ -5,6 +5,9 @@ cache_gdrive = False #@param {type:"boolean"}
 import os
 import shutil
 from pathlib import Path
+from typing import Dict, List, Set, Tuple
+
+CHUNKING_OVERLAP_SEC = 5
 
 VQVAE_CACHE_PATH = '/home/sqz269/jukbox-cache/models/5b/vqvae.pth.tar'
 PRIOR_CACHE_PATH = '/home/sqz269/jukbox-cache/models/5b/prior_level_2.pth.tar'
@@ -442,20 +445,214 @@ def get_acts_from_audio(audio=None,
         acts = {num: act.astype(np.float32) for num, act in acts.items()}
 
     return acts
+  
+JUKEBOX_SAMPLE_RATE = 44100
+WINDOW_SEC = 24
+WINDOW_SAMPLES = JUKEBOX_SAMPLE_RATE * WINDOW_SEC
+T = 8192  # LM token length per 24 s
 
-fname = '(01) [RD-SOUND] グレートアトラクター (Part ⅰ).flac'
+def frame_audio_24s(audio: np.ndarray):
+    n = len(audio)
+    for start in range(0, n, WINDOW_SAMPLES - CHUNKING_OVERLAP_SEC * JUKEBOX_SAMPLE_RATE):
+        end = min(start + WINDOW_SAMPLES, n)
+        chunk = audio[start:end]
+        if len(chunk) == 0:
+            continue
+        if len(chunk) < WINDOW_SAMPLES:
+            # zero-pad last partial window to exactly 24 s
+            pad = np.zeros(WINDOW_SAMPLES - len(chunk), dtype=chunk.dtype)
+            chunk = np.concatenate([chunk, pad], axis=0)
+        yield chunk
 
-audio, sr = lr.load(fname,
-                    sr=None,
-                    offset=0,
-                    duration=25)
+def get_activations_custom_torch(x,
+                                 x_cond,
+                                 y_cond,
+                                 layers_to_extract=None,
+                                 fp16=False):
+    if layers_to_extract is None:
+        layers_to_extract = [36]
 
-print("Computing representations...")
+    x = x[:, :T]
+    input_seq_length = x.shape[1]
+    x_cond = x_cond[:, :input_seq_length]
 
-audio = load_audio_from_file(fname, offset=0.0, duration=25)
-representations = get_acts_from_audio(audio=audio,
-                                      layers=[36],
-                                      meanpool=True)
+    with torch.no_grad():
+        x = top_prior.prior.preprocess(x)  # int64 tokens -> cuda long
 
-print(f"Got representations {representations}")
-print(f"Its shape is {representations[36].shape}")
+    N, D = x.shape
+    if top_prior.prior.y_cond:
+        assert y_cond is not None
+
+    if not top_prior.prior.x_cond:
+        x_cond = torch.zeros((N, 1, top_prior.prior.width), device=x.device, dtype=torch.float)
+
+    x_t = x
+    x = top_prior.prior.x_emb(x)
+    x = roll(x, 1)
+    if top_prior.prior.y_cond:
+        x[:, 0] = y_cond.view(N, top_prior.prior.width)
+    else:
+        x[:, 0] = top_prior.prior.start_token
+
+    x = top_prior.prior.x_emb_dropout(x) + top_prior.prior.pos_emb_dropout(top_prior.prior.pos_emb())[:input_seq_length] + x_cond
+
+    layers = top_prior.prior.transformer._attn_mods
+    reps = {}
+
+    if fp16:
+        x = x.half()
+
+    for i, l in enumerate(layers):
+        l.attn.del_cache()
+        x = l(x, encoder_kv=None, sample=True)
+        l.attn.del_cache()
+
+        if (i + 1) in layers_to_extract:
+            # x shape: [N=1, seq_len, width]
+            reps[i + 1] = x.squeeze(0)  # [seq_len, width]
+            if layers_to_extract.index(i + 1) == len(layers_to_extract) - 1:
+                break
+
+    return reps
+
+@torch.no_grad()
+def meanpool_layers_over_24s_windows(audio=None,
+                                     fpath=None,
+                                     layers=None,
+                                     fp16=False,
+                                     force_empty_cache=True):
+    if layers is None:
+        layers = [36]
+
+    # 1) Load and normalize full audio
+    if audio is None:
+        assert fpath is not None
+        audio = load_audio_from_file(fpath, offset=0.0, duration=None)
+
+    # 2) Prepare conditioning once (we slice per window inside)
+    x_cond_full, y_cond = get_cond(hps, top_prior)
+
+    width = top_prior.prior.width  # 4800
+    sums = {lyr: torch.zeros(width, device='cuda', dtype=torch.float32) for lyr in layers}
+    total_tokens = 0
+
+    for wav_24s in frame_audio_24s(audio):
+        if force_empty_cache: empty_cache()
+
+        # 3) VQ-VAE encode this 24 s window → top-level tokens (shape [1, T])
+        zs = vqvae.encode(torch.cuda.FloatTensor(wav_24s[np.newaxis, :, np.newaxis]))
+        z_top = zs[-1].flatten()[np.newaxis, :]  # [1, T] exactly, due to padding
+
+        # 4) Slice conds to the exact token length (should already be T)
+        cur_len = z_top.shape[1]
+        x_cond = x_cond_full[:, :cur_len]
+
+        # 5) Run LM and grab chosen layer(s) activations
+        reps = get_activations_custom_torch(
+            z_top, x_cond, y_cond,
+            layers_to_extract=layers,
+            fp16=fp16
+        )
+        # reps[lyr]: [cur_len, width] for each layer
+
+        for lyr, X in reps.items():
+            sums[lyr] += X.to(torch.float32).sum(dim=0)
+        total_tokens += cur_len
+
+    if force_empty_cache: empty_cache()
+
+    # 6) Global mean over all tokens across all 24 s windows
+    means = {lyr: (sums[lyr] / total_tokens).detach().cpu().numpy().astype('float32')
+             for lyr in layers}
+    return means
+
+def parse_filename_genre_and_title(filename: str) -> Tuple[str, str]:
+  try:
+    # Assumes format "[{genre}] - {filename}.pt"
+    genre_part, filename_part = filename.split('] - ', 1)
+    genre = genre_part[1:]  # Remove the leading '['
+    title = os.path.splitext(filename_part)[0]  # Remove .pt extension
+    return genre, title
+  except ValueError:
+    return 'Unknown', os.path.splitext(filename)[0]
+
+def get_completed_embeddings(embedding_dir: str) -> Dict[str, Set[str]]:
+  completed: Dict[str, Set[str]] = {}
+  for fp, _, files in os.walk(embedding_dir):
+    for f in files:
+      if f.lower().endswith(".pt"):
+        genre, title = parse_filename_genre_and_title(f)
+        completed.setdefault(genre, set()).add(title)
+
+  return completed
+
+def get_flac_list(dir_path: str) -> Dict[str, List[str]]:
+  # genre and list of songs
+  flac_files: Dict[str, List[str]] = {}
+  # first level dir is genre info
+  for item in os.listdir(dir_path):
+    path = os.path.join(dir_path, item)
+    if not os.path.isdir(path):
+      continue
+
+    flac_files[item] = []
+    for fp, _, files in os.walk(path):
+      for f in files:
+        if f.lower().endswith(".flac"):
+          full_path = os.path.join(fp, f)
+          # if ("[ignore]" in full_path.lower()):
+          #   continue
+          flac_files[item].append(full_path)
+
+  return flac_files
+
+# fname = '(01) [RD-SOUND] グレートアトラクター (Part ⅰ).flac'
+
+# audio, sr = lr.load(fname,
+#                     sr=None,
+#                     offset=0)
+
+# print("Computing representations...")
+
+# representations = meanpool_layers_over_24s_windows(audio=audio,
+#                                                    layers=[36])
+
+# # audio = load_audio_from_file(fname, offset=0.0, duration=25)
+# # representations = get_acts_from_audio(audio=audio,
+# #                                       layers=[36],
+# #                                       meanpool=True)
+
+# print(f"Got representations {representations}")
+# print(f"Its shape is {representations[36].shape}")
+
+POOLING_POLICY = "mean"
+EMBEDDING_DIRECTORY = f"embeddings/{POOLING_POLICY}"
+flac_list = get_flac_list("data/")
+completed_embeddings = get_completed_embeddings(EMBEDDING_DIRECTORY)
+
+for genre, files in flac_list.items():
+    for i in files:
+        print("Processing track ID:", i)
+        
+        # get file name
+        filename = os.path.splitext(os.path.basename(i))[0]
+        if genre in completed_embeddings and filename in completed_embeddings[genre]:
+            print(f"Skipping {filename} in genre {genre}, already processed.")
+            continue
+        
+        
+        audio = load_audio_from_file(i, offset=0.0, duration=None)
+        
+        reps = []
+        for ci, chunk in enumerate(frame_audio_24s(audio)):
+            print(f"Processing chunk {ci} with length {len(chunk)} samples")
+            rep = get_acts_from_audio(audio=chunk, layers=[36], fp16=True, meanpool=True)
+            reps.append(rep[36])
+            
+        r = torch.cat(reps, dim=0)
+        
+        # save representation
+        save_path = os.path.join(EMBEDDING_DIRECTORY, f"[{genre}] - {filename}.pt")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        torch.save(r.mean(dim=0), save_path)
+        print(f"Saved representation to {save_path}")
