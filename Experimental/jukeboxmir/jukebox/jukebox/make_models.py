@@ -14,7 +14,6 @@ from jukebox.utils.dist_utils import print_all
 from jukebox.vqvae.vqvae import calculate_strides
 import fire
 
-# CHANGES FROM Colab_Jukemir
 import wget
 import sys
 
@@ -35,7 +34,7 @@ def load_checkpoint(path):
             if not os.path.exists(os.path.dirname(local_path)):
                 os.makedirs(os.path.dirname(local_path))
             if not os.path.exists(local_path):
-                # createremote_path= this bar_progress method which is invoked automatically from wget
+                # create this bar_progress method which is invoked automatically from wget
                 def bar_progress(current, total, width=80):
                     progress_message = "Downloading: %d%% [%d / %d] bytes" % (current / total * 100, current, total)
                     # Don't use print() as it will print in new line every time.
@@ -69,7 +68,7 @@ def restore_model(hps, model, checkpoint_path):
         #     if checkpoint_hps.get(k, None) != hps.get(k, None):
         #         print(k, "Checkpoint:", checkpoint_hps.get(k, None), "Ours:", hps.get(k, None))
         checkpoint['model'] = {k[7:] if k[:7] == 'module.' else k: v for k, v in checkpoint['model'].items()}
-        model.load_state_dict(checkpoint['model'])
+        model.load_state_dict(checkpoint['model'], strict=False)
         if 'step' in checkpoint: model.step = checkpoint['step']
 
 def restore_opt(opt, shd, checkpoint_path):
