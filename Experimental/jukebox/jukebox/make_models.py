@@ -14,6 +14,10 @@ from jukebox.utils.dist_utils import print_all
 from jukebox.vqvae.vqvae import calculate_strides
 import fire
 
+# CHANGES FROM Colab_Jukemir
+import wget
+import sys
+
 MODELS = {
     '5b': ("vqvae", "upsampler_level_0", "upsampler_level_1", "prior_5b"),
     '5b_lyrics': ("vqvae", "upsampler_level_0", "upsampler_level_1", "prior_5b_lyrics"),
@@ -31,8 +35,15 @@ def load_checkpoint(path):
             if not os.path.exists(os.path.dirname(local_path)):
                 os.makedirs(os.path.dirname(local_path))
             if not os.path.exists(local_path):
-                download(remote_path, local_path)
-        restore = local_path
+                # createremote_path= this bar_progress method which is invoked automatically from wget
+                def bar_progress(current, total, width=80):
+                    progress_message = "Downloading: %d%% [%d / %d] bytes" % (current / total * 100, current, total)
+                    # Don't use print() as it will print in new line every time.
+                    sys.stdout.write("\r" + progress_message)
+                    sys.stdout.flush()
+
+                wget.download(remote_path, local_path, bar=bar_progress)
+                #download(remote_path, local_path)        restore = local_path
     dist.barrier()
     checkpoint = t.load(restore, map_location=t.device('cpu'))
     print("Restored from {}".format(restore))
