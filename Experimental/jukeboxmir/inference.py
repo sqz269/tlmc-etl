@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from accelerate import init_empty_weights
 
-cache_gdrive = True
+cache_gdrive = False
 
 # Set up MPI
 rank, local_rank, device = setup_dist_from_mpi()

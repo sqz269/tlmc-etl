@@ -6,3 +6,4 @@ data/
 *.ann
 *.csv
 *.html
+.DS_Store
