@@ -12,7 +12,7 @@ except Exception:
 
 ffmpeg_bin = os.getenv("FFMPEG_SHARED_LIB_PATH")
 if ffmpeg_bin:
-  print("Injecting FFMPEG_SHARED_LIB_PATH to PATH:", ffmpeg_bin)
+  # print("Injecting FFMPEG_SHARED_LIB_PATH to PATH:", ffmpeg_bin)
   # 1) Make sure Windows can find the DLLs
   #    (Python 3.8+ on Windows supports this)
   try:
@@ -38,6 +38,7 @@ import requests
 from loader import load_flac, load_m3u8_playlist_remote, ChunkingConfig
 import mert
 from utils import utils
+from tqdm import tqdm
 
 POOLING_POLICY = "mean"
 EMBEDDING_DIRECTORY = f"embeddings/{POOLING_POLICY}"
@@ -92,23 +93,34 @@ def main():
   flac_list = get_flac_list("data/")
   completed_embeddings = get_completed_embeddings(EMBEDDING_DIRECTORY)
 
-  for genre, files in flac_list.items():
-    for i in files:      
-      print("Processing track ID:", i)
-
+  for genre, files in tqdm(flac_list.items(),
+                                total=len(flac_list),
+                                desc="Genres",
+                                dynamic_ncols=True):
+    for fp in tqdm(files,
+                        total=len(files),
+                        desc=genre,
+                        leave=False,
+                        dynamic_ncols=True):
+      # print("Processing track ID:", i)
       # get file name
-      filename = os.path.splitext(os.path.basename(i))[0]
+      filename = os.path.splitext(os.path.basename(fp))[0]
       if genre in completed_embeddings and filename in completed_embeddings[genre]:
-        print(f"Skipping {filename} in genre {genre}, already processed.")
+        tqdm.write(f"Skipping {filename} in {genre} (already processed)")
         continue
 
       try:
         audio_chunks_hls = load_flac(
-          fp=i,
+          fp=fp,
           chunking_config=chunking_config,
         )
       except Exception as e:
-        print(f"Could not load {i}: {e}")
+        tqdm.write(f"Could not load {fp}: {e}")
+        continue
+
+      # check if any chunks were loaded
+      if len(audio_chunks_hls.chunks) == 0:
+        tqdm.write(f"No audio chunks found in {fp}, skipping.")
         continue
 
       embeddings_hls = mert.embed_waveforms_batched(
@@ -120,11 +132,11 @@ def main():
         pin_memory=True
       )
 
-      print("Embeddings HLS shape:", embeddings_hls.shape)
+      # print("Embeddings HLS shape:", embeddings_hls.shape)
 
       hls_pooled = utils.pool(tensor=embeddings_hls, mode=POOLING_POLICY)
 
-      print("Pooled HLS shape:", hls_pooled.shape)
+      # print("Pooled HLS shape:", hls_pooled.shape)
 
       write_path = os.path.join(EMBEDDING_DIRECTORY, f"[{genre}] - {filename}.pt")
       utils.save_tensor(hls_pooled, write_path)

@@ -6,18 +6,9 @@ import pandas as pd
 import plotly.express as px
 from typing import Dict
 
+from utils.utils import load_tensor
+
 # 1. This is your provided function
-def load_tensor(dir: str) -> Dict[str, torch.Tensor]:
-  """Loads all .pt files from a directory into a dictionary."""
-  tensors: Dict[str, torch.Tensor] = {}
-  for file in os.listdir(dir):
-    if file.endswith(".pt"):
-      try:
-        tensor = torch.load(os.path.join(dir, file))
-        tensors[file] = tensor
-      except Exception as e:
-        print(f"Could not load {file}: {e}")
-  return tensors
 
 if __name__ == "__main__":
   # --- 1. Load Tensors ---
@@ -69,7 +60,7 @@ if __name__ == "__main__":
   # Create a DataFrame to hold all our data
   df = pd.DataFrame(embedding, columns=['UMAP 1', 'UMAP 2', 'UMAP 3'])
   df['filename'] = cleaned_filenames  # Use the cleaned filename
-  df['genre'] = genres               # Add the new genre column
+  df['genre'] = genres              # Add the new genre column
   
   
   # Create the 3D scatter plot
@@ -78,17 +69,74 @@ if __name__ == "__main__":
     x='UMAP 1',
     y='UMAP 2',
     z='UMAP 3',
-    title="3D UMAP Projection by Genre",
-    color='genre',         # <-- This is the magic!
-    hover_name='filename', # <-- Show filename on hover
-    hover_data=['genre']   # <-- Also show genre in the hover tooltip
+    title="3D UMAP Projection (Click Point to Copy Filename)", # Updated title
+    color='genre',           
+    hover_name='filename', 
+    hover_data=['genre'],
+    custom_data=['filename']  # <-- **THIS IS THE KEY ADDITION**
   )
 
   # Optional: Make markers smaller
   fig.update_traces(marker=dict(size=2))
   
-  # Show the interactive plot
-  # This will open in your browser or notebook
-  fig.show()
+  # --- 5. Save HTML and Inject Click-to-Copy JavaScript ---
+  
+  HTML_FILE = "plot_with_click_copy.html"
+  print(f"Writing base HTML to {HTML_FILE}...")
+  # Use 'cdn' to keep the HTML file smaller (loads plotly.js from web)
+  fig.write_html(HTML_FILE, include_plotlyjs='cdn')
 
-  fig.write_html("plot.html")
+  # Define the JavaScript to inject
+  # This script waits for the plot to load, then adds a click listener
+  js_script = """
+  <script>
+  window.onload = function() {
+    // Find the Plotly graph div (there's typically only one)
+    var plotDiv = document.getElementsByClassName('plotly-graph-div')[0];
+    
+    if (plotDiv) {
+      // Attach the click event listener
+      plotDiv.on('plotly_click', function(data) {
+        if (data.points.length > 0) {
+          // Get the 'customdata' we added in Python
+          // data.points[0].customdata[0] corresponds to the 
+          // first item in our list: ['filename']
+          var textToCopy = data.points[0].customdata[0];
+          
+          // Use the modern clipboard API
+          navigator.clipboard.writeText(textToCopy).then(function() {
+            // Optional: Provide feedback to the user
+            console.log('Copied to clipboard: ' + textToCopy);
+            // You could create a small "Copied!" popup here if desired
+          }, function(err) {
+            console.error('Could not copy text: ', err);
+          });
+        }
+      });
+      console.log("Plotly click-to-copy listener attached.");
+    } else {
+      console.error('Could not find Plotly graph div to attach click listener.');
+    }
+  };
+  </script>
+  """
+
+  print(f"Injecting click-to-copy JavaScript into {HTML_FILE}...")
+  
+  # Read the generated HTML file
+  with open(HTML_FILE, 'r', encoding='utf-8') as f:
+    html_content = f.read()
+
+  # Inject the JavaScript right before the closing </body> tag
+  # This ensures the rest of the page/scripts are loaded first
+  html_content = html_content.replace('</body>', js_script + '\\n</body>')
+
+  # Write the modified HTML back to the file
+  with open(HTML_FILE, 'w', encoding='utf-8') as f:
+    f.write(html_content)
+
+  print(f"Done! Open {HTML_FILE} in your browser to test.")
+
+  # We comment this out, as it will open the *original* plot
+  # without our new JavaScript.
+  # fig.show()
