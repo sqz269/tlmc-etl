@@ -10,9 +10,27 @@ from utils.utils import load_tensor
 
 # 1. This is your provided function
 
+genre_artist_color_map = {
+    "genre_eurobeat": "#FF4500",           # OrangeRed
+    "genre_ambient": "#8A2BE2",            # BlueViolet
+    "genre_classical": "#3CB371",          # MediumSeaGreen
+    "genre_metal": "#B22222",              # FireBrick
+    "genre_fantasy": "#DAA520",            # GoldenRod
+    "artist_iron_attack": "#4682B4",       # SteelBlue
+    "genre_jazz": "#D8BFD8",               # Thistle (lighter purple)
+    "artist_foreground_eclipse": "#5F9EA0", # CadetBlue
+    "artist_彩音": "#CD5C5C",               # IndianRed
+    "genre_bossa_nova": "#6B8E23",         # OliveDrab
+    "artist_get_in_the_ring": "#FFD700",   # Gold
+    "genre_jpop": "#BA55D3",               # MediumOrchid
+    "artist_rd_sounds": "#20B2AA",         # LightSeaGreen
+    "artist_zytokine": "#7B68EE",          # MediumSlateBlue
+    "artist_arsmagna": "#8B4513"           # SaddleBrown
+}
+
 if __name__ == "__main__":
   # --- 1. Load Tensors ---
-  POOLING_POLICY = "mean"
+  POOLING_POLICY = "mean+max"
   TENSOR_DIRECTORY = f"embeddings/{POOLING_POLICY}"  # Update this path as needed
   
   print(f"Loading tensors from {TENSOR_DIRECTORY}...")
@@ -43,7 +61,7 @@ if __name__ == "__main__":
       # File doesn't match the expected format
       genres.append('Unknown')  # Assign a default category
       cleaned_filenames.append(label) # Use the original filename
-          
+
   # Stack tensors into a single (n_samples, n_features) array
   data_tensors = torch.stack(list(tensors_dict.values()))
   print(f"Data stacked into shape: {data_tensors.shape}")
@@ -73,6 +91,7 @@ if __name__ == "__main__":
     title=f"MERT Tensor UMAP Projection ({POOLING_POLICY})", # Updated title
     color='genre',           
     hover_name='filename', 
+    color_discrete_map=genre_artist_color_map,
     hover_data=['genre'],
     custom_data=['filename']  # <-- **THIS IS THE KEY ADDITION**
   )
@@ -137,7 +156,3 @@ if __name__ == "__main__":
     f.write(html_content)
 
   print(f"Done! Open {HTML_FILE} in your browser to test.")
-
-  # We comment this out, as it will open the *original* plot
-  # without our new JavaScript.
-  # fig.show()
