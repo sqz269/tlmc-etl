@@ -40,7 +40,7 @@ import mert
 from utils import utils
 from tqdm import tqdm
 
-POOLING_POLICY = "mean"
+POOLING_POLICY = "mean+max"
 EMBEDDING_DIRECTORY = f"embeddings/{POOLING_POLICY}"
 
 chunking_config = ChunkingConfig(

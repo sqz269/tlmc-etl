@@ -12,7 +12,8 @@ from utils.utils import load_tensor
 
 if __name__ == "__main__":
   # --- 1. Load Tensors ---
-  TENSOR_DIRECTORY = "embeddings/mean"  # Update this path as needed
+  POOLING_POLICY = "mean"
+  TENSOR_DIRECTORY = f"embeddings/{POOLING_POLICY}"  # Update this path as needed
   
   print(f"Loading tensors from {TENSOR_DIRECTORY}...")
   tensors_dict = load_tensor(TENSOR_DIRECTORY)
@@ -69,7 +70,7 @@ if __name__ == "__main__":
     x='UMAP 1',
     y='UMAP 2',
     z='UMAP 3',
-    title="3D UMAP Projection (Click Point to Copy Filename)", # Updated title
+    title=f"MERT Tensor UMAP Projection ({POOLING_POLICY})", # Updated title
     color='genre',           
     hover_name='filename', 
     hover_data=['genre'],
@@ -81,7 +82,7 @@ if __name__ == "__main__":
   
   # --- 5. Save HTML and Inject Click-to-Copy JavaScript ---
   
-  HTML_FILE = "plot_with_click_copy.html"
+  HTML_FILE = f"plt-{POOLING_POLICY}.html"
   print(f"Writing base HTML to {HTML_FILE}...")
   # Use 'cdn' to keep the HTML file smaller (loads plotly.js from web)
   fig.write_html(HTML_FILE, include_plotlyjs='cdn')
