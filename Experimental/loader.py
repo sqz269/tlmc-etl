@@ -8,6 +8,11 @@ from torchaudio.io import StreamReader
 import torch  # needed because StreamReader yields torch tensors
 import torchaudio.transforms as T  # <-- ADDED for resampling
 
+@dataclass
+class SourceFileInfo:
+    path: str
+    filename: str
+    tag: str
 
 @dataclass
 class ChunkingConfig:
@@ -15,15 +20,21 @@ class ChunkingConfig:
     chunk_size: int  # in seconds at the target_sample_rate
     overlap_size: int  # in seconds
 
+@dataclass
+class AudioChunk:
+    data: np.ndarray
+    tag: str
+    filename: str
+    chunk_index: int
 
 @dataclass
 class AudioChunks:
-    chunks: List[np.ndarray]
+    chunks: List[AudioChunk]
     sample_rate: int  # This will be the target_sample_rate
     chunking_config: ChunkingConfig
 
 
-def chunk_audio(wav: np.ndarray, sr: int, config: ChunkingConfig) -> AudioChunks:
+def chunk_audio(wav: np.ndarray, sr: int, config: ChunkingConfig, info: SourceFileInfo) -> AudioChunks:
     """
     Chunks the given waveform based on the config.
     Assumes wav is already at the config.target_sample_rate.
@@ -53,19 +64,27 @@ def chunk_audio(wav: np.ndarray, sr: int, config: ChunkingConfig) -> AudioChunks
             "Overlap must be smaller than chunk size."
         )
 
-    chunks = []
+    chunks: List[AudioChunk] = []
+    chunk_id = 0
     for start in range(0, len(wav), step):
         end = start + chunk_size_samples
         if end > len(wav):
             # Original logic: skip the last partial chunk
             break
-        chunks.append(wav[start:end])
+        chunk = AudioChunk(
+            data=wav[start:end],
+            tag=info.tag,
+            filename=info.filename,
+            chunk_index=chunk_id,
+        )
+        chunks.append(chunk)
+        chunk_id += 1
 
     return AudioChunks(chunks=chunks, sample_rate=sr, chunking_config=config)
 
 
-def load_flac(fp: str, chunking_config: ChunkingConfig) -> AudioChunks:
-    wav_np, sr = sf.read(fp, always_2d=False)
+def load_flac(file: SourceFileInfo, chunking_config: ChunkingConfig) -> AudioChunks:
+    wav_np, sr = sf.read(file.path, always_2d=False)
     target_sr = chunking_config.target_sample_rate
 
     if wav_np.ndim == 2:  # (T, C) -> mono
@@ -74,11 +93,7 @@ def load_flac(fp: str, chunking_config: ChunkingConfig) -> AudioChunks:
     # ensure float32 in [-1, 1]
     wav_np = wav_np.astype(np.float32, copy=False)
 
-    # --- ADDED: Resample if necessary ---
     if sr != target_sr:
-        print(f"Resampling from {sr} Hz to {target_sr} Hz")
-        # Convert to torch tensor for torchaudio transforms
-        # T.Resample handles mono (T,) tensors directly
         wav_tensor = torch.from_numpy(wav_np)
 
         resampler = T.Resample(orig_freq=sr, new_freq=target_sr)
@@ -86,92 +101,6 @@ def load_flac(fp: str, chunking_config: ChunkingConfig) -> AudioChunks:
 
         wav_np = wav_tensor_resampled.numpy()
         sr = target_sr  # Update sample rate to new rate
-    # --- End of added section ---
 
     # Pass the resampled audio and the target SR to chunk_audio
-    return chunk_audio(wav_np, sr, chunking_config)
-
-def read_hls_via_ffmpeg(url: str, target_sr: int, mono: bool = True) -> np.ndarray:
-    # Build ffmpeg command that decodes + resamples to float32 PCM on stdout
-    cmd = [
-        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-        "-i", url,
-        "-vn",
-        "-acodec", "pcm_f32le",
-        "-f", "f32le",
-        "-ar", str(object=target_sr),
-        "-ac", "1" if mono else "2",
-        "pipe:1",
-    ]
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    pcm = p.stdout.read()  # read all
-    p.wait()
-    if p.returncode != 0 or not pcm:
-        raise RuntimeError("ffmpeg failed to decode HLS")
-    # Convert bytes -> float32 numpy
-    wav = np.frombuffer(pcm, dtype=np.float32)
-    return wav
-
-
-def _load_hls_common(
-    src: str, chunking_config: ChunkingConfig
-) -> AudioChunks:
-    # Build reader
-    reader = StreamReader(src=src)
-    target_sr = chunking_config.target_sample_rate  # <-- Get target SR
-
-    # Discover source audio stream’s native sample rate
-    try:
-        sinfo = reader.get_src_stream_info(0)  # first (and usually only) stream
-        src_sr = int(getattr(sinfo, "sample_rate", 44100) or 44100)
-    except Exception:
-        src_sr = 44100
-
-    # Use ~1–5 seconds per internal decode chunk; based on *source* SR
-    seconds_per_internal_chunk = 5.0
-    frames_per_chunk = max(1, int(src_sr * seconds_per_internal_chunk))
-
-    # --- MODIFIED: Ask FFmpeg to decode *and resample* to the target_sr ---
-    reader.add_audio_stream(
-        frames_per_chunk=frames_per_chunk,
-        decoder=None,
-        sample_rate=target_sr,  # <-- Tell FFmpeg to resample
-    )
-
-    pcs = []
-    for (pcm_chunk,) in reader.stream():
-        if (pcm_chunk is None) or (pcm_chunk.numel() == 0):
-            continue
-        # pcm_chunk: [frames, channels], float32 in [-1, 1]
-        # This chunk is now *already* at the `target_sr`
-        if pcm_chunk.numel() == 0:
-            continue
-        # to mono
-        if pcm_chunk.size(1) > 1:
-            pcm_chunk = pcm_chunk.mean(dim=1, keepdim=True)
-        pcs.append(pcm_chunk)
-
-    if not pcs:
-        raise RuntimeError("No audio decoded from HLS stream.")
-
-    # Concatenate and squeeze channel dim -> [T]
-    wav = torch.cat(pcs, dim=0).squeeze(1).contiguous()
-    wav_np = wav.numpy().astype(np.float32, copy=False)
-
-    # --- MODIFIED: Pass the target_sr to chunk_audio ---
-    return chunk_audio(wav_np, target_sr, chunking_config)
-
-
-def load_m3u8_playlist_local(fp: str, chunking_config: ChunkingConfig) -> AudioChunks:
-    """
-    Load a local HLS playlist (e.g., a folder with init.mp4 + *.m4s + playlist.m3u8).
-    """
-    return _load_hls_common(
-        src=fp, chunking_config=chunking_config
-    )
-
-
-def load_m3u8_playlist_remote(url: str, chunking_config: ChunkingConfig) -> AudioChunks:
-    target_sr = chunking_config.target_sample_rate
-    wav_np = read_hls_via_ffmpeg(url, target_sr, mono=True)
-    return chunk_audio(wav_np, target_sr, chunking_config)
+    return chunk_audio(wav_np, sr, chunking_config, info=file)
