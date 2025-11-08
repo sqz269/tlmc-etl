@@ -11,6 +11,8 @@ from torch.utils.data import DataLoader, IterableDataset
 
 from utils import utils
 
+DATA_DIRECTORY = "data/"
+
 MERT_SAMPLE_RATE = 24000
 EMBEDDING_DIRECTORY = f"embeddings/chunks/"
 
@@ -166,7 +168,7 @@ def embed_waveforms_batched(
 def main():
   intermediate_results: Dict[str, List[torch.Tensor]] = {}
 
-  proc_list = utils.get_process_list("data/", EMBEDDING_DIRECTORY)
+  proc_list = utils.get_process_list(DATA_DIRECTORY, EMBEDDING_DIRECTORY)
   model, processor, device = init_model()
   dataset = ChunkStreamDataset(
     flac_list=proc_list,
