@@ -22,6 +22,7 @@ dependencies = [
     "plotly>=6.3.1",
     "torch==2.6.0+cu124",
     "torchaudio==2.6.0+cu124",
+    "tqdm>=4.66.5",
     "transformers>=4.57.1",
     "umap-learn>=0.5.9.post2",
     "wget>=3.2",
