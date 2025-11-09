@@ -14,6 +14,13 @@ def load_embeddings(pool_mode: Literal["mean", "max", "mean+max"] = "mean") -> t
   tensors = load_tensor(target_dir)
   return torch.stack(list(tensors.values()))
 
+def load_embeddings_chunks(embedding_dir: str) -> Dict[str, torch.Tensor]:
+  target_dir = os.path.join(embedding_dir, "chunks")
+  if not os.path.exists(target_dir):
+    raise FileNotFoundError(f"Directory {target_dir} does not exist.")
+  
+  tensors = load_tensor(target_dir)
+  return tensors
 
 def load_tensor(dir: str) -> Dict[str, torch.Tensor]:
   """Loads all .pt files from a directory into a dictionary."""
@@ -28,6 +35,18 @@ def load_tensor(dir: str) -> Dict[str, torch.Tensor]:
         print(f"Could not load {file}: {e}")
   return tensors
 
+def pool_loaded_tensor_dict(
+  tensors: Dict[str, torch.Tensor],
+  mode: Literal["mean", "max", "mean+max"] = "mean",
+):
+  # check if we are processing all chunks
+  sample_tensor = next(iter(tensors.values()))
+  sample_file = next(iter(tensors.keys()))
+  if sample_tensor.ndim == 2 and "allchunks" in sample_file:
+    print(f"Detected allchunks tensors, pooling to 1D embedding ({mode})")
+    for key in tqdm.tqdm(tensors):
+      tensor = pool(tensors[key], mode=mode)
+      tensors[key] = tensor
 
 def pool(tensor: torch.Tensor, mode: str = "mean") -> torch.Tensor:
   """
@@ -45,6 +64,21 @@ def pool(tensor: torch.Tensor, mode: str = "mean") -> torch.Tensor:
     return torch.cat((mean_pool, max_pool), dim=0)
   else:
     raise ValueError(f"Unsupported pooling mode: {mode}")
+
+def get_tag_and_filename(fname: str) -> Tuple[str, str]:
+  try:
+    if not fname.endswith(".pt"):
+      raise ValueError("Filename must end with .pt")
+    
+    if "allchunks" in fname:
+      fname = fname.replace(".allchunks.pt", ".pt")
+    
+    # Assumes format "[{genre}] - {filename}.pt"
+    tag, name = fname.split('] - ', 1)
+    tag = tag[1:]  # Remove the leading '['
+    return tag, name
+  except ValueError as e:
+    raise e
 
 def save_tensor(tensor: torch.Tensor, filepath: str) -> None:
   """
