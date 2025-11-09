@@ -647,7 +647,7 @@ for genre, files in flac_list.items():
         for ci, chunk in enumerate(frame_audio_24s(audio)):
             print(f"Processing chunk {ci} with length {len(chunk)} samples")
             rep = get_acts_from_audio(audio=chunk, layers=[36], fp16=True, meanpool=True)
-            reps.append(rep[36])
+            reps.append(torch.from_numpy(rep[36]))
             
         r = torch.cat(reps, dim=0)
         

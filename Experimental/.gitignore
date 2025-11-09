@@ -1,4 +1,5 @@
 data/
+!jukeboxmir/jukebox/jukebox/data/
 *.wav
 *.flac
 *.pt
