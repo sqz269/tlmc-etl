@@ -33,7 +33,6 @@ genre_artist_color_map = {
 
 def get_js_click_copy():
   return """
-  <script>
   window.onload = function() {
     // Find the Plotly graph div (there's typically only one)
     var plotDiv = document.getElementsByClassName('plotly-graph-div')[0];
@@ -62,7 +61,6 @@ def get_js_click_copy():
       console.error('Could not find Plotly graph div to attach click listener.');
     }
   };
-  </script>
   """
 
 def main():
@@ -108,11 +106,11 @@ def main():
     fig.update_traces(marker=dict(size=2))
     
     # show
-    fig.show()
+    # fig.show()
     
     html_file = f"umap_viz_{pooling_policy}.html"
     print(f"Saving visualization to {html_file}...")
-    fig.write_html(html_file, include_plotlyjs='cdn', full_html=True)
+    fig.write_html(html_file, include_plotlyjs='cdn', full_html=True, post_script=get_js_click_copy())
 
 if __name__ == "__main__":
   main()
