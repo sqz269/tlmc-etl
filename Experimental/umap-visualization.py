@@ -5,13 +5,13 @@ import umap
 import numpy as np
 import pandas as pd
 import plotly.express as px
-from typing import Dict, List
+from typing import Dict, List, Literal
 
 from utils import utils
 from utils.utils import load_tensor
 
 TENSOR_DIRECTORY = f"embeddings/chunks/"
-POOLING_POLICY = "mean"
+POOLING_POLICY: List[Literal["mean", "max", "mean+max"]] = ["mean", "mean+max"]
 
 genre_artist_color_map = {
   "genre_eurobeat": "#FF4500",           # OrangeRed
@@ -71,45 +71,48 @@ def main():
     print("No .pt files found in the directory. Exiting.")
     return
   
-  utils.pool_loaded_tensor_dict(tensors, mode=POOLING_POLICY)
-
-  tags: List[str] = []
-  cleaned_filenames: List[str] = []
-  for name in tqdm(tensors.keys()):
-    tag_part, filename_part = utils.get_tag_and_filename(name)
-    tags.append(tag_part)
-    cleaned_filenames.append(filename_part)
+  for pooling_policy in POOLING_POLICY:
+    print(f"Generating UMAP visualization with pooling policy: {pooling_policy}")
     
-  embeddings = torch.stack(list(tensors.values())).numpy()
-  print("Running UMAP dimensionality reduction...")
-  reducer = umap.UMAP(n_components=3, min_dist=0.1, metric='cosine', random_state=42)
-  umap_embeddings = reducer.fit_transform(embeddings)
-  
-  print("Preparing DataFrame for visualization...")
-  df = pd.DataFrame(umap_embeddings, columns=['UMAP 1', 'UMAP 2', 'UMAP 3'])
-  df['Tag'] = tags
-  df['Filename'] = cleaned_filenames
-  
-  fig = px.scatter_3d(
-    df,
-    x='UMAP 1',
-    y='UMAP 2',
-    z='UMAP 3',
-    title=f'UMAP Tensor Visualization ({POOLING_POLICY})',
-    color='Tag',
-    color_discrete_map=genre_artist_color_map,
-    hover_data=['Filename'],
-    custom_data=['Filename']
-  )
-  
-  fig.update_traces(marker=dict(size=2))
-  
-  # show
-  fig.show()
-  
-  html_file = f"umap_viz_{POOLING_POLICY}.html"
-  print(f"Saving visualization to {html_file}...")
-  fig.write_html(html_file, include_plotlyjs='cdn', full_html=True)
+    pooled_tensors = utils.pool_loaded_tensor_dict(tensors=tensors, mode=pooling_policy)
+
+    tags: List[str] = []
+    cleaned_filenames: List[str] = []
+    for name in tqdm(pooled_tensors.keys()):
+      tag_part, filename_part = utils.get_tag_and_filename(name)
+      tags.append(tag_part)
+      cleaned_filenames.append(filename_part)
+      
+    embeddings = torch.stack(list(pooled_tensors.values())).numpy()
+    print("Running UMAP dimensionality reduction...")
+    reducer = umap.UMAP(n_components=3, min_dist=0.1, metric='cosine', random_state=42)
+    umap_embeddings = reducer.fit_transform(embeddings)
+    
+    print("Preparing DataFrame for visualization...")
+    df = pd.DataFrame(umap_embeddings, columns=['UMAP 1', 'UMAP 2', 'UMAP 3'])
+    df['Tag'] = tags
+    df['Filename'] = cleaned_filenames
+    
+    fig = px.scatter_3d(
+      df,
+      x='UMAP 1',
+      y='UMAP 2',
+      z='UMAP 3',
+      title=f'UMAP Tensor Visualization ({pooling_policy})',
+      color='Tag',
+      color_discrete_map=genre_artist_color_map,
+      hover_data=['Filename'],
+      custom_data=['Filename']
+    )
+    
+    fig.update_traces(marker=dict(size=2))
+    
+    # show
+    fig.show()
+    
+    html_file = f"umap_viz_{pooling_policy}.html"
+    print(f"Saving visualization to {html_file}...")
+    fig.write_html(html_file, include_plotlyjs='cdn', full_html=True)
 
 if __name__ == "__main__":
   main()

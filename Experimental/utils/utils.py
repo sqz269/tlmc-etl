@@ -38,15 +38,18 @@ def load_tensor(dir: str) -> Dict[str, torch.Tensor]:
 def pool_loaded_tensor_dict(
   tensors: Dict[str, torch.Tensor],
   mode: Literal["mean", "max", "mean+max"] = "mean",
-):
+) -> Dict[str, torch.Tensor]:
   # check if we are processing all chunks
   sample_tensor = next(iter(tensors.values()))
   sample_file = next(iter(tensors.keys()))
+  pooled_tensors: Dict[str, torch.Tensor] = {}
   if sample_tensor.ndim == 2 and "allchunks" in sample_file:
     print(f"Detected allchunks tensors, pooling to 1D embedding ({mode})")
     for key in tqdm.tqdm(tensors):
       tensor = pool(tensors[key], mode=mode)
-      tensors[key] = tensor
+      pooled_tensors[key] = tensor
+
+  return pooled_tensors
 
 def pool(tensor: torch.Tensor, mode: str = "mean") -> torch.Tensor:
   """
