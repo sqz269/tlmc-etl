@@ -10,6 +10,7 @@ dependencies = [
     "cmake==3.25.0",
     "datasets>=2.19.1",
     "dotenv>=0.9.9",
+    "google-cloud-storage>=3.5.0",
     "hdbscan>=0.8.40",
     "ipykernel>=7.1.0",
     "ipynb>=0.5.1",
