@@ -1,4 +1,5 @@
 data/
+!jukeboxmir/jukebox/jukebox/data/
 *.wav
 *.flac
 *.pt
@@ -6,4 +7,5 @@ data/
 *.ann
 *.csv
 *.html
+
 .DS_Store
