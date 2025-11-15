@@ -1,13 +1,15 @@
+import os
 import subprocess
 from typing import List
 from dataclasses import dataclass
 from typing import Tuple
+from uuid import uuid4
 import numpy as np
 import soundfile as sf
 from torchaudio.io import StreamReader
 import torch  # needed because StreamReader yields torch tensors
 import torchaudio.transforms as T  # <-- ADDED for resampling
-
+from pydub import AudioSegment 
 
 @dataclass
 class SourceFileInfo:
@@ -115,3 +117,12 @@ def load_flac(file: SourceFileInfo, chunking_config: ChunkingConfig) -> AudioChu
 
   # Pass the resampled audio and the target SR to chunk_audio
   return chunk_audio(wav_np, sr, chunking_config, info=file)
+
+def load_m4a(file: SourceFileInfo, chunking_config: ChunkingConfig) -> AudioChunks:
+  audio = AudioSegment.from_file(file.path, format="m4a")
+  uuid  = uuid4()
+  temp_flac_path = f'temp_{uuid}.flac'
+  audio.export(temp_flac_path, format='flac')
+  result = load_flac(SourceFileInfo(path=temp_flac_path, filename=file.filename, tag=file.tag), chunking_config)
+  os.remove(temp_flac_path)
+  return result
