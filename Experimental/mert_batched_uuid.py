@@ -142,12 +142,14 @@ def embed_waveforms_batched(
   batch_size: int = 32,
   pin_memory: bool = True,
   num_workers: int = max(os.cpu_count() - 1, 0), # type: ignore
+  prefetch_factor: int = 8,
 ):
   data_loader: DataLoader = DataLoader(
     data_set,
     batch_size=batch_size,
     pin_memory=pin_memory,
     collate_fn=collate_batch_fn,
+    prefetch_factor=prefetch_factor,
     num_workers=num_workers,
     persistent_workers=num_workers > 0,
   )
