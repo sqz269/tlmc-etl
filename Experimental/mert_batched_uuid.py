@@ -11,7 +11,7 @@ from loader import AudioChunk, SourceFileInfo, load_flac, ChunkingConfig
 
 from torch.utils.data import DataLoader, IterableDataset
 
-from utils.utils import get_flac_list, save_tensor
+from utils.utils import save_tensor
 
 DATA_DIRECTORY = "data/"
 EMBEDDING_DIRECTORY = f"embeddings/chunks/"
@@ -38,26 +38,38 @@ def get_completed_embeddings(embedding_dir: str) -> Set[str]:
 
   return completed
 
+def get_flac_list(dir_path: str) -> Set[str]:
+  # genre and list of songs
+  flac_files: Set[str] = set()
+  for fp, _, files in os.walk(dir_path):
+    for f in files:
+      if f.lower().endswith(".flac"):
+        full_path = os.path.join(fp, f)
+        # if ("[ignore]" in full_path.lower()):
+        #   continue
+        flac_files.add(full_path)
+        
+  return flac_files
+
 def get_process_list(dir_path: str, embedding_path: str) -> List[SourceFileInfo]:
   flac_list = get_flac_list(dir_path)
   completed = get_completed_embeddings(embedding_path)
   proc: List[SourceFileInfo] = []
   loaded = 0
   done = 0
-  for tag, files in flac_list.items():
-    for fp in files:
-      fn = os.path.splitext(os.path.basename(fp))[0]
-      item_id = UUID_REGEX.search(fn)
-      if item_id and item_id.group(0) in completed:
-        done += 1
-        continue
-      info = SourceFileInfo(
-        path=fp,
-        filename=fn,
-        tag="<UNUSED>",
-      )
-      loaded += 1
-      proc.append(info)
+  for fp in flac_list:
+    fn = os.path.splitext(os.path.basename(fp))[0]
+    item_id = UUID_REGEX.search(fn)
+    if item_id and item_id.group(0) in completed:
+      done += 1
+      continue
+    info = SourceFileInfo(
+      path=fp,
+      filename=fn,
+      tag="<UNUSED>",
+    )
+    loaded += 1
+    proc.append(info)
 
   print(f"Total files to process: {loaded}, already done: {done}")
   return proc
