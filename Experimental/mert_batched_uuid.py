@@ -12,6 +12,9 @@ from loader import AudioChunk, SourceFileInfo, load_flac, load_m4a, ChunkingConf
 from torch.utils.data import DataLoader, IterableDataset
 
 from utils.utils import save_tensor
+import torch.multiprocessing as mp
+
+mp.set_start_method("spawn", force=True)
 
 DATA_DIRECTORY = "data/"
 EMBEDDING_DIRECTORY = f"embeddings/test/"
@@ -157,6 +160,7 @@ def embed_waveforms_batched(
     prefetch_factor=prefetch_factor,
     num_workers=num_workers,
     persistent_workers=num_workers > 0,
+    multiprocessing_context=mp.get_context("spawn"),
   )
 
   total_files = len(data_set.flac_list)
@@ -230,7 +234,6 @@ def main():
   intermediate_results: Dict[str, List[torch.Tensor]] = {}
 
   proc_list = get_process_list(DATA_DIRECTORY, EMBEDDING_DIRECTORY)
-  model, processor, device = init_model()
   dataset = ChunkStreamDataset(
     flac_list=proc_list,
     chunking_config=chunking_config,
@@ -238,6 +241,7 @@ def main():
 
   os.makedirs(EMBEDDING_DIRECTORY, exist_ok=True)
 
+  model, processor, device = init_model()
   with ThreadPoolExecutor(max_workers=4) as executor:
     embed_waveforms_batched(
       data_set=dataset,
