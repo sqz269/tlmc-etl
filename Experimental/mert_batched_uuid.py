@@ -1,7 +1,7 @@
-from collections.abc import Set
 import os
 import re
-from typing import Any, Dict, Iterable, Iterator, List, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Tuple, Set
+from concurrent.futures import ThreadPoolExecutor  # <--- MODIFIED: Added import
 
 import torch
 from tqdm import tqdm
@@ -48,7 +48,7 @@ def get_m4a_list(dir_path: str) -> Set[str]:
         # if ("[ignore]" in full_path.lower()):
         #   continue
         m4a_files.add(full_path)
-        
+
   return m4a_files
 
 def get_process_list(dir_path: str, embedding_path: str) -> List[SourceFileInfo]:
@@ -81,6 +81,9 @@ def init_model() -> Tuple[AutoModel, Wav2Vec2FeatureExtractor, str]:
     .to(device)
     .eval()
   )
+  if torch.cuda.is_available():
+    model = torch.compile(model, mode="reduce-overhead", fullgraph=False)
+  
   processor = Wav2Vec2FeatureExtractor.from_pretrained(
     "m-a-p/MERT-v1-330M", trust_remote_code=True
   )
@@ -100,14 +103,15 @@ class ChunkStreamDataset(IterableDataset):
 
   def __iter__(self) -> Iterator[AudioChunk]:
     worker_info = torch.utils.data.get_worker_info()
-    
+
     if worker_info is None:
       flac_iterator = self.flac_list
     else:
       # make sure each worker loads a disjoint subset of files
       flac_iterator = itertools.islice(
-        self.flac_list, worker_info.id, None, worker_info.num_workers)
-    
+        self.flac_list, worker_info.id, None, worker_info.num_workers
+      )
+
     for info in flac_iterator:
       # print(f"Loading file: {info.path}")
       fp = info.path
@@ -130,7 +134,7 @@ class ChunkStreamDataset(IterableDataset):
         yield chunk
 
 def collate_batch_fn(batch):
-    return batch
+  return batch
 
 def embed_waveforms_batched(
   data_set: ChunkStreamDataset,
@@ -138,10 +142,11 @@ def embed_waveforms_batched(
   processor: Wav2Vec2FeatureExtractor,
   device: str,
   results: Dict[str, List[torch.Tensor]],
+  executor: ThreadPoolExecutor,  # <--- MODIFIED: Accept executor
   layer_mix: str = "last4",
   batch_size: int = 32,
   pin_memory: bool = True,
-  num_workers: int = max(os.cpu_count() - 1, 0), # type: ignore
+  num_workers: int = max(os.cpu_count() - 1, 0),  # type: ignore
   prefetch_factor: int = 8,
 ):
   data_loader: DataLoader = DataLoader(
@@ -153,7 +158,7 @@ def embed_waveforms_batched(
     num_workers=num_workers,
     persistent_workers=num_workers > 0,
   )
-  
+
   total_files = len(data_set.flac_list)
   file_pbar = tqdm(
     total=total_files,
@@ -180,23 +185,19 @@ def embed_waveforms_batched(
         wav_list,
         sampling_rate=MERT_SAMPLE_RATE,
         return_tensors="pt",
-        padding=True     
+        padding=True,
       )
       inputs = {k: v.to(device, non_blocking=True) for k, v in inputs.items()}
-      
-      outputs = model(**inputs, output_hidden_states=True)
-      hs = torch.stack(outputs.hidden_states, dim=0)  # [L, B, T, C]
-      hs_time = hs.mean(dim=2)                        # [L, B, C]
 
+      outputs = model(**inputs, output_hidden_states=True)
+      hidden = outputs.hidden_states if layer_mix == "last4" else None
       if layer_mix == "last4":
-        vec = hs_time[-4:].mean(dim=0)                # [B, C]
-      elif layer_mix == "last":
-        vec = hs_time[-1]                             # [B, C]
-      else:
-        raise ValueError("layer_mix must be one of {'last','last4'}")
+          vec = torch.stack([h.mean(dim=1) for h in hidden[-4:]], dim=0).mean(dim=0)  # [B,C]
+      else:  # "last"
+          vec = outputs.last_hidden_state.mean(dim=1)  # [B,C]
 
       vec = torch.nn.functional.normalize(vec, p=2, dim=-1)
-      r = vec.detach().cpu() # [B, C]
+      r = vec.detach().cpu()
 
       # get metadata for each B
       for tensor, metadata in zip(r, batch_chunks):
@@ -205,19 +206,25 @@ def embed_waveforms_batched(
 
         results[metadata.source.path].append(tensor)
         # check if all tensor is collected
-        if (metadata.total_chunks == len(results[metadata.source.path])):
+        if metadata.total_chunks == len(results[metadata.source.path]):
           # write to disk
-          tensor_stack = torch.stack(tensors=results[metadata.source.path], dim=0) # [chunks, C]
+          tensor_stack = torch.stack(
+            tensors=results[metadata.source.path], dim=0
+          )  # [chunks, C]
           write_path = os.path.join(
             EMBEDDING_DIRECTORY,
-            f"{metadata.source.filename}.allchunks.pt"
+            f"{metadata.source.filename}.allchunks.pt",
           )
-          save_tensor(tensor_stack, write_path)
+          
+          # <--- MODIFIED: Offload saving to the worker thread pool
+          executor.submit(save_tensor, tensor_stack, write_path)
+          
           # print(f"Saved embedding to {write_path}")
           del results[metadata.source.path]
           file_pbar.update(1)
 
       # print(f"Processed {len(batch_chunks)} chunks.")
+
 
 def main():
   intermediate_results: Dict[str, List[torch.Tensor]] = {}
@@ -228,20 +235,22 @@ def main():
     flac_list=proc_list,
     chunking_config=chunking_config,
   )
-  
+
   os.makedirs(EMBEDDING_DIRECTORY, exist_ok=True)
-  
-  embed_waveforms_batched(
-    data_set=dataset,
-    model=model,
-    processor=processor,
-    device=device,
-    results=intermediate_results,
-    layer_mix="last4",
-    batch_size=8,
-    pin_memory=True,
-    num_workers=4,
-  )
+
+  with ThreadPoolExecutor(max_workers=4) as executor:
+    embed_waveforms_batched(
+      data_set=dataset,
+      model=model,
+      processor=processor,
+      device=device,
+      results=intermediate_results,
+      executor=executor,  # <--- MODIFIED: Pass the executor
+      layer_mix="last4",
+      batch_size=8,
+      pin_memory=True,
+      num_workers=4,
+    )
 
 if __name__ == "__main__":
   main()
