@@ -16,6 +16,9 @@ import torch.multiprocessing as mp
 
 mp.set_start_method("spawn", force=True)
 
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
 DATA_DIRECTORY = "data/"
 EMBEDDING_DIRECTORY = f"embeddings/test/"
 
@@ -193,7 +196,9 @@ def embed_waveforms_batched(
       )
       inputs = {k: v.to(device, non_blocking=True) for k, v in inputs.items()}
 
-      outputs = model(**inputs, output_hidden_states=True)
+      with autocast(device_type="cuda", dtype=torch.float16):
+        outputs = model(**inputs, output_hidden_states=True)
+
       hidden = outputs.hidden_states if layer_mix == "last4" else None
       if layer_mix == "last4":
           vec = torch.stack([h.mean(dim=1) for h in hidden[-4:]], dim=0).mean(dim=0)  # [B,C]
