@@ -1,7 +1,9 @@
+import re
 import os
 import tqdm
-from typing import Dict, List, Literal, Literal, Set, Tuple
 import torch
+from typing import Dict, List, Literal, Literal, Set, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loader import SourceFileInfo
 
@@ -22,18 +24,29 @@ def load_embeddings_chunks(embedding_dir: str) -> Dict[str, torch.Tensor]:
   tensors = load_tensor(target_dir)
   return tensors
 
-def load_tensor(dir: str) -> Dict[str, torch.Tensor]:
-  """Loads all .pt files from a directory into a dictionary."""
-  tensors: Dict[str, torch.Tensor] = {}
-  # tqdm
-  for file in tqdm.tqdm(os.listdir(dir)):
-    if file.endswith(".pt"):
-      try:
-        tensor = torch.load(os.path.join(dir, file))
-        tensors[file] = tensor
-      except Exception as e:
-        print(f"Could not load {file}: {e}")
-  return tensors
+def load_tensor(dir: str, num_workers: int = 8) -> Dict[str, torch.Tensor]:
+    """Loads all .pt files from a directory in parallel."""
+    
+    pt_files = [f for f in os.listdir(dir) if f.endswith(".pt")]
+    tensors: Dict[str, torch.Tensor] = {}
+
+    def load_file(fname):
+        full_path = os.path.join(dir, fname)
+        try:
+            return fname, torch.load(full_path)
+        except Exception as e:
+            return fname, e
+
+    with ThreadPoolExecutor(max_workers=num_workers) as ex:
+        futures = {ex.submit(load_file, f): f for f in pt_files}
+        for fut in tqdm.tqdm(as_completed(futures), total=len(futures)):
+            fname, result = fut.result()
+            if isinstance(result, Exception):
+                print(f"Could not load {fname}: {result}")
+            else:
+                tensors[fname] = result
+
+    return tensors
 
 def pool_loaded_tensor_dict(
   tensors: Dict[str, torch.Tensor],
@@ -82,6 +95,16 @@ def get_tag_and_filename(fname: str) -> Tuple[str, str]:
     return tag, name
   except ValueError as e:
     raise e
+  
+UUID_REGEX = re.compile(
+  r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+def get_uuid_from_filename(fname: str) -> str:
+  match = UUID_REGEX.search(fname)
+  if match:
+    return match.group(0)
+  else:
+    raise ValueError(f"No UUID found in filename: {fname}")
 
 def save_tensor(tensor: torch.Tensor, filepath: str) -> None:
   """
