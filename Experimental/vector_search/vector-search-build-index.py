@@ -1,8 +1,10 @@
-import os
+import os, sys
 import torch
 from tqdm import tqdm
 import pandas as pd
 from typing import List, Literal, Dict
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from utils import utils
 from utils.utils import load_tensor
@@ -56,7 +58,7 @@ def main():
       annoy_index.add_item(i, vector)
       vector_id_to_key[i] = track_ids[i]
 
-    annoy_index.build(10)
+    annoy_index.build(200)
     index_path = f"{VECTOR_INDEX_DIR}/annoy_index_{pooling_policy}.ann"
     vector_id_to_key_path = f"{VECTOR_INDEX_DIR}/annoy_int_index_to_uuid_{pooling_policy}.csv"
     os.makedirs(VECTOR_INDEX_DIR, exist_ok=True)

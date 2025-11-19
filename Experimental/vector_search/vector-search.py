@@ -75,7 +75,7 @@ def main():
     print(f"NN for {item.TrackName} by {item.ArtistName}:")
     vector_id = joined_df.index.get_loc(query_id)
     query_vector = annoy_index.get_item_vector(vector_id)
-    nearest_ids, distances = annoy_index.get_nns_by_vector(query_vector, 5, include_distances=True)
+    nearest_ids, distances = annoy_index.get_nns_by_vector(query_vector, 10, search_k=10_000, include_distances=True)
     print(f"Nearest neighbors for TrackID '{query_id}':")
     for neighbor_id, distance in zip(nearest_ids, distances):
       neighbor_key = joined_df.index[neighbor_id]
