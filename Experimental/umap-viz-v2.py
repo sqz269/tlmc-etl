@@ -14,7 +14,7 @@ METADATA_CSV_FILE = "embeddings/id_metadata.csv"
 TENSOR_DIRECTORY = "embeddings/embeddings/"
 
 # Output scatter will downsample if > N points to stay responsive
-MAX_SCATTER_POINTS = 50000
+MAX_SCATTER_POINTS = 160000
 
 POOLING_POLICY: List[Literal["mean", "max", "mean+max"]] = ["mean", "mean+max"]
 
@@ -85,8 +85,8 @@ def main():
     # -------------------------------------
     print("Running UMAP...")
     reducer = umap.UMAP(
-      n_components=2,
-      n_neighbors=100,
+      n_components=4,
+      n_neighbors=10,
       min_dist=0.3,
       metric="cosine",
     )
@@ -96,7 +96,7 @@ def main():
     # Build DataFrame with metadata merged in
     # -------------------------------------
     print("Building DataFrame...")
-    df = pd.DataFrame(umap_embeddings, columns=["UMAP 1", "UMAP 2"])
+    df = pd.DataFrame(umap_embeddings, columns=["UMAP 1", "UMAP 2", "UMAP 3", "UMAP 4"])
     df["TrackID"] = track_ids
 
     # Join metadata: left join on TrackID
@@ -119,10 +119,12 @@ def main():
     # -------------------------------------
     print("Rendering scatter plot...")
     sorted_artists = sorted(df_scatter["ArtistName"].dropna().unique())
-    fig_scatter = px.scatter(
+    fig_scatter = px.scatter_3d(
       df_scatter,
       x="UMAP 1",
       y="UMAP 2",
+      z="UMAP 3",
+      symbol="UMAP 4",
       title=f"UMAP Visualization ({pooling_policy})",
       hover_data=[
         "TrackID",
@@ -132,7 +134,6 @@ def main():
       ],
       custom_data=["TrackID"],
       color="ArtistName",  # You can change to AlbumName, Genre, etc.
-      render_mode="webgl",
       category_orders={"ArtistName": sorted_artists},
     )
 

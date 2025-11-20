@@ -13,7 +13,7 @@ from utils.utils import load_tensor
 # Configuration
 METADATA_CSV_FILE = "embeddings/id_metadata.csv"
 TENSOR_DIRECTORY = "embeddings/embeddings/"
-POOLING_POLICY = "mean" # Pick one policy for the CSV to keep it simple
+POOLING_POLICY = "mean+max" # Pick one policy for the CSV to keep it simple
 
 def main():
   print(f"--- Generating UMAP CSV for policy: {POOLING_POLICY} ---")
@@ -36,11 +36,11 @@ def main():
 
   # 4. Run UMAP
   print("Running UMAP (this may take a while)...")
-  reducer = umap.UMAP(n_components=2, n_neighbors=100, min_dist=0.3, metric="cosine")
+  reducer = umap.UMAP(n_components=3, n_neighbors=100, min_dist=0.3, metric="cosine")
   umap_embeddings = reducer.fit_transform(embeddings)
 
   # 5. Create DataFrame
-  df_out = pd.DataFrame(umap_embeddings, columns=["x", "y"])
+  df_out = pd.DataFrame(umap_embeddings, columns=["x", "y", "z"])
   df_out["TrackID"] = track_ids
   
   # 6. Join Metadata

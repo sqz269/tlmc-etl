@@ -58,6 +58,7 @@ def main():
       annoy_index.add_item(i, vector)
       vector_id_to_key[i] = track_ids[i]
 
+    print("Building Annoy index (this may take a while)...")
     annoy_index.build(200)
     index_path = f"{VECTOR_INDEX_DIR}/annoy_index_{pooling_policy}.ann"
     vector_id_to_key_path = f"{VECTOR_INDEX_DIR}/annoy_int_index_to_uuid_{pooling_policy}.csv"
