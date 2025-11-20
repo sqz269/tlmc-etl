@@ -1,0 +1,6 @@
+annoy
+pandas
+plotly
+dash
+gunicorn
+

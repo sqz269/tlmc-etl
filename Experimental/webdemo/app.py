@@ -9,7 +9,6 @@ import dash
 
 # --- Constants ---
 METADATA_CSV_FILE = "embeddings/id_metadata.csv"
-TENSOR_DIRECTORY = "embeddings/embeddings/"
 VECTOR_INDEX_DIR = "vector_index"
 UMAP_CSV_FILE = "umap_data_mean.csv"
 
