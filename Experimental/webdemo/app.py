@@ -11,7 +11,7 @@ import dash
 # --- Constants ---
 METADATA_CSV_FILE = "embeddings/id_metadata.csv"
 VECTOR_INDEX_DIR = "vector_index"
-UMAP_CSV_FILE = "umap_data_mean.csv"
+UMAP_CSV_FILE_TEMPLATE = "umap_data_{pooling_policy}.csv"
 
 ANN_TEMPLATE = f"{VECTOR_INDEX_DIR}/annoy_index_{{pooling_policy}}.ann"
 # Mapping UUIDs to Annoy integer IDs
@@ -23,7 +23,7 @@ AUDIO_API_TEMPLATE = "https://staging-api.marisad.me/api/asset/track/{track_id}/
 POOLING_POLICY_DIM = {"mean": 1024, "mean+max": 2048}
 DEFAULT_POLICY = "mean+max"
 
-
+SAMPLE_SIZE = 5000
 # --- Data Loading with Caching ---
 
 
@@ -41,9 +41,12 @@ def load_annoy_index(policy: str):
 
 
 @lru_cache(maxsize=None)
-def load_data(policy: str):
+def load_data(policy: str, umap_policy: str):
   """
   Load data and return fast lookup structures.
+  Args:
+    policy: Pooling policy for Annoy index
+    umap_policy: Pooling policy for UMAP visualization
   Returns:
     df_data: DataFrame (for global checks)
     df_umap: UMAP DataFrame
@@ -74,21 +77,26 @@ def load_data(policy: str):
   # accessing dict['id'] is significantly faster than df.loc['id']
   meta_dict = merged_df.to_dict(orient="index")
 
-  # 5. Load UMAP
+  # 5. Load UMAP (using umap_policy)
   umap_df = None
-  if os.path.exists(UMAP_CSV_FILE):
-    umap_df = pd.read_csv(UMAP_CSV_FILE)
+  umap_file = UMAP_CSV_FILE_TEMPLATE.format(pooling_policy=umap_policy)
+  if os.path.exists(umap_file):
+    umap_df = pd.read_csv(umap_file)
 
   return merged_df, umap_df, annoy_to_track_map, meta_dict
 
 @lru_cache(maxsize=None)
-def get_base_umap_figure(policy: str, sample_size: int = 5000):
+def get_base_umap_figure(policy: str, umap_policy: str, sample_size: int = SAMPLE_SIZE):
   """
   Build the base UMAP figure (cached).
   Does NOT include the highlight.
+  Args:
+    policy: Pooling policy for Annoy index
+    umap_policy: Pooling policy for UMAP visualization
+    sample_size: Number of points to sample
   """
   # Unpack 3 values now (we ignore the lookup map here)
-  df_data, df_umap, _, _ = load_data(policy)
+  df_data, df_umap, _, _ = load_data(policy, umap_policy)
   
   if df_umap is None or df_umap.empty:
     fig = px.scatter()
@@ -125,12 +133,20 @@ def get_base_umap_figure(policy: str, sample_size: int = 5000):
   return fig
 
 
-def make_umap_figure(policy: str, selected_track_id: str = None):
+def make_umap_figure(policy: str, selected_track_id: str = None, sample_size: int = SAMPLE_SIZE, umap_policy: str = None):
   """
   Get base figure and add highlight trace for selected track.
+  Args:
+    policy: Pooling policy for Annoy index
+    selected_track_id: Track ID to highlight
+    sample_size: Number of points to sample
+    umap_policy: Pooling policy for UMAP visualization (defaults to policy if None)
   """
+  if umap_policy is None:
+    umap_policy = policy
+    
   # 1. Get cached base figure
-  base_fig = get_base_umap_figure(policy)
+  base_fig = get_base_umap_figure(policy, umap_policy, sample_size)
   
   # 2. Create a lightweight copy to avoid mutating the cached object
   # (layout and data are dicts/lists, so we need to be careful, 
@@ -145,14 +161,16 @@ def make_umap_figure(policy: str, selected_track_id: str = None):
   if not selected_track_id:
     return fig
 
-  # 3. Find selected track coords
-  _, df_umap, _, _ = load_data(policy)
+  # 3. Find selected track coords - make sure we pass both policies explicitly
+  _, df_umap, _, _ = load_data(policy, umap_policy)
   if df_umap is None:
     return fig
 
   # Assuming df_umap has TrackID column
   row = df_umap[df_umap["TrackID"] == selected_track_id]
   if row.empty:
+    # Track not found in this UMAP visualization, skip highlighting
+    # This can happen if different UMAP files have different tracks
     return fig
   
   # 4. Add highlight trace
@@ -202,12 +220,34 @@ app.layout = html.Div(
           clearable=False,
           style={"width": "200px"},
         ),
+        html.Label("UMAP Policy:", style={"marginLeft": "1.5rem", "marginRight": "0.5rem"}),
+        dcc.Dropdown(
+          id="umap-policy-dropdown",
+          options=[
+            {"label": k, "value": k} for k in POOLING_POLICY_DIM.keys()
+          ],
+          value=DEFAULT_POLICY,
+          clearable=False,
+          style={"width": "200px"},
+        ),
+        html.Label("Sample Size:", style={"marginLeft": "1.5rem", "marginRight": "0.5rem"}),
+        dcc.Input(
+          id="sample-size-input",
+          type="number",
+          value=SAMPLE_SIZE,
+          min=100,
+          max=50000,
+          step=500,
+          style={"width": "100px"},
+          debounce=True,
+        ),
       ],
       style={"display": "flex", "alignItems": "center", "marginBottom": "1rem"},
     ),
 
     # Store for global selected track id
     dcc.Store(id="selected-track-store"),
+    dcc.Store(id="sample-size-store", data=SAMPLE_SIZE),
 
     # Now Playing section
     html.Div(id="now-playing", style={"marginBottom": "1.5rem"}),
@@ -256,9 +296,9 @@ app.layout = html.Div(
         html.Div(
           style={"flex": "1.5"},
           children=[
-            html.H3(f"2D Map (POOLING POLICY: {DEFAULT_POLICY})"),
+            html.H3(id="map-title"),
             html.Div(
-              "Click on a point to play the song! (Rendering sample for speed)",
+              id="map-subtitle",
               style={"fontSize": "0.9rem", "color": "#555"},
             ),
             dcc.Graph(
@@ -279,15 +319,44 @@ app.layout = html.Div(
 
 
 @app.callback(
+  Output("sample-size-store", "data"),
+  Input("sample-size-input", "value"),
+)
+def update_sample_size_store(sample_size):
+  """Store the sample size when user changes it."""
+  if sample_size and sample_size > 0:
+    return sample_size
+  return SAMPLE_SIZE
+
+
+@app.callback(
+  Output("map-title", "children"),
+  Output("map-subtitle", "children"),
+  Input("policy-dropdown", "value"),
+  Input("umap-policy-dropdown", "value"),
+  Input("sample-size-store", "data"),
+)
+def update_map_labels(policy, umap_policy, sample_size):
+  """Update map title and subtitle based on policy and sample size."""
+  title = f"🗺️ 2D Map (Search: {policy}, UMAP: {umap_policy}, Sample: {sample_size}) (Click to Play)"
+  subtitle = "NOTE: Different UMAP policies may produce different visualizations interms of genre placement in the space."
+  return title, subtitle
+
+
+@app.callback(
   Output("umap-graph", "figure"),
   Input("policy-dropdown", "value"),
+  Input("umap-policy-dropdown", "value"),
   Input("selected-track-store", "data"),
+  Input("sample-size-store", "data"),
 )
-def update_map(policy, selected_track_id):
+def update_map(policy, umap_policy, selected_track_id, sample_size):
   """
-  Update UMAP figure when policy changes OR track is selected.
+  Update UMAP figure when policy, track selection, or sample size changes.
   """
-  return make_umap_figure(policy, selected_track_id)
+  if not sample_size or sample_size <= 0:
+    sample_size = SAMPLE_SIZE
+  return make_umap_figure(policy, selected_track_id, sample_size, umap_policy)
 
 
 @app.callback(
@@ -299,7 +368,8 @@ def show_search_results(search_term, policy):
   if not search_term:
     return []
 
-  df_data, _, _, _ = load_data(policy)
+  # For search, we only need metadata, so umap_policy doesn't matter
+  df_data, _, _, _ = load_data(policy, policy)
   if df_data is None:
     return []
 
@@ -365,7 +435,8 @@ def on_selection_change(clickData, track_id_input_value, search_clicks, neighbor
   trigger_id = trigger_prop_id.split(".")[0]
 
   # Unpack 3 values (ignore lookup here)
-  df_data, _, _, _ = load_data(policy)
+  # For selection validation, we only need metadata, so umap_policy doesn't matter
+  df_data, _, _, _ = load_data(policy, policy)
   
   if df_data is None or df_data.empty:
     raise dash.exceptions.PreventUpdate
