@@ -1,10 +1,11 @@
 import os
+import json
 from functools import lru_cache
 
 import annoy
 import pandas as pd
 import plotly.express as px
-from dash import Dash, dcc, html, Input, Output, State
+from dash import Dash, dcc, html, Input, Output, State, ALL
 import dash
 
 # --- Constants ---
@@ -20,7 +21,7 @@ VECTOR_ID_TO_KEY_TEMPLATE = (
 AUDIO_API_TEMPLATE = "https://staging-api.marisad.me/api/asset/track/{track_id}/hls"
 
 POOLING_POLICY_DIM = {"mean": 1024, "mean+max": 2048}
-DEFAULT_POLICY = "mean"
+DEFAULT_POLICY = "mean+max"
 
 
 # --- Data Loading with Caching ---
@@ -81,8 +82,11 @@ def load_data(policy: str):
   return merged_df, umap_df, annoy_to_track_map, meta_dict
 
 @lru_cache(maxsize=None)
-def make_umap_figure(policy: str, sample_size: int = 5000):
-  """Build a Plotly figure for the UMAP scatter for a given policy."""
+def get_base_umap_figure(policy: str, sample_size: int = 5000):
+  """
+  Build the base UMAP figure (cached).
+  Does NOT include the highlight.
+  """
   # Unpack 3 values now (we ignore the lookup map here)
   df_data, df_umap, _, _ = load_data(policy)
   
@@ -118,6 +122,60 @@ def make_umap_figure(policy: str, sample_size: int = 5000):
   )
   fig.update_traces(marker=dict(size=5, opacity=0.8))
 
+  return fig
+
+
+def make_umap_figure(policy: str, selected_track_id: str = None):
+  """
+  Get base figure and add highlight trace for selected track.
+  """
+  # 1. Get cached base figure
+  base_fig = get_base_umap_figure(policy)
+  
+  # 2. Create a lightweight copy to avoid mutating the cached object
+  # (layout and data are dicts/lists, so we need to be careful, 
+  # but updating layout or adding traces usually works fine with a shallow copy 
+  # IF we use the internal graph object methods which handle this, 
+  # OR we can just construct a new Figure from the old one's dict)
+  
+  # Using a fresh Figure object wrapping the old one's data/layout is safest
+  import plotly.graph_objects as go
+  fig = go.Figure(base_fig)
+
+  if not selected_track_id:
+    return fig
+
+  # 3. Find selected track coords
+  _, df_umap, _, _ = load_data(policy)
+  if df_umap is None:
+    return fig
+
+  # Assuming df_umap has TrackID column
+  row = df_umap[df_umap["TrackID"] == selected_track_id]
+  if row.empty:
+    return fig
+  
+  # 4. Add highlight trace
+  # We use a separate Scatter trace
+  fig.add_trace(
+    go.Scatter(
+      x=row["x"],
+      y=row["y"],
+      mode="markers",
+      marker=dict(
+        size=15,
+        color="red",
+        symbol="star",
+        line=dict(width=2, color="white")
+      ),
+      name="Selected",
+      hoverinfo="text",
+      hovertext=f"Selected: {row.iloc[0]['TrackName']} - {row.iloc[0]['ArtistName']}",
+      showlegend=False,
+      customdata=[[selected_track_id]] # Maintain consistent click behavior
+    )
+  )
+  
   return fig
 
 
@@ -163,11 +221,27 @@ app.layout = html.Div(
           style={"flex": "1"},
           children=[
             html.H3("🔍 Search & Similarity"),
-            html.Label("Search by Track ID:"),
+            html.Label("Search by Name/Artist:"),
             dcc.Input(
-              id="track-input",
+              id="search-input",
               type="text",
-              placeholder="Type TrackID...",
+              placeholder="Type Artist or Track Name...",
+              style={
+                "width": "100%",
+                "padding": "0.3rem",
+                "marginBottom": "0.8rem",
+              },
+              debounce=True,
+            ),
+            html.Div(id="search-results", style={"marginBottom": "1rem"}),
+            
+            html.Hr(style={"margin": "1.5rem 0"}),
+
+            html.Label("Selected Track ID:"),
+            dcc.Input(
+              id="track-id-input",
+              type="text",
+              placeholder="TrackID...",
               style={
                 "width": "100%",
                 "padding": "0.3rem",
@@ -182,7 +256,7 @@ app.layout = html.Div(
         html.Div(
           style={"flex": "1.5"},
           children=[
-            html.H3("🗺️ 2D Map"),
+            html.H3(f"2D Map (POOLING POLICY: {DEFAULT_POLICY})"),
             html.Div(
               "Click on a point to play the song! (Rendering sample for speed)",
               style={"fontSize": "0.9rem", "color": "#555"},
@@ -207,42 +281,108 @@ app.layout = html.Div(
 @app.callback(
   Output("umap-graph", "figure"),
   Input("policy-dropdown", "value"),
+  Input("selected-track-store", "data"),
 )
-def on_policy_change(policy):
+def update_map(policy, selected_track_id):
   """
-  When policy changes:
-   - Update UMAP figure only
+  Update UMAP figure when policy changes OR track is selected.
   """
-  fig = make_umap_figure(policy)
-  return fig
+  return make_umap_figure(policy, selected_track_id)
+
+
+@app.callback(
+  Output("search-results", "children"),
+  Input("search-input", "value"),
+  State("policy-dropdown", "value"),
+)
+def show_search_results(search_term, policy):
+  if not search_term:
+    return []
+
+  df_data, _, _, _ = load_data(policy)
+  if df_data is None:
+    return []
+
+  # Case-insensitive search
+  mask = (
+    df_data["TrackName"].astype(str).str.contains(search_term, case=False, na=False) | 
+    df_data["ArtistName"].astype(str).str.contains(search_term, case=False, na=False)
+  )
+  results = df_data[mask].head(10)
+
+  if results.empty:
+    return html.Div("No results found.", style={"color": "#888", "fontSize": "0.9rem"})
+
+  items = []
+  for tid, row in results.iterrows():
+    items.append(
+      html.Div(
+        html.Button(
+          children=[
+            html.Div(row["TrackName"], style={"fontWeight": "600", "textAlign": "left"}),
+            html.Div(f"{row['ArtistName']}", style={"fontSize": "0.8rem", "color": "#666", "textAlign": "left"}),
+          ],
+          id={"type": "search-result", "index": tid},
+          type="button",
+          style={
+            "width": "100%",
+            "background": "transparent",
+            "border": "none",
+            "borderBottom": "1px solid #eee",
+            "padding": "0.5rem 0",
+            "cursor": "pointer",
+          },
+        )
+      )
+    )
+  
+  return html.Div(
+      items, 
+      style={"border": "1px solid #ddd", "padding": "0 0.5rem", "maxHeight": "250px", "overflowY": "auto", "borderRadius": "4px"}
+  )
 
 
 @app.callback(
   Output("selected-track-store", "data"),
-  Output("track-input", "value"),
+  Output("track-id-input", "value"),
   Input("umap-graph", "clickData"),
-  Input("track-input", "value"),
+  Input("track-id-input", "value"),
+  Input({"type": "search-result", "index": ALL}, "n_clicks"),
+  Input({"type": "neighbor-select", "index": ALL}, "n_clicks"),
   State("policy-dropdown", "value"),
   State("selected-track-store", "data"),
   prevent_initial_call=True,
 )
-def on_selection_change(clickData, track_input_value, policy, current_track_id):
+def on_selection_change(clickData, track_id_input_value, search_clicks, neighbor_clicks, policy, current_track_id):
   """
-  Single callback responsible for BOTH:
-   - updating selected-track-store.data
-   - keeping track-input.value in sync
+  Single callback responsible for updating selected-track-store and input.
   """
   ctx = dash.callback_context
   if not ctx.triggered:
     raise dash.exceptions.PreventUpdate
 
-  trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+  trigger_prop_id = ctx.triggered[0]["prop_id"]
+  trigger_id = trigger_prop_id.split(".")[0]
 
   # Unpack 3 values (ignore lookup here)
   df_data, _, _, _ = load_data(policy)
   
   if df_data is None or df_data.empty:
     raise dash.exceptions.PreventUpdate
+
+  # Helper to handle pattern-matched triggers (search results or neighbors)
+  if "search-result" in trigger_id or "neighbor-select" in trigger_id:
+    try:
+      trigger_value = ctx.triggered[0]["value"]
+      # Must have been clicked at least once
+      if not trigger_value:
+        raise dash.exceptions.PreventUpdate
+
+      info = json.loads(trigger_id)
+      clicked_track_id = info["index"]
+      return clicked_track_id, clicked_track_id
+    except Exception:
+      raise dash.exceptions.PreventUpdate
 
   # Case 1: Clicked on UMAP
   if trigger_id == "umap-graph":
@@ -265,9 +405,9 @@ def on_selection_change(clickData, track_input_value, policy, current_track_id):
     # Sync store + input
     return clicked_track_id, clicked_track_id
 
-  # Case 2: User typed in the input
-  if trigger_id == "track-input":
-    track_id = track_input_value
+  # Case 2: User typed in the ID input
+  if trigger_id == "track-id-input":
+    track_id = track_id_input_value
     if not track_id:
       raise dash.exceptions.PreventUpdate
 
@@ -324,6 +464,18 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
           html.Code(selected_track_id),
         ]
       ),
+      html.A(
+        "Search on YouTube",
+        href=f"https://www.youtube.com/results?search_query={info['ArtistName']} - {info['TrackName']}",
+        target="_blank",
+        style={
+            "display": "inline-block",
+            "marginTop": "0.5rem",
+            "fontSize": "0.9rem",
+            "color": "#007bff",
+            "textDecoration": "none",
+        }
+      ),
       html.Audio(
         src=AUDIO_API_TEMPLATE.format(track_id=selected_track_id),
         controls=True,
@@ -359,13 +511,40 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
         style={"borderBottom": "1px solid #eee", "padding": "0.6rem 0"},
         children=[
           html.Div(
-            [
-              html.Strong(n_info["TrackName"]),
+            style={"display": "flex", "justifyContent": "space-between", "alignItems": "center"},
+            children=[
               html.Div(
-                f"{n_info['ArtistName']} | Dist: {dist:.4f}",
-                style={"fontSize": "0.85rem", "color": "#555"},
+                [
+                  html.Strong(n_info["TrackName"]),
+                  html.Div(
+                    children=[
+                        html.Span(f"{n_info['ArtistName']} | Dist: {dist:.4f}"),
+                        html.A(
+                            " SEARCH ON YOUTUBE",
+                            href=f"https://www.youtube.com/results?search_query={n_info['ArtistName']} - {n_info['TrackName']}",
+                            target="_blank",
+                            title="Search on YouTube",
+                            style={"textDecoration": "none", "marginLeft": "0.3rem", "color": "#007bff"}
+                        )
+                    ],
+                    style={"fontSize": "0.85rem", "color": "#555"},
+                  ),
+                ]
               ),
-            ]
+              html.Button(
+                "Explore Neighbor",
+                id={"type": "neighbor-select", "index": neighbor_tid},
+                type="button",
+                title="Select this track",
+                style={
+                  "cursor": "pointer",
+                  "background": "transparent",
+                  "fontSize": "0.9rem",
+                  "color": "#007bff",
+                  "border": "1px solid #007bff",
+                },
+              ),
+            ],
           ),
           html.Audio(
             src=AUDIO_API_TEMPLATE.format(track_id=neighbor_tid),
