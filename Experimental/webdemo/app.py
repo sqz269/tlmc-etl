@@ -636,7 +636,7 @@ def update_selected_artists(selected_artists, clear_clicks):
 def update_map_labels(policy, umap_policy, sample_size):
   """Update map title and subtitle based on policy and sample size."""
   title = f"🗺️ 2D Map (Search: {policy}, UMAP: {umap_policy}, Sample: {sample_size}) (Click to Play)"
-  subtitle = "NOTE: Different UMAP policies may produce different visualizations interms of genre placement in the space. The artist density (KDE Contours) is calculated using Kernel Density Estimation method."
+  subtitle = "NOTE: Different UMAP policies may produce different visualizations interms of genre placement in the space. The artist density (KDE Contours) is calculated using Gaussian Kernel Density Estimation method."
   return title, subtitle
 
 
