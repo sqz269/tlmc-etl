@@ -22,6 +22,7 @@ COPY app.py app.py
 COPY embeddings/ embeddings/
 COPY vector_index/ vector_index/
 COPY umap_data_mean.csv .
+COPY umap_data_mean+max.csv .
 
 # Run the web service on container startup. Here we use the gunicorn
 # webserver, with one worker process and 8 threads.

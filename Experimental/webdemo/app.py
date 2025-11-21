@@ -357,7 +357,7 @@ app.layout = html.Div(
         html.H2("🎵 TLMC Music Embedding Explorer", style={"margin": "0"}),
         html.A(
           "Technical Details & Blog Post",
-          href="https://blog.sqz269.me/2025/11/11/tlmc-rec-02.html",
+          href="https://blog.sqz269.me/2025/11/03/tlmc-rec-01.html",
           target="_blank",
           style={
             "fontSize": "0.9rem",
@@ -412,8 +412,61 @@ app.layout = html.Div(
     dcc.Store(id="sample-size-store", data=SAMPLE_SIZE),
     dcc.Store(id="selected-artists-store", data=[]),
 
-    # Now Playing section
-    html.Div(id="now-playing", style={"marginBottom": "1.5rem"}),
+    # Quick Guide (collapsible)
+    html.Details(
+      style={"marginBottom": "1rem", "padding": "0.5rem", "backgroundColor": "#f8f9fa", "borderRadius": "4px"},
+      children=[
+        html.Summary("📖 Quick Guide - How to Use", style={"cursor": "pointer", "fontWeight": "bold", "padding": "0.5rem"}),
+        html.Div(
+          style={"padding": "1rem", "fontSize": "0.9rem", "lineHeight": "1.6"},
+          children=[
+            html.P([
+              html.Strong("🎵 Play Music: "),
+              "Click any point on the map, or select from search results."
+            ], style={"marginBottom": "0.5rem"}),
+            html.P([
+              html.Strong("🔍 Search: "),
+              "Type artist or track name in the search box. Click results to play."
+            ], style={"marginBottom": "0.5rem"}),
+            html.P([
+              html.Strong("🎯 Discover Similar: "),
+              "Check 'Nearest Neighbors' below for recommendations. Click 'Explore Neighbor' to jump to similar tracks."
+            ], style={"marginBottom": "0.5rem"}),
+            html.P([
+              html.Strong("🎨 Artist Density: "),
+              "Select artists from dropdown to see their 'sound space'. Darker regions = more songs concentrated there."
+            ], style={"marginBottom": "0.5rem"}),
+            html.P([
+              html.Strong("⚙️ Settings: "),
+              "Adjust Search/UMAP Policy and Sample Size. Higher samples = more detail, lower = faster."
+            ], style={"marginBottom": "0.5rem"}),
+            html.P([
+              html.Strong("💡 Tip: "),
+              html.Em("Songs close together on the map sound similar. Explore by clicking around!")
+            ], style={"marginBottom": "0"}),
+            html.P([
+              html.Strong("💡 Note: "),
+              html.Em("Please be patient when loading the page. It may take a few seconds to load the data.")
+            ], style={"marginBottom": "0"}),
+            html.P([
+              html.Strong("💡 Note: "),
+              html.Em("This is a demo of the MERT embeddings and kNN search. An improved recommender system will be productionalized in the future.")
+            ], style={"marginBottom": "0"}),
+            html.P([
+              html.Strong("🔗 Blog Post: "),
+              html.A("Checkout the blog for more details!", href="https://blog.sqz269.me", target="_blank", style={"color": "#007bff", "textDecoration": "none"})
+            ], style={"marginBottom": "0"}),
+          ]
+        )
+      ]
+    ),
+
+    # Now Playing section with loading spinner
+    dcc.Loading(
+      id="loading-now-playing",
+      type="default",  # Options: "default", "circle", "dot", "cube"
+      children=html.Div(id="now-playing", style={"marginBottom": "1.5rem"}),
+    ),
 
     # Main layout: left search/NN, right map
     html.Div(
@@ -436,7 +489,11 @@ app.layout = html.Div(
               },
               debounce=True,
             ),
-            html.Div(id="search-results", style={"marginBottom": "1rem"}),
+            dcc.Loading(
+              id="loading-search",
+              type="default",
+              children=html.Div(id="search-results", style={"marginBottom": "1rem"}),
+            ),
             
             html.Hr(style={"margin": "1.5rem 0"}),
 
@@ -452,7 +509,11 @@ app.layout = html.Div(
               },
               debounce=True,
             ),
-            html.Div(id="neighbors-container"),
+            dcc.Loading(
+              id="loading-neighbors",
+              type="default",
+              children=html.Div(id="neighbors-container"),
+            ),
           ],
         ),
         # Right column
@@ -491,11 +552,15 @@ app.layout = html.Div(
                 ),
               ]
             ),
-            dcc.Graph(
-              id="umap-graph",
-              figure=make_umap_figure(DEFAULT_POLICY),
-              style={"height": "650px"},
-              config={"displayModeBar": False},
+            dcc.Loading(
+              id="loading-map",
+              type="circle",  # Use circle spinner for the map (less intrusive)
+              children=dcc.Graph(
+                id="umap-graph",
+                figure=make_umap_figure(DEFAULT_POLICY),
+                style={"height": "650px"},
+                config={"displayModeBar": False},
+              ),
             ),
           ],
         ),
@@ -571,7 +636,7 @@ def update_selected_artists(selected_artists, clear_clicks):
 def update_map_labels(policy, umap_policy, sample_size):
   """Update map title and subtitle based on policy and sample size."""
   title = f"🗺️ 2D Map (Search: {policy}, UMAP: {umap_policy}, Sample: {sample_size}) (Click to Play)"
-  subtitle = "NOTE: Different UMAP policies may produce different visualizations interms of genre placement in the space.\n\nThe artist density (KDE Contours) is calculated using the KDE method."
+  subtitle = "NOTE: Different UMAP policies may produce different visualizations interms of genre placement in the space. The artist density (KDE Contours) is calculated using Kernel Density Estimation method."
   return title, subtitle
 
 
