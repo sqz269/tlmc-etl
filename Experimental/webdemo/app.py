@@ -3,8 +3,11 @@ import json
 from functools import lru_cache
 
 import annoy
+import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from scipy.stats import gaussian_kde
 from dash import Dash, dcc, html, Input, Output, State, ALL
 import dash
 
@@ -85,6 +88,156 @@ def load_data(policy: str, umap_policy: str):
 
   return merged_df, umap_df, annoy_to_track_map, meta_dict
 
+
+def add_artist_kde_contours(fig, df_umap, selected_artists, opacity=0.3):
+  """
+  Add KDE contours with robust type handling and fallback for small clusters.
+  """
+  if not selected_artists or df_umap is None or df_umap.empty:
+    return
+
+  # Color palette
+  colors = [
+    'rgb(255, 0, 0)', 'rgb(0, 0, 255)', 'rgb(0, 255, 0)', 'rgb(255, 165, 0)',
+    'rgb(128, 0, 128)', 'rgb(255, 192, 203)', 'rgb(0, 255, 255)', 'rgb(255, 255, 0)',
+    'rgb(139, 69, 19)', 'rgb(128, 128, 128)'
+  ]
+
+  # FIX 1: Ensure we are comparing strings to strings
+  # Create a temporary series for filtering to avoid modifying the original DF in a loop
+  artist_col_str = df_umap['ArtistName'].astype(str)
+
+  for idx, artist in enumerate(selected_artists):
+    # FIX 1 applied here
+    artist_points = df_umap[artist_col_str == str(artist)][['x', 'y']].values
+
+    # FIX 2: Lower threshold to 3 points to allow smaller artists to show
+    if len(artist_points) < 3:
+      print(f"Skipping {artist}: Not enough points ({len(artist_points)})")
+      continue
+
+    try:
+      x = artist_points[:, 0]
+      y = artist_points[:, 1]
+
+      # FIX 3: Handle collinear points (Singular Matrix)
+      # If points are too tight, add tiny jitter to allow KDE to calculate
+      if np.all(x == x[0]) or np.all(y == y[0]):
+         x += np.random.normal(0, 0.01, size=len(x))
+         y += np.random.normal(0, 0.01, size=len(y))
+
+      xy = np.vstack([x, y])
+      
+      # Try/Catch specifically for Linear Algebra errors in KDE
+      try:
+        kde = gaussian_kde(xy, bw_method='scott')
+      except np.linalg.LinAlgError:
+        # Fallback: Force a wider bandwidth if data is too singular
+        kde = gaussian_kde(xy, bw_method=0.5)
+      
+      # Create grid
+      x_span = x.max() - x.min()
+      y_span = y.max() - y.min()
+      
+      # Ensure minimum span to avoid degenerate grids
+      if x_span < 0.1:
+        x_span = 1.0
+      if y_span < 0.1:
+        y_span = 1.0
+      
+      padding_x = x_span * 0.2
+      padding_y = y_span * 0.2
+
+      x_min, x_max = x.min() - padding_x, x.max() + padding_x
+      y_min, y_max = y.min() - padding_y, y.max() + padding_y
+      
+      # Ensure x_min != x_max and y_min != y_max
+      if abs(x_max - x_min) < 0.01:
+        x_min -= 0.5
+        x_max += 0.5
+      if abs(y_max - y_min) < 0.01:
+        y_min -= 0.5
+        y_max += 0.5
+
+      grid_size = min(100, max(30, int(len(artist_points) ** 0.5) * 5)) # Increased resolution
+      
+      # Use linspace to create 1D arrays, then meshgrid
+      x_grid = np.linspace(x_min, x_max, grid_size)
+      y_grid = np.linspace(y_min, y_max, grid_size)
+      xx, yy = np.meshgrid(x_grid, y_grid)
+      
+      positions = np.vstack([xx.ravel(), yy.ravel()])
+      z = np.reshape(kde(positions).T, xx.shape)
+      
+      # Normalize
+      z_min, z_max = z.min(), z.max()
+      if z_max > z_min:
+        z_normalized = (z - z_min) / (z_max - z_min)
+      else:
+        z_normalized = z # Flat distribution
+
+      color = colors[idx % len(colors)]
+      contour_levels = [0.2, 0.5, 0.8] # Adjusted levels for better visibility
+
+      # Add filled contours with gradient shading
+      # First, add the filled regions (from lowest to highest density)
+      for level_idx in range(len(contour_levels) - 1):
+        level_start = contour_levels[level_idx]
+        level_end = contour_levels[level_idx + 1]
+        
+        # Opacity increases with density (inner regions are more opaque)
+        fill_opacity = opacity * (0.3 + level_idx * 0.3)
+        
+        # Create gradient colorscale from transparent to semi-transparent
+        color_transparent = color.replace('rgb', 'rgba').replace(')', ', 0)')
+        color_filled = color.replace('rgb', 'rgba').replace(')', f', {fill_opacity})')
+        
+        fig.add_trace(go.Contour(
+          x=x_grid,
+          y=y_grid,
+          z=z_normalized,
+          contours=dict(
+            start=level_start,
+            end=level_end,
+            coloring='fill',
+          ),
+          colorscale=[[0, color_transparent], [1, color_filled]],
+          showscale=False,
+          name=None,
+          showlegend=False,
+          hoverinfo='skip',
+          line=dict(width=0),  # No border lines for fills
+        ))
+      
+      # Then add contour lines on top for definition
+      for level_idx, level in enumerate(contour_levels):
+        line_opacity = min(1.0, opacity * 2.5)  # Make lines more visible
+        
+        fig.add_trace(go.Contour(
+          x=x_grid,
+          y=y_grid,
+          z=z_normalized,
+          contours=dict(
+            start=level,
+            end=level,
+            size=0.01,
+            coloring='lines',
+          ),
+          line=dict(
+            color=color,
+            width=3 if level_idx == len(contour_levels) - 1 else 2,
+          ),
+          showscale=False,
+          name=f'{artist}' if level_idx == 0 else None,
+          showlegend=(level_idx == 0),
+          hoverinfo='skip',
+          opacity=line_opacity,
+        ))
+
+    except Exception as e:
+      print(f"Error computing KDE for {artist}: {str(e)}")
+      continue
+
 @lru_cache(maxsize=None)
 def get_base_umap_figure(policy: str, umap_policy: str, sample_size: int = SAMPLE_SIZE):
   """
@@ -133,7 +286,7 @@ def get_base_umap_figure(policy: str, umap_policy: str, sample_size: int = SAMPL
   return fig
 
 
-def make_umap_figure(policy: str, selected_track_id: str = None, sample_size: int = SAMPLE_SIZE, umap_policy: str = None):
+def make_umap_figure(policy: str, selected_track_id: str = None, sample_size: int = SAMPLE_SIZE, umap_policy: str = None, selected_artists: list = None, contour_opacity: float = 0.3):
   """
   Get base figure and add highlight trace for selected track.
   Args:
@@ -141,6 +294,8 @@ def make_umap_figure(policy: str, selected_track_id: str = None, sample_size: in
     selected_track_id: Track ID to highlight
     sample_size: Number of points to sample
     umap_policy: Pooling policy for UMAP visualization (defaults to policy if None)
+    selected_artists: List of artists to show density contours for
+    contour_opacity: Opacity for KDE contour fills (0-1)
   """
   if umap_policy is None:
     umap_policy = policy
@@ -149,50 +304,39 @@ def make_umap_figure(policy: str, selected_track_id: str = None, sample_size: in
   base_fig = get_base_umap_figure(policy, umap_policy, sample_size)
   
   # 2. Create a lightweight copy to avoid mutating the cached object
-  # (layout and data are dicts/lists, so we need to be careful, 
-  # but updating layout or adding traces usually works fine with a shallow copy 
-  # IF we use the internal graph object methods which handle this, 
-  # OR we can just construct a new Figure from the old one's dict)
-  
-  # Using a fresh Figure object wrapping the old one's data/layout is safest
-  import plotly.graph_objects as go
   fig = go.Figure(base_fig)
-
-  if not selected_track_id:
-    return fig
-
-  # 3. Find selected track coords - make sure we pass both policies explicitly
-  _, df_umap, _, _ = load_data(policy, umap_policy)
-  if df_umap is None:
-    return fig
-
-  # Assuming df_umap has TrackID column
-  row = df_umap[df_umap["TrackID"] == selected_track_id]
-  if row.empty:
-    # Track not found in this UMAP visualization, skip highlighting
-    # This can happen if different UMAP files have different tracks
-    return fig
   
-  # 4. Add highlight trace
-  # We use a separate Scatter trace
-  fig.add_trace(
-    go.Scatter(
-      x=row["x"],
-      y=row["y"],
-      mode="markers",
-      marker=dict(
-        size=15,
-        color="red",
-        symbol="star",
-        line=dict(width=2, color="white")
-      ),
-      name="Selected",
-      hoverinfo="text",
-      hovertext=f"Selected: {row.iloc[0]['TrackName']} - {row.iloc[0]['ArtistName']}",
-      showlegend=False,
-      customdata=[[selected_track_id]] # Maintain consistent click behavior
-    )
-  )
+  # 3. Load UMAP data for contours and track highlighting
+  _, df_umap, _, _ = load_data(policy, umap_policy)
+  
+  # 4. Add KDE contours for selected artists (before track highlight so star is on top)
+  if selected_artists and df_umap is not None:
+    add_artist_kde_contours(fig, df_umap, selected_artists, contour_opacity)
+
+  # 5. Add track highlight if selected
+  if selected_track_id and df_umap is not None:
+    # Assuming df_umap has TrackID column
+    row = df_umap[df_umap["TrackID"] == selected_track_id]
+    if not row.empty:
+      # Add highlight trace - star marker for selected track
+      fig.add_trace(
+        go.Scatter(
+          x=row["x"],
+          y=row["y"],
+          mode="markers",
+          marker=dict(
+            size=15,
+            color="red",
+            symbol="star",
+            line=dict(width=2, color="white")
+          ),
+          name="Selected",
+          hoverinfo="text",
+          hovertext=f"Selected: {row.iloc[0]['TrackName']} - {row.iloc[0]['ArtistName']}",
+          showlegend=False,
+          customdata=[[selected_track_id]] # Maintain consistent click behavior
+        )
+      )
   
   return fig
 
@@ -202,12 +346,30 @@ def make_umap_figure(policy: str, selected_track_id: str = None, sample_size: in
 app = Dash(__name__)
 server = app.server  # for deployment if needed
 
-app.title = "Music Embedding Explorer (Dash)"
+app.title = "TLMC Music Embedding Explorer (Dash)"
 
 app.layout = html.Div(
   style={"fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif"},
   children=[
-    html.H2("🎵 Music Embedding Explorer", style={"marginBottom": "0.5rem"}),
+    html.Div(
+      style={"display": "flex", "alignItems": "center", "justifyContent": "space-between", "marginBottom": "0.5rem"},
+      children=[
+        html.H2("🎵 TLMC Music Embedding Explorer", style={"margin": "0"}),
+        html.A(
+          "Technical Details & Blog Post",
+          href="https://blog.sqz269.me/2025/11/11/tlmc-rec-02.html",
+          target="_blank",
+          style={
+            "fontSize": "0.9rem",
+            "color": "#007bff",
+            "fontWeight": "bold",
+            "padding": "0.5rem 1rem",
+            "border": "1px solid #007bff",
+            "borderRadius": "4px",
+          }
+        ),
+      ]
+    ),
     html.Div(
       [
         html.Label("Search Policy:", style={"marginRight": "0.5rem"}),
@@ -248,6 +410,7 @@ app.layout = html.Div(
     # Store for global selected track id
     dcc.Store(id="selected-track-store"),
     dcc.Store(id="sample-size-store", data=SAMPLE_SIZE),
+    dcc.Store(id="selected-artists-store", data=[]),
 
     # Now Playing section
     html.Div(id="now-playing", style={"marginBottom": "1.5rem"}),
@@ -301,6 +464,33 @@ app.layout = html.Div(
               id="map-subtitle",
               style={"fontSize": "0.9rem", "color": "#555"},
             ),
+            html.Div(
+              style={"marginBottom": "0.5rem", "display": "flex", "alignItems": "center", "gap": "0.5rem"},
+              children=[
+                html.Label("Show Artist Density (KDE Contours):", style={"fontWeight": "bold"}),
+                dcc.Dropdown(
+                  id="artist-hull-selector",
+                  options=[],  # Will be populated dynamically
+                  value=[],
+                  multi=True,
+                  placeholder="Search and select artists...",
+                  style={"width": "400px", "fontSize": "0.9rem"},
+                ),
+                html.Button(
+                  "Clear All",
+                  id="clear-artists-btn",
+                  type="button",
+                  style={
+                    "padding": "0.3rem 0.8rem",
+                    "fontSize": "0.85rem",
+                    "cursor": "pointer",
+                    "backgroundColor": "#f8f9fa",
+                    "border": "1px solid #dee2e6",
+                    "borderRadius": "4px",
+                  }
+                ),
+              ]
+            ),
             dcc.Graph(
               id="umap-graph",
               figure=make_umap_figure(DEFAULT_POLICY),
@@ -330,6 +520,48 @@ def update_sample_size_store(sample_size):
 
 
 @app.callback(
+  Output("artist-hull-selector", "options"),
+  Input("policy-dropdown", "value"),
+  Input("umap-policy-dropdown", "value"),
+)
+def populate_artist_options(policy, umap_policy):
+  """Populate artist checklist based on available artists in UMAP data."""
+  _, df_umap, _, _ = load_data(policy, umap_policy)
+  
+  if df_umap is None or df_umap.empty:
+    return []
+  
+  # Get unique artists, filter out NaN values, and sort them
+  artists = df_umap['ArtistName'].dropna().unique()
+  artists = sorted([str(a) for a in artists])
+  
+  return [{"label": artist, "value": artist} for artist in artists]
+
+
+@app.callback(
+  Output("selected-artists-store", "data"),
+  Output("artist-hull-selector", "value"),
+  Input("artist-hull-selector", "value"),
+  Input("clear-artists-btn", "n_clicks"),
+  prevent_initial_call=True,
+)
+def update_selected_artists(selected_artists, clear_clicks):
+  """Store selected artists for hull visualization."""
+  ctx = dash.callback_context
+  if not ctx.triggered:
+    raise dash.exceptions.PreventUpdate
+  
+  trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+  
+  # Clear button clicked
+  if trigger_id == "clear-artists-btn":
+    return [], []
+  
+  # Artist selection changed
+  return selected_artists or [], dash.no_update
+
+
+@app.callback(
   Output("map-title", "children"),
   Output("map-subtitle", "children"),
   Input("policy-dropdown", "value"),
@@ -339,7 +571,7 @@ def update_sample_size_store(sample_size):
 def update_map_labels(policy, umap_policy, sample_size):
   """Update map title and subtitle based on policy and sample size."""
   title = f"🗺️ 2D Map (Search: {policy}, UMAP: {umap_policy}, Sample: {sample_size}) (Click to Play)"
-  subtitle = "NOTE: Different UMAP policies may produce different visualizations interms of genre placement in the space."
+  subtitle = "NOTE: Different UMAP policies may produce different visualizations interms of genre placement in the space.\n\nThe artist density (KDE Contours) is calculated using the KDE method."
   return title, subtitle
 
 
@@ -349,14 +581,15 @@ def update_map_labels(policy, umap_policy, sample_size):
   Input("umap-policy-dropdown", "value"),
   Input("selected-track-store", "data"),
   Input("sample-size-store", "data"),
+  Input("selected-artists-store", "data"),
 )
-def update_map(policy, umap_policy, selected_track_id, sample_size):
+def update_map(policy, umap_policy, selected_track_id, sample_size, selected_artists):
   """
-  Update UMAP figure when policy, track selection, or sample size changes.
+  Update UMAP figure when policy, track selection, sample size, or artist selection changes.
   """
   if not sample_size or sample_size <= 0:
     sample_size = SAMPLE_SIZE
-  return make_umap_figure(policy, selected_track_id, sample_size, umap_policy)
+  return make_umap_figure(policy, selected_track_id, sample_size, umap_policy, selected_artists)
 
 
 @app.callback(
