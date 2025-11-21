@@ -504,7 +504,8 @@ def on_selection_change(clickData, track_id_input_value, search_clicks, neighbor
 )
 def update_now_playing_and_neighbors(selected_track_id, policy):
   # Unpack 4 items now
-  df_data, _, annoy_lookup, meta_dict = load_data(policy)
+  # For neighbors, we only need metadata and annoy data, so umap_policy doesn't matter
+  df_data, _, annoy_lookup, meta_dict = load_data(policy, policy)
   annoy_index = load_annoy_index(policy)
 
   if df_data is None or annoy_index is None:

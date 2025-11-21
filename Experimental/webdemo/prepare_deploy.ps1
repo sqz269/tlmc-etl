@@ -4,6 +4,7 @@ Write-Host "Preparing webdemo directory for Docker build..."
 $SourceEmbeddingsCsv = "../embeddings/id_metadata.csv"
 $SourceVectorIndex = "../vector_index"
 $SourceUmap = "../umap_data_mean.csv"
+$SourceUmapMax = "../umap_data_mean+max.csv"
 
 # Check if sources exist
 if (-not (Test-Path $SourceEmbeddingsCsv)) { Write-Error "Embeddings CSV not found at $SourceEmbeddingsCsv"; exit 1 }
@@ -22,5 +23,8 @@ Copy-Item -Recurse -Force -Path $SourceVectorIndex -Destination .
 
 Write-Host "Copying umap_data_mean.csv..."
 Copy-Item -Force -Path $SourceUmap -Destination .
+
+Write-Host "Copying umap_data_mean+max.csv..."
+Copy-Item -Force -Path $SourceUmapMax -Destination .
 
 Write-Host "Ready to build! Run: docker build -t music-vector-app ."
