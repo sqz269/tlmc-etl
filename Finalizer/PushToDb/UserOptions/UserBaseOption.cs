@@ -9,14 +9,17 @@ public enum UserOptionDataOptions
     CircleBasicMetadata,
     [Display(Name = "Albums and Track basic metadata (With HLS Postprocessing)")]
     AlbumTrackBasicMetadata,
+    [Display(Name = "Track Embedding Data")]
+    TrackEmbeddingData,
 
-    [Display(Name = "Thwiki Sourced Extended Artist/Circle metadata")]
-    ThwikiExtendedArtistCircleMetadata,
-    [Display(Name = "Thwiki Sourced Extended Album/Track metadata")]
-    ThwikiExtendedAlbumTrackMetadata,
-    [Display(Name = "Thwiki Sourced Lyrics Data")]
-    ThwikiLyricsData,
 
-    [Display(Name = "MPEG DASH Repackaged Playlists")]
-    MpegDashPlaylists,
+    //[Display(Name = "Thwiki Sourced Extended Artist/Circle metadata")]
+    //ThwikiExtendedArtistCircleMetadata,
+    //[Display(Name = "Thwiki Sourced Extended Album/Track metadata")]
+    //ThwikiExtendedAlbumTrackMetadata,
+    //[Display(Name = "Thwiki Sourced Lyrics Data")]
+    //ThwikiLyricsData,
+
+    //[Display(Name = "MPEG DASH Repackaged Playlists")]
+    //MpegDashPlaylists,
 }

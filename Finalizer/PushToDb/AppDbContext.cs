@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<HlsSegment> HlsSegment { get; set; }
     public DbSet<DashPlaylist> DashPlaylists { get; set; }
     public DbSet<Thumbnail> Thumbnails { get; set; }
+    public DbSet<TrackEmbedding> TrackEmbeddings { get; set; }
 
 
     public AppDbContext(DbContextOptions<AppDbContext> opt) : base(opt)
@@ -24,6 +25,8 @@ public class AppDbContext : DbContext
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasPostgresExtension("vector");
+
         // Music Data Configuration
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Tiny).AutoInclude();
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Small).AutoInclude();
@@ -49,11 +52,6 @@ public class AppDbContext : DbContext
             .Property(p => p.Type)
             .HasConversion(v => v.ToString(),
                 v => Enum.Parse<HlsPlaylistType>(v));
-
-        modelBuilder.Entity<Album>()
-            .HasOne(a => a.Image)
-            .WithOne()
-            .HasForeignKey<Album>(a => a.ImageId);
 
         base.OnModelCreating(modelBuilder);
     }
