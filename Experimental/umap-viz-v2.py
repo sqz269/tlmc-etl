@@ -10,11 +10,11 @@ from typing import Dict, List, Literal
 from utils import utils
 from utils.utils import load_tensor
 
-METADATA_CSV_FILE = "embeddings/id_metadata.csv"
-TENSOR_DIRECTORY = "embeddings/embeddings/"
+METADATA_CSV_FILE = "embeddings/id_metadata_arsmagna_test.csv"
+TENSOR_DIRECTORY = "embeddings/uuid_embeddings/"
 
 # Output scatter will downsample if > N points to stay responsive
-MAX_SCATTER_POINTS = 160000
+MAX_SCATTER_POINTS = 140_000
 
 POOLING_POLICY: List[Literal["mean", "max", "mean+max"]] = ["mean", "mean+max"]
 
@@ -118,13 +118,16 @@ def main():
     # Interactive WebGL scatter (2D)
     # -------------------------------------
     print("Rendering scatter plot...")
-    sorted_artists = sorted(df_scatter["ArtistName"].dropna().unique())
+    # Create a new column to identify ArsMagna artists
+    df_scatter["Artist_Group"] = df_scatter["ArtistName"].apply(
+      lambda x: "ArsMagna" if pd.notna(x) and "arsmagna" in str(x).lower() else "Other"
+    )
+    
     fig_scatter = px.scatter_3d(
       df_scatter,
       x="UMAP 1",
       y="UMAP 2",
       z="UMAP 3",
-      symbol="UMAP 4",
       title=f"UMAP Visualization ({pooling_policy})",
       hover_data=[
         "TrackID",
@@ -133,13 +136,19 @@ def main():
         "AlbumName",
       ],
       custom_data=["TrackID"],
-      color="ArtistName",  # You can change to AlbumName, Genre, etc.
-      category_orders={"ArtistName": sorted_artists},
+      color="Artist_Group",  # Only color ArsMagna vs Other
+      color_discrete_map={"ArsMagna": "#FF0000", "Other": "#CCCCCC"},
+      category_orders={"Artist_Group": ["ArsMagna", "Other"]},
     )
 
-    fig_scatter.update_traces(
-      marker=dict(size=2, opacity=0.8)
-    )
+    # Set different opacity for ArsMagna vs Other
+    for trace in fig_scatter.data:
+      if trace.name == "ArsMagna":
+        trace.marker.opacity = 0.9
+        trace.marker.size = 2
+      else:  # Other
+        trace.marker.opacity = 0.3
+        trace.marker.size = 2
     fig_scatter.update_layout(
       xaxis=dict(visible=False),
       yaxis=dict(visible=False),

@@ -11,7 +11,7 @@ from utils.utils import load_tensor
 from annoy import AnnoyIndex
 
 METADATA_CSV_FILE = "embeddings/id_metadata.csv"
-TENSOR_DIRECTORY = "embeddings/embeddings/"
+TENSOR_DIRECTORY = "embeddings/uuid_embeddings/embeddings/"
 
 VECTOR_INDEX_DIR = "vector_index"
 

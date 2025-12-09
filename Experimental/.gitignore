@@ -1,3 +1,4 @@
+embeddings/
 data/
 !jukeboxmir/jukebox/jukebox/data/
 *.wav
@@ -7,5 +8,6 @@ data/
 *.ann
 *.csv
 *.html
+*.bin
 
 .DS_Store

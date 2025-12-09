@@ -25,28 +25,34 @@ def load_embeddings_chunks(embedding_dir: str) -> Dict[str, torch.Tensor]:
   return tensors
 
 def load_tensor(dir: str, num_workers: int = 8) -> Dict[str, torch.Tensor]:
-    """Loads all .pt files from a directory in parallel."""
-    
-    pt_files = [f for f in os.listdir(dir) if f.endswith(".pt")]
-    tensors: Dict[str, torch.Tensor] = {}
+  """Loads all .pt files from a directory in parallel."""
+  # pt_files = [f for f in os.listdir(dir) if f.endswith(".pt")]
+  # load pt files recurisvely
+  pt_files = []
+  for root, _, files in os.walk(dir):
+    for file in files:
+      if file.endswith(".pt"):
+        pt_files.append(os.path.join(root, file))
+  tensors: Dict[str, torch.Tensor] = {}
 
-    def load_file(fname):
-        full_path = os.path.join(dir, fname)
-        try:
-            return fname, torch.load(full_path)
-        except Exception as e:
-            return fname, e
+  def load_file(filepath):
+    try:
+      return filepath, torch.load(filepath)
+    except Exception as e:
+      return filepath, e
 
-    with ThreadPoolExecutor(max_workers=num_workers) as ex:
-        futures = {ex.submit(load_file, f): f for f in pt_files}
-        for fut in tqdm.tqdm(as_completed(futures), total=len(futures)):
-            fname, result = fut.result()
-            if isinstance(result, Exception):
-                print(f"Could not load {fname}: {result}")
-            else:
-                tensors[fname] = result
+  with ThreadPoolExecutor(max_workers=num_workers) as ex:
+    futures = {ex.submit(load_file, f): f for f in pt_files}
+    for fut in tqdm.tqdm(as_completed(futures), total=len(futures)):
+      fname, result = fut.result()
+      if isinstance(result, Exception):
+        print(f"Could not load {fname}: {result}")
+      else:
+        # get filename
+        filename = os.path.basename(fname)
+        tensors[filename] = result
 
-    return tensors
+  return tensors
 
 def pool_loaded_tensor_dict(
   tensors: Dict[str, torch.Tensor],

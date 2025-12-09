@@ -1,4 +1,7 @@
 # generate_umap_csv.py
+from torch._tensor import Tensor
+
+
 import pandas as pd
 import torch
 import umap
@@ -12,8 +15,8 @@ from utils.utils import load_tensor
 
 # Configuration
 METADATA_CSV_FILE = "embeddings/id_metadata.csv"
-TENSOR_DIRECTORY = "embeddings/embeddings/"
-POOLING_POLICY = "mean+max" # Pick one policy for the CSV to keep it simple
+TENSOR_DIRECTORY = "embeddings/uuid_embeddings/embeddings/"
+POOLING_POLICY = "mean" # Pick one policy for the CSV to keep it simple
 
 def main():
   print(f"--- Generating UMAP CSV for policy: {POOLING_POLICY} ---")
@@ -32,7 +35,7 @@ def main():
   # 3. Pool Tensors
   pooled_tensors = utils.pool_loaded_tensor_dict(tensors=tensors, mode=POOLING_POLICY)
   track_ids = [utils.get_uuid_from_filename(name) for name in pooled_tensors.keys()]
-  embeddings = torch.stack(list(pooled_tensors.values())).numpy()
+  embeddings = torch.stack(list[Tensor](pooled_tensors.values())).numpy()
 
   # 4. Run UMAP
   print("Running UMAP (this may take a while)...")
