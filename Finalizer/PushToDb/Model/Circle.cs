@@ -40,6 +40,9 @@ public class Circle
 
     public List<string> DataSource { get; set; } = new();
 
+    // Stores the reference to the original TLMC directory (Raw name for the circle)
+    public string? TlmcReference { get; set; }
+
     public List<CircleWebsite> Website { get; set; } = new();
     public List<Album>? Albums { get; set; } = new();
 }

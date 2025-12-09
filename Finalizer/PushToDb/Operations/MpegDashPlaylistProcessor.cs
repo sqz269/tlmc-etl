@@ -17,8 +17,5 @@ public static class MpegDashPlaylistProcessor
             Console.WriteLine("No HLS MPD Targets found in the file");
             return;
         }
-
-        // Prepare objects
-        var 
     }
 }

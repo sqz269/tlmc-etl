@@ -32,14 +32,16 @@ public class Track
     public List<string> Lyricist { get; set; } = new();
 
     public bool? OriginalNonTouhou { get; set; }
-
-    //[Column(TypeName = "jsonb")] 
-    //public LyricsCollection? Lyrics { get; set; }
-
-    public Guid AlbumId { get; set; }
+    
     public Album Album { get; set; }
 
     public List<OriginalTrack> Original { get; set; } = new();
 
     public Asset? TrackFile { get; set; }
+
+    public TrackEmbedding? Embedding { get; set; }
+
+    [ForeignKey("LyricsId")]
+    public Lyrics? Lyrics { get; set; }
+    public Guid? LyricsId { get; set; }
 }
