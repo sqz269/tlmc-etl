@@ -411,6 +411,11 @@ app.layout = html.Div(
     dcc.Store(id="selected-track-store"),
     dcc.Store(id="sample-size-store", data=SAMPLE_SIZE),
     dcc.Store(id="selected-artists-store", data=[]),
+    # New stores for auto-play feature
+    dcc.Store(id="current-neighbors-store", data=[]),
+    dcc.Store(id="auto-play-trigger"),
+    dcc.Store(id="history-store", data=[]), # Store for journey history
+    dcc.Interval(id="audio-poller", interval=1000), # Check every second
 
     # Quick Guide (collapsible)
     html.Details(
@@ -509,10 +514,41 @@ app.layout = html.Div(
               },
               debounce=True,
             ),
+            
+            html.Div(
+              [
+                dcc.Checklist(
+                  id="auto-play-switch",
+                  options=[{"label": " 🎲 Stochastic Explore (Auto-play)", "value": "enabled"}],
+                  value=[],
+                  style={"fontSize": "0.9rem", "fontWeight": "bold"}
+                )
+              ],
+              style={"marginBottom": "1rem", "padding": "0.5rem", "backgroundColor": "#e9ecef", "borderRadius": "4px"}
+            ),
+
             dcc.Loading(
               id="loading-neighbors",
               type="default",
               children=html.Div(id="neighbors-container"),
+            ),
+
+            html.Hr(style={"margin": "1.5rem 0"}),
+
+            # Journey History
+            html.Details(
+              open=True,
+              children=[
+                html.Summary(
+                    "📜 Journey History",
+                    style={"cursor": "pointer", "fontWeight": "bold", "marginBottom": "0.5rem"}
+                ),
+                html.Div(
+                    id="journey-container",
+                    style={"maxHeight": "300px", "overflowY": "auto", "padding": "0 0.5rem"}
+                )
+              ],
+              style={"marginBottom": "1rem"}
             ),
           ],
         ),
@@ -717,11 +753,13 @@ def show_search_results(search_term, policy):
   Input("track-id-input", "value"),
   Input({"type": "search-result", "index": ALL}, "n_clicks"),
   Input({"type": "neighbor-select", "index": ALL}, "n_clicks"),
+  Input({"type": "history-select", "index": ALL}, "n_clicks"),
+  Input("auto-play-trigger", "data"),
   State("policy-dropdown", "value"),
   State("selected-track-store", "data"),
   prevent_initial_call=True,
 )
-def on_selection_change(clickData, track_id_input_value, search_clicks, neighbor_clicks, policy, current_track_id):
+def on_selection_change(clickData, track_id_input_value, search_clicks, neighbor_clicks, history_clicks, auto_play_data, policy, current_track_id):
   """
   Single callback responsible for updating selected-track-store and input.
   """
@@ -732,6 +770,12 @@ def on_selection_change(clickData, track_id_input_value, search_clicks, neighbor
   trigger_prop_id = ctx.triggered[0]["prop_id"]
   trigger_id = trigger_prop_id.split(".")[0]
 
+  # Case: Auto-play trigger
+  if trigger_id == "auto-play-trigger":
+    if not auto_play_data:
+      raise dash.exceptions.PreventUpdate
+    return auto_play_data, auto_play_data
+
   # Unpack 3 values (ignore lookup here)
   # For selection validation, we only need metadata, so umap_policy doesn't matter
   df_data, _, _, _ = load_data(policy, policy)
@@ -740,7 +784,7 @@ def on_selection_change(clickData, track_id_input_value, search_clicks, neighbor
     raise dash.exceptions.PreventUpdate
 
   # Helper to handle pattern-matched triggers (search results or neighbors)
-  if "search-result" in trigger_id or "neighbor-select" in trigger_id:
+  if "search-result" in trigger_id or "neighbor-select" in trigger_id or "history-select" in trigger_id:
     try:
       trigger_value = ctx.triggered[0]["value"]
       # Must have been clicked at least once
@@ -797,6 +841,7 @@ def on_selection_change(clickData, track_id_input_value, search_clicks, neighbor
 @app.callback(
   Output("now-playing", "children"),
   Output("neighbors-container", "children"),
+  Output("current-neighbors-store", "data"),
   Input("selected-track-store", "data"),
   State("policy-dropdown", "value"),
 )
@@ -807,10 +852,10 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
   annoy_index = load_annoy_index(policy)
 
   if df_data is None or annoy_index is None:
-    return html.Div("Error loading data"), html.Div()
+    return html.Div("Error loading data"), html.Div(), []
 
   if not selected_track_id or selected_track_id not in meta_dict:
-    return html.Div("No track selected."), html.Div()
+    return html.Div("No track selected."), html.Div(), []
 
   # --- OPTIMIZATION: Dictionary Lookup instead of .loc ---
   info = meta_dict[selected_track_id]
@@ -830,6 +875,9 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
           html.B("Artist: "),
           info["ArtistName"],
           " | ",
+          html.B("Album: "),
+          info["AlbumName"],
+          " | ",
           html.B("TrackID: "),
           html.Code(selected_track_id),
         ]
@@ -847,6 +895,7 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
         }
       ),
       html.Audio(
+        id="main-audio-player",
         src=AUDIO_API_TEMPLATE.format(track_id=selected_track_id),
         controls=True,
         autoPlay=True,
@@ -859,7 +908,7 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
   try:
     vector_id = info["annoy_id"]
   except KeyError:
-    return now_playing, html.Div("No annoy_id.")
+    return now_playing, html.Div("No annoy_id."), []
 
   query_vector = annoy_index.get_item_vector(int(vector_id))
   nearest_int_ids, distances = annoy_index.get_nns_by_vector(
@@ -867,12 +916,14 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
   )
 
   neighbor_rows = []
+  neighbor_ids = []
   for n_int_id, dist in zip(nearest_int_ids, distances):
     neighbor_tid = annoy_lookup.get(n_int_id)
     
     if not neighbor_tid or neighbor_tid == selected_track_id:
       continue
 
+    neighbor_ids.append(neighbor_tid)
     # --- OPTIMIZATION: Instant Dict Lookup ---
     n_info = meta_dict[neighbor_tid]
 
@@ -888,7 +939,7 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
                   html.Strong(n_info["TrackName"]),
                   html.Div(
                     children=[
-                        html.Span(f"{n_info['ArtistName']} | Dist: {dist:.4f}"),
+                        html.Span(f"{n_info['ArtistName']} | Album: {n_info['AlbumName']} | Dist: {dist:.4f}"),
                         html.A(
                             " SEARCH ON YOUTUBE",
                             href=f"https://www.youtube.com/results?search_query={n_info['ArtistName']} - {n_info['TrackName']}",
@@ -928,7 +979,111 @@ def update_now_playing_and_neighbors(selected_track_id, policy):
 
   return now_playing, html.Div(
     children=[html.H4("Nearest Neighbors"), html.Div(neighbor_rows)]
-  )
+  ), neighbor_ids
+
+
+@app.callback(
+  Output("history-store", "data"),
+  Output("journey-container", "children"),
+  Input("selected-track-store", "data"),
+  State("history-store", "data"),
+  State("policy-dropdown", "value"),
+)
+def update_history(selected_track_id, history_data, policy):
+  """
+  Update history store and render journey list.
+  """
+  if not history_data:
+    history_data = []
+
+  # Don't update if no track selected
+  if not selected_track_id:
+    return dash.no_update, dash.no_update
+
+  # Avoid adding duplicate if it's the same as the last one (e.g. page refresh)
+  if history_data and history_data[-1] == selected_track_id:
+      pass
+  else:
+      history_data.append(selected_track_id)
+
+  # Limit history size if needed (e.g. last 50)
+  if len(history_data) > 50:
+      history_data = history_data[-50:]
+
+  # Render the list (Reverse chronological order)
+  df_data, _, _, meta_dict = load_data(policy, policy)
+  
+  if df_data is None:
+      return history_data, []
+
+  items = []
+  # Iterate in reverse to show newest first
+  for i, tid in enumerate(reversed(history_data)):
+      if tid not in meta_dict:
+          continue
+          
+      info = meta_dict[tid]
+      items.append(
+          html.Div(
+              style={
+                  "padding": "0.3rem 0",
+                  "borderBottom": "1px solid #eee",
+                  "fontSize": "0.85rem",
+                  "display": "flex",
+                  "justifyContent": "space-between",
+                  "alignItems": "center"
+              },
+              children=[
+                  html.Span(f"{len(history_data) - i}. {info['ArtistName']} - {info['TrackName']}", style={"marginRight": "0.5rem", "overflow": "hidden", "textOverflow": "ellipsis", "whiteSpace": "nowrap", "flex": "1"}),
+                  html.Button(
+                      "↺",
+                      id={"type": "history-select", "index": tid},
+                      title="Replay this track",
+                      style={
+                          "cursor": "pointer",
+                          "background": "transparent",
+                          "border": "1px solid #ddd",
+                          "borderRadius": "50%",
+                          "width": "24px",
+                          "height": "24px",
+                          "display": "flex",
+                          "alignItems": "center",
+                          "justifyContent": "center",
+                          "color": "#666",
+                          "fontSize": "1rem"
+                      }
+                  )
+              ]
+          )
+      )
+
+  if not items:
+      return history_data, html.Div("No history yet.", style={"color": "#999", "fontStyle": "italic"})
+
+  return history_data, items
+
+
+app.clientside_callback(
+  """
+  function(n_intervals, switch_values, neighbors) {
+    if (!n_intervals || !switch_values || !switch_values.includes('enabled') || !neighbors || neighbors.length === 0) {
+      return dash_clientside.no_update;
+    }
+    var audio = document.getElementById('main-audio-player');
+    if (audio && audio.ended) {
+      // Pick random neighbor
+      var randomIndex = Math.floor(Math.random() * neighbors.length);
+      var nextTrack = neighbors[randomIndex];
+      return nextTrack;
+    }
+    return dash_clientside.no_update;
+  }
+  """,
+  Output("auto-play-trigger", "data"),
+  Input("audio-poller", "n_intervals"),
+  State("auto-play-switch", "value"),
+  State("current-neighbors-store", "data"),
+)
 
 if __name__ == "__main__":
   app.run(debug=True)
