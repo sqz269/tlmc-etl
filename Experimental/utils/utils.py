@@ -1,10 +1,11 @@
+import pickle
 import re
 import os
 import tqdm
+import hashlib
 import torch
 from typing import Dict, List, Literal, Literal, Set, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from loader import SourceFileInfo
 
 def load_embeddings(pool_mode: Literal["mean", "max", "mean+max"] = "mean") -> torch.Tensor:
@@ -24,8 +25,19 @@ def load_embeddings_chunks(embedding_dir: str) -> Dict[str, torch.Tensor]:
   tensors = load_tensor(target_dir)
   return tensors
 
-def load_tensor(dir: str, num_workers: int = 8) -> Dict[str, torch.Tensor]:
+def load_tensor(dir: str, num_workers: int = 8, use_cache: bool = True, cache_dir: str = "embeddings/cache") -> Dict[str, torch.Tensor]:
   """Loads all .pt files from a directory in parallel."""
+
+  if use_cache:
+    print(f"Loading cache from {cache_dir}")
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, f"{hashlib.md5(dir.encode()).hexdigest()}.pkl")
+    if os.path.exists(cache_file):
+      with open(cache_file, "rb") as f:
+        return pickle.load(f)
+    else:
+      print(f"Cache file {cache_file} does not exist, loading from directory {dir}")
+
   # pt_files = [f for f in os.listdir(dir) if f.endswith(".pt")]
   # load pt files recurisvely
   pt_files = []
@@ -51,6 +63,12 @@ def load_tensor(dir: str, num_workers: int = 8) -> Dict[str, torch.Tensor]:
         # get filename
         filename = os.path.basename(fname)
         tensors[filename] = result
+
+
+  if use_cache:
+    print(f"Saving cache to {cache_file}")
+    with open(cache_file, "wb") as f:
+      pickle.dump(tensors, f, protocol=pickle.HIGHEST_PROTOCOL)
 
   return tensors
 

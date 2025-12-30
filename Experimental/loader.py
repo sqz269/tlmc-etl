@@ -6,7 +6,7 @@ from typing import Tuple
 from uuid import uuid4
 import numpy as np
 import soundfile as sf
-from torchaudio.io import StreamReader
+# from torchaudio.io import StreamReader
 import torch  # needed because StreamReader yields torch tensors
 import torchaudio.transforms as T  # <-- ADDED for resampling
 from pydub import AudioSegment 
