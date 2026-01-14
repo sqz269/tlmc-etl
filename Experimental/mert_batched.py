@@ -8,6 +8,7 @@ from transformers import AutoModel, Wav2Vec2FeatureExtractor
 from loader import AudioChunk, SourceFileInfo, load_flac, ChunkingConfig
 
 from torch.utils.data import DataLoader, IterableDataset
+from torch.cuda.amp import autocast
 
 from utils import utils
 
@@ -29,6 +30,10 @@ def init_model() -> Tuple[AutoModel, Wav2Vec2FeatureExtractor, str]:
     .to(device)
     .eval()
   )
+
+  if torch.cuda.is_available():
+    model = torch.compile(model, mode="reduce-overhead", fullgraph=False)
+
   processor = Wav2Vec2FeatureExtractor.from_pretrained(
     "m-a-p/MERT-v1-330M", trust_remote_code=True
   )
@@ -130,7 +135,9 @@ def embed_waveforms_batched(
       )
       inputs = {k: v.to(device, non_blocking=True) for k, v in inputs.items()}
       
-      outputs = model(**inputs, output_hidden_states=True)
+      with torch.amp.autocast("cuda", dtype=torch.float16):
+        outputs = model(**inputs, output_hidden_states=True)
+
       hs = torch.stack(outputs.hidden_states, dim=0)  # [L, B, T, C]
       hs_time = hs.mean(dim=2)                        # [L, B, C]
 
@@ -184,9 +191,9 @@ def main():
     device=device,
     results=intermediate_results,
     layer_mix="last4",
-    batch_size=8,
+    batch_size=32,
     pin_memory=True,
-    num_workers=4,
+    num_workers=16,
   )
 
 if __name__ == "__main__":
