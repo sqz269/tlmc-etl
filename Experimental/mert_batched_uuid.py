@@ -196,7 +196,7 @@ def embed_waveforms_batched(
       )
       inputs = {k: v.to(device, non_blocking=True) for k, v in inputs.items()}
 
-      with autocast(device_type="cuda", dtype=torch.float16):
+      with torch.amp.autocast(device_type="cuda", dtype=torch.float16):
         outputs = model(**inputs, output_hidden_states=True)
 
       hidden = outputs.hidden_states if layer_mix == "last4" else None
@@ -256,7 +256,7 @@ def main():
       results=intermediate_results,
       executor=executor,  # <--- MODIFIED: Pass the executor
       layer_mix="last4",
-      batch_size=8,
+      batch_size=20,
       pin_memory=True,
       num_workers=4,
     )
