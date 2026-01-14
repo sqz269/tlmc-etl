@@ -4,6 +4,7 @@ import os
 import tqdm
 import hashlib
 import torch
+import numpy as np
 from typing import Dict, List, Literal, Literal, Set, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from loader import SourceFileInfo
@@ -70,6 +71,28 @@ def load_tensor(dir: str, num_workers: int = 8, use_cache: bool = True, cache_di
     with open(cache_file, "wb") as f:
       pickle.dump(tensors, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+  return tensors
+
+def load_vlad_tensors(embedding_dir: str, max_workers: int = 4) -> Dict[str, np.ndarray]:
+  target_dir = os.path.join(embedding_dir, "vlad_pooled")
+  if not os.path.exists(target_dir):
+    raise FileNotFoundError(f"Directory {target_dir} does not exist.")
+  
+  # Get list of files
+  npy_files = [f for f in os.listdir(target_dir) if f.endswith(".npy")]
+  tensors: Dict[str, np.ndarray] = {}
+
+  # Helper function for a single load
+  def load_single_file(filename):
+    path = os.path.join(target_dir, filename)
+    return filename, np.load(path)
+
+  print(f"Loading {len(npy_files)} VLAD tensors with {max_workers} workers")
+  with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    futures = {executor.submit(load_single_file, f): f for f in npy_files}
+    for fut in tqdm.tqdm(as_completed(futures), total=len(futures)):
+      filename, array = fut.result()
+      tensors[filename] = array
   return tensors
 
 def pool_loaded_tensor_dict(
