@@ -3,7 +3,7 @@ from typing import List, Literal, Dict
 import pandas as pd
 import os
 
-METADATA_CSV_FILE = "embeddings/id_metadata.csv"
+METADATA_CSV_FILE = "embeddings/id_metadata_arsmagna_test.csv"
 TENSOR_DIRECTORY = "embeddings/embeddings/"
 
 VECTOR_INDEX_DIR = "vector_index"
@@ -12,11 +12,15 @@ VECTOR_INDEX_DIR = "vector_index"
 ANN_TEMPLATE = f"{VECTOR_INDEX_DIR}/annoy_index_{{pooling_policy}}.ann"
 VECTOR_ID_TO_KEY_TEMPLATE = f"{VECTOR_INDEX_DIR}/annoy_int_index_to_uuid_{{pooling_policy}}.csv"
 
-POOLING_POLICY: List[Literal["mean", "max", "mean+max"]] = ["mean", "mean+max"]
+POOLING_POLICY: List[Literal["mean", "max", "mean+max", "VLAD_PCA_64", "VLAD_PCA_512", "VLAD_PCA_1024", "VLAD_PCA_2048"]] = ["mean", "mean+max", "VLAD_PCA_64", "VLAD_PCA_512", "VLAD_PCA_1024", "VLAD_PCA_2048"]
 
 POOLING_POLICY_DIM: Dict[str, int] = {
   "mean": 1024,
   "mean+max": 2048,
+  "VLAD_PCA_64": 64,
+  "VLAD_PCA_512": 512,
+  "VLAD_PCA_1024": 1024,
+  "VLAD_PCA_2048": 2048,
 }
 
 def main():
@@ -75,7 +79,7 @@ def main():
     print(f"NN for {item.TrackName} by {item.ArtistName}:")
     vector_id = joined_df.index.get_loc(query_id)
     query_vector = annoy_index.get_item_vector(vector_id)
-    nearest_ids, distances = annoy_index.get_nns_by_vector(query_vector, 10, search_k=10_000, include_distances=True)
+    nearest_ids, distances = annoy_index.get_nns_by_vector(query_vector, 100, search_k=10_000, include_distances=True)
     print(f"Nearest neighbors for TrackID '{query_id}':")
     for neighbor_id, distance in zip(nearest_ids, distances):
       neighbor_key = joined_df.index[neighbor_id]
