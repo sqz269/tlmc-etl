@@ -1,4 +1,6 @@
 import os
+import sys
+from pathlib import Path
 import torch
 from tqdm import tqdm
 import umap
@@ -7,10 +9,14 @@ import pandas as pd
 import plotly.express as px
 from typing import Dict, List, Literal
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
+RESULTS_DIR = ROOT_DIR / "results" / "umap"
+
 from utils import utils
 from utils.utils import load_tensor
 
-TENSOR_DIRECTORY = f"embeddings/chunks/"
+TENSOR_DIRECTORY = str(ROOT_DIR / "embeddings" / "chunks")
 POOLING_POLICY: List[Literal["mean", "max", "mean+max"]] = ["mean", "mean+max"]
 
 genre_artist_color_map = {
@@ -64,6 +70,7 @@ def get_js_click_copy():
   """
 
 def main():
+  RESULTS_DIR.mkdir(parents=True, exist_ok=True)
   tensors = load_tensor(TENSOR_DIRECTORY)
   if not tensors:
     print("No .pt files found in the directory. Exiting.")
@@ -108,7 +115,7 @@ def main():
     # show
     # fig.show()
     
-    html_file = f"umap_viz_{pooling_policy}.html"
+    html_file = str(RESULTS_DIR / f"umap_viz_{pooling_policy}.html")
     print(f"Saving visualization to {html_file}...")
     fig.write_html(html_file, include_plotlyjs='cdn', full_html=True, post_script=get_js_click_copy())
 

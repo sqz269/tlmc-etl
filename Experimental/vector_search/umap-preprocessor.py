@@ -1,25 +1,28 @@
-# generate_umap_csv.py
-from torch._tensor import Tensor
-
+from pathlib import Path
+import os
+import sys
 
 import pandas as pd
 import torch
 import umap
-import os, sys
+from torch._tensor import Tensor
 from tqdm import tqdm
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
+RESULTS_DIR = ROOT_DIR / "results" / "umap"
 
 from utils import utils
 from utils.utils import load_tensor
 
 # Configuration
-METADATA_CSV_FILE = "embeddings/id_metadata.csv"
-TENSOR_DIRECTORY = "embeddings/uuid_embeddings/embeddings/"
+METADATA_CSV_FILE = str(ROOT_DIR / "embeddings" / "id_metadata.csv")
+TENSOR_DIRECTORY = str(ROOT_DIR / "embeddings" / "uuid_embeddings" / "embeddings")
 POOLING_POLICY = "mean" # Pick one policy for the CSV to keep it simple
 
 def main():
   print(f"--- Generating UMAP CSV for policy: {POOLING_POLICY} ---")
+  RESULTS_DIR.mkdir(parents=True, exist_ok=True)
   
   # 1. Load Metadata
   metadata_df = pd.read_csv(METADATA_CSV_FILE)
@@ -50,7 +53,7 @@ def main():
   df_out = df_out.join(metadata_lookup, on="TrackID", how="left")
   
   # 7. Save to CSV for the App
-  output_filename = f"umap_data_{POOLING_POLICY}.csv"
+  output_filename = RESULTS_DIR / f"umap_data_{POOLING_POLICY}.csv"
   df_out.to_csv(output_filename, index=False)
   print(f"Done! Saved to {output_filename}")
 

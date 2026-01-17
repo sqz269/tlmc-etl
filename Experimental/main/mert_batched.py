@@ -1,10 +1,16 @@
 import os
+import sys
+from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Tuple
 
 import torch
 from tqdm import tqdm
 import itertools
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
+
 from loader import AudioChunk, SourceFileInfo, load_flac, ChunkingConfig
 
 from torch.utils.data import DataLoader, IterableDataset
@@ -12,10 +18,10 @@ from torch.cuda.amp import autocast
 
 from utils import utils
 
-DATA_DIRECTORY = "data/"
+DATA_DIRECTORY = str(ROOT_DIR / "data")
 
 MERT_SAMPLE_RATE = 24000
-EMBEDDING_DIRECTORY = f"embeddings/chunks/"
+EMBEDDING_DIRECTORY = str(ROOT_DIR / "embeddings" / "chunks")
 
 chunking_config = ChunkingConfig(
   target_sample_rate=MERT_SAMPLE_RATE,

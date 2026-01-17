@@ -3,8 +3,8 @@ Write-Host "Preparing webdemo directory for Docker build..."
 # Define source paths (relative to webdemo/)
 $SourceEmbeddingsCsv = "../embeddings/id_metadata.csv"
 $SourceVectorIndex = "../vector_index"
-$SourceUmap = "../umap_data_mean.csv"
-$SourceUmapMax = "../umap_data_mean+max.csv"
+$SourceUmap = "../results/umap/umap_data_mean.csv"
+$SourceUmapMax = "../results/umap/umap_data_mean+max.csv"
 
 # Check if sources exist
 if (-not (Test-Path $SourceEmbeddingsCsv)) { Write-Error "Embeddings CSV not found at $SourceEmbeddingsCsv"; exit 1 }

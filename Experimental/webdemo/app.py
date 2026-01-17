@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 from functools import lru_cache
 
 import annoy
@@ -11,15 +12,31 @@ from scipy.stats import gaussian_kde
 from dash import Dash, dcc, html, Input, Output, State, ALL
 import dash
 
+# --- Paths (robust to cwd / docker) ---
+# In the repo, this file lives in Experimental/webdemo/app.py, so the project root is parent.
+# In Docker, app.py is copied to /app/app.py and data is copied to /app/{embeddings,vector_index,...},
+# so the "project root" is the same directory as this file.
+BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent
+
+def pick_existing_dir(dir_name: str) -> Path:
+  for d in (BASE_DIR / dir_name, PROJECT_ROOT / dir_name):
+    if d.exists():
+      return d
+  # default (helps error messages stay stable)
+  return PROJECT_ROOT / dir_name
+
+EMBEDDINGS_DIR = pick_existing_dir("embeddings")
+VECTOR_INDEX_DIR = pick_existing_dir("vector_index")
+
 # --- Constants ---
-METADATA_CSV_FILE = "embeddings/id_metadata.csv"
-VECTOR_INDEX_DIR = "vector_index"
+METADATA_CSV_FILE = str(EMBEDDINGS_DIR / "id_metadata.csv")
 UMAP_CSV_FILE_TEMPLATE = "umap_data_{pooling_policy}.csv"
 
-ANN_TEMPLATE = f"{VECTOR_INDEX_DIR}/annoy_index_{{pooling_policy}}.ann"
+ANN_TEMPLATE = str(VECTOR_INDEX_DIR / "annoy_index_{pooling_policy}.ann")
 # Mapping UUIDs to Annoy integer IDs
 VECTOR_ID_TO_KEY_TEMPLATE = (
-  f"{VECTOR_INDEX_DIR}/annoy_int_index_to_uuid_{{pooling_policy}}.csv"
+  str(VECTOR_INDEX_DIR / "annoy_int_index_to_uuid_{pooling_policy}.csv")
 )
 AUDIO_API_TEMPLATE = "https://staging-api.marisad.me/api/asset/track/{track_id}/hls"
 
@@ -83,8 +100,13 @@ def load_data(policy: str, umap_policy: str):
   # 5. Load UMAP (using umap_policy)
   umap_df = None
   umap_file = UMAP_CSV_FILE_TEMPLATE.format(pooling_policy=umap_policy)
-  if os.path.exists(umap_file):
-    umap_df = pd.read_csv(umap_file)
+  # Prefer webdemo-local files (for Docker), else fall back to repo results/umap
+  umap_path = BASE_DIR / umap_file
+  if not umap_path.exists():
+    umap_path = PROJECT_ROOT / "results" / "umap" / umap_file
+
+  if umap_path.exists():
+    umap_df = pd.read_csv(str(umap_path))
 
   return merged_df, umap_df, annoy_to_track_map, meta_dict
 

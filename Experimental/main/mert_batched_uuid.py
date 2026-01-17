@@ -1,12 +1,18 @@
 import os
+import sys
 import re
 from typing import Any, Dict, Iterable, Iterator, List, Tuple, Set
 from concurrent.futures import ThreadPoolExecutor  # <--- MODIFIED: Added import
+from pathlib import Path
 
 import torch
 from tqdm import tqdm
 import itertools
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
+
 from loader import AudioChunk, SourceFileInfo, load_flac, load_m4a, ChunkingConfig
 
 from torch.utils.data import DataLoader, IterableDataset
@@ -19,8 +25,8 @@ mp.set_start_method("spawn", force=True)
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
-DATA_DIRECTORY = "data/"
-EMBEDDING_DIRECTORY = f"embeddings/test/"
+DATA_DIRECTORY = str(ROOT_DIR / "data")
+EMBEDDING_DIRECTORY = str(ROOT_DIR / "embeddings" / "test")
 
 MERT_SAMPLE_RATE = 24000
 chunking_config = ChunkingConfig(

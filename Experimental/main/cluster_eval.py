@@ -1,13 +1,19 @@
+import sys
+from pathlib import Path
 from json import load
 import numpy as np
 from cuml.cluster import HDBSCAN
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 from sklearn.preprocessing import normalize
 import torch
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
+
 from utils import utils
 from utils.utils import load_tensor
 
-TENSOR_DIRECTORY = "embeddings/uuid_embeddings/"
+TENSOR_DIRECTORY = str(ROOT_DIR / "embeddings" / "uuid_embeddings")
 tensors = load_tensor(TENSOR_DIRECTORY, num_workers=16)
 
 

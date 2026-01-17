@@ -1,4 +1,6 @@
 import os
+import sys
+from pathlib import Path
 import torch
 from tqdm import tqdm
 import umap
@@ -7,11 +9,15 @@ import pandas as pd
 import plotly.express as px
 from typing import Dict, List, Literal
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT_DIR))
+RESULTS_DIR = ROOT_DIR / "results" / "umap"
+
 from utils import utils
 from utils.utils import load_tensor
 
-METADATA_CSV_FILE = "embeddings/id_metadata_arsmagna_test.csv"
-TENSOR_DIRECTORY = "embeddings/uuid_embeddings/"
+METADATA_CSV_FILE = str(ROOT_DIR / "embeddings" / "id_metadata_arsmagna_test.csv")
+TENSOR_DIRECTORY = str(ROOT_DIR / "embeddings" / "uuid_embeddings")
 
 # Output scatter will downsample if > N points to stay responsive
 MAX_SCATTER_POINTS = 140_000
@@ -43,6 +49,7 @@ def get_js_click_copy():
 
 
 def main():
+  RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
   # -------------------------------------
   # Load CSV metadata
@@ -169,7 +176,7 @@ def main():
     )
 
 
-    scatter_file = f"umap_{pooling_policy}_scatter.html"
+    scatter_file = str(RESULTS_DIR / f"umap_{pooling_policy}_scatter.html")
     print(f"Saving scatter → {scatter_file}")
     fig_scatter.write_html(
       scatter_file,
@@ -196,7 +203,7 @@ def main():
       yaxis=dict(visible=False),
     )
 
-    density_file = f"umap_{pooling_policy}_density.html"
+    density_file = str(RESULTS_DIR / f"umap_{pooling_policy}_density.html")
     print(f"Saving density → {density_file}")
     fig_density.write_html(
       density_file,
