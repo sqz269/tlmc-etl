@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 from typing import List
 from dataclasses import dataclass
@@ -95,6 +96,57 @@ def chunk_audio(
 
   return AudioChunks(chunks=chunks, sample_rate=sr, chunking_config=config)
 
+def load_m3u8(file: SourceFileInfo, chunking_config: ChunkingConfig) -> AudioChunks:
+  """
+  Reads an m3u8 playlist URL and converts the audio to a NumPy array.
+  
+  Args:
+    m3u8_url (str): URL or file path to the .m3u8 playlist.
+    sample_rate (int): Target sample rate for the audio.
+    channels (int): Target number of channels (1 for mono, 2 for stereo).
+    
+  Returns:
+    np.ndarray: Audio data as a float32 array. 
+          Shape is (N,) for mono or (N, channels) for stereo.
+  """
+  
+  # FFmpeg command to download, decode, and pipe raw audio
+  command = [
+    'ffmpeg',
+    '-i', file.path,       # Input URL
+    '-f', 'f32le',      # Output format: 32-bit float Little Endian
+    '-ac', str(1),      # Number of channels
+    '-ar', str(chunking_config.target_sample_rate),  # Sample rate
+    '-acodec', 'pcm_f32le',   # Force PCM float32 codec
+    '-vn',          # Disable video (if any)
+    'pipe:1'          # Output to stdout (pipe)
+  ]
+
+  try:
+    # Run the command and capture stdout
+    process = subprocess.Popen(
+      command,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE
+    )
+    
+    # Read the raw byte data from stdout
+    raw_audio, stderr = process.communicate()
+    
+    if process.returncode != 0:
+      raise RuntimeError(f"FFmpeg failed: {stderr.decode()}")
+      
+    if not raw_audio:
+      print("Warning: No audio data received.")
+      return np.array([])
+
+    # Convert raw bytes to numpy array
+    audio_array = np.frombuffer(raw_audio, dtype=np.float32)
+
+    return chunk_audio(audio_array, chunking_config.target_sample_rate, chunking_config, info=file)
+
+  except FileNotFoundError:
+    raise FileNotFoundError("FFmpeg is not installed or not found in system PATH.")
 
 def load_flac(file: SourceFileInfo, chunking_config: ChunkingConfig) -> AudioChunks:
   wav_np, sr = sf.read(file.path, always_2d=False)
