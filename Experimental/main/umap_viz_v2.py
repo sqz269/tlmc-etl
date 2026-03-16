@@ -65,7 +65,7 @@ def main():
   # -------------------------------------
   # Load embeddings (.pt)
   # -------------------------------------
-  tensors = load_tensor(TENSOR_DIRECTORY, num_workers=16)
+  tensors = load_tensor(TENSOR_DIRECTORY, num_workers=16, use_cache=False)
   if not tensors:
     print("No .pt files found in the directory. Exiting.")
     return

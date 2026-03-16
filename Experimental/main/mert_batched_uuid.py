@@ -8,12 +8,13 @@ from pathlib import Path
 import torch
 from tqdm import tqdm
 import itertools
+import pandas as pd
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT_DIR))
 
-from loader import AudioChunk, SourceFileInfo, load_flac, load_m4a, ChunkingConfig
+from loader import AudioChunk, SourceFileInfo, load_flac, load_m3u8, load_m4a, ChunkingConfig
 
 from torch.utils.data import DataLoader, IterableDataset
 
@@ -26,13 +27,13 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 DATA_DIRECTORY = str(ROOT_DIR / "data")
-EMBEDDING_DIRECTORY = str(ROOT_DIR / "embeddings" / "test")
+EMBEDDING_DIRECTORY = str(ROOT_DIR / "embeddings" / "chunked_6s")
 
 MERT_SAMPLE_RATE = 24000
 chunking_config = ChunkingConfig(
   target_sample_rate=MERT_SAMPLE_RATE,
-  chunk_size=30,
-  overlap_size=5,
+  chunk_size=6,
+  overlap_size=2,
 )
 
 UUID_REGEX = re.compile(
@@ -62,6 +63,31 @@ def get_m4a_list(dir_path: str) -> Set[str]:
         m4a_files.add(full_path)
 
   return m4a_files
+
+def get_m3u8_process_list(dir_path: str, target_csv_path: str, embedding_path: str) -> List[SourceFileInfo]:
+  # target is {"track_id": "m3u8_path"}
+  # csv col: AlbumID,TrackID,PlaylistPath
+  csv_df = pd.read_csv(target_csv_path)
+  targets = csv_df[["TrackID", "PlaylistPath"]].to_dict(orient="records")
+  targets = {item["TrackID"]: item["PlaylistPath"] for item in targets}
+
+  completed = get_completed_embeddings(embedding_path)
+  proc: List[SourceFileInfo] = []
+  loaded = 0
+  done = 0
+  for track_id, m3u8_path in targets.items():
+    if track_id in completed:
+      done += 1
+      continue
+    info = SourceFileInfo(
+      path=m3u8_path,
+      filename=track_id,
+      tag="<UNUSED>",
+    )
+    loaded += 1
+    proc.append(info)
+  print(f"Total files to process: {loaded}, already done: {done}")
+  return proc
 
 def get_process_list(dir_path: str, embedding_path: str) -> List[SourceFileInfo]:
   m4a_files = get_m4a_list(dir_path)
@@ -129,20 +155,27 @@ class ChunkStreamDataset(IterableDataset):
       fp = info.path
 
       try:
-        audio_chunks_hls = load_m4a(
-          file=info,
-          chunking_config=self.chunking_config,
-        )
+
+        if info.path.endswith(".m3u8"):
+          audio_chunks = load_m3u8(
+            file=info,
+            chunking_config=self.chunking_config,
+          )
+        else:
+          audio_chunks = load_m4a(
+            file=info,
+            chunking_config=self.chunking_config,
+          )
       except Exception as e:
         print(f"Could not load {fp}: {e}")
         continue
 
-      if len(audio_chunks_hls.chunks) == 0:
+      if len(audio_chunks.chunks) == 0:
         print(f"No audio chunks found in {fp}, skipping.")
         continue
 
       # yield one chunk at a time
-      for idx, chunk in enumerate(audio_chunks_hls.chunks):
+      for idx, chunk in enumerate(audio_chunks.chunks):
         yield chunk
 
 def collate_batch_fn(batch):
@@ -244,7 +277,8 @@ def embed_waveforms_batched(
 def main():
   intermediate_results: Dict[str, List[torch.Tensor]] = {}
 
-  proc_list = get_process_list(DATA_DIRECTORY, EMBEDDING_DIRECTORY)
+  # proc_list = get_process_list(DATA_DIRECTORY, EMBEDDING_DIRECTORY)
+  proc_list = get_m3u8_process_list(DATA_DIRECTORY, "/mnt/j/PROG/tlmc-etl/Experimental/data_transfer/all_targets.csv", EMBEDDING_DIRECTORY)
   dataset = ChunkStreamDataset(
     flac_list=proc_list,
     chunking_config=chunking_config,
@@ -253,7 +287,7 @@ def main():
   os.makedirs(EMBEDDING_DIRECTORY, exist_ok=True)
 
   model, processor, device = init_model()
-  with ThreadPoolExecutor(max_workers=4) as executor:
+  with ThreadPoolExecutor(max_workers=8) as executor:
     embed_waveforms_batched(
       data_set=dataset,
       model=model,
@@ -262,9 +296,10 @@ def main():
       results=intermediate_results,
       executor=executor,  # <--- MODIFIED: Pass the executor
       layer_mix="last4",
-      batch_size=20,
+      batch_size=224,
       pin_memory=True,
-      num_workers=4,
+      num_workers=8,
+      prefetch_factor=8,
     )
 
 if __name__ == "__main__":

@@ -18,10 +18,10 @@ from torch.cuda.amp import autocast
 
 from utils import utils
 
-DATA_DIRECTORY = str(ROOT_DIR / "data")
+DATA_DIRECTORY = str(ROOT_DIR / "data" / "artist_arsmagna" / "[ignore][ArsMagnA]")
 
 MERT_SAMPLE_RATE = 24000
-EMBEDDING_DIRECTORY = str(ROOT_DIR / "embeddings" / "chunks")
+EMBEDDING_DIRECTORY = str(ROOT_DIR / "embeddings" / "chunks_30s_ars")
 
 chunking_config = ChunkingConfig(
   target_sample_rate=MERT_SAMPLE_RATE,
@@ -197,9 +197,9 @@ def main():
     device=device,
     results=intermediate_results,
     layer_mix="last4",
-    batch_size=32,
+    batch_size=64,
     pin_memory=True,
-    num_workers=16,
+    num_workers=8,
   )
 
 if __name__ == "__main__":

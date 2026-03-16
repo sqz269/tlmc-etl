@@ -16,7 +16,7 @@ from typing import Dict, List, Literal
 from utils import utils
 from utils.utils import load_tensor
 
-TENSOR_DIRECTORY = "embeddings/chunks/"
+TENSOR_DIRECTORY = "embeddings/chunks_30s_ars"
 OUTPUT_DIRECTORY = "embeddings/uuid_embeddings/test_embeddings"
 POOLING_POLICY: List[Literal["mean", "max", "mean+max"]] = ["mean", "mean+max"]
 
@@ -34,15 +34,17 @@ def main():
   
   metadata_dict = {}
   for name in tqdm(tensors.keys()):
-    tag_part, filename_part = utils.get_tag_and_filename(name)
+    # tag_part, filename_part = utils.get_tag_and_filename(name)
+    filename_part = name.split("/")[-1]
         
-    if tag_part != "artist_arsmagna":
-      continue
+    # if tag_part != "artist_arsmagna":
+    #   continue
     
     album_uuid = "00000000-0000-0000-0000-000000000000"
     track_uuid = str(uuid.uuid4())
     
     new_name = f"{OUTPUT_DIRECTORY}/{track_uuid}.allchunks.pt"
+    print(f"Saving tensor to {new_name}")
     torch.save(tensors[name], new_name)
 
     metadata_dict[track_uuid] = {
@@ -50,7 +52,7 @@ def main():
       "AlbumName": "<TESTING DO NOT USE>",
       "TrackID": track_uuid,
       "TrackName": filename_part,
-      "ArtistName": tag_part,
+      "ArtistName": "artist_arsmagna",
     }
 
   # add metadata_dict to metadata_df

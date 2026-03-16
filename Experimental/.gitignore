@@ -9,5 +9,13 @@ data/
 *.csv
 *.html
 *.bin
+*.faiss
+*.pkl
+*.png
+
+vertex_index_staging/
+.vscode/
+.claude/
+notes/
 
 .DS_Store

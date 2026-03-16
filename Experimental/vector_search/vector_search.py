@@ -6,10 +6,10 @@ import os
 METADATA_CSV_FILE = "embeddings/id_metadata_arsmagna_test.csv"
 TENSOR_DIRECTORY = "embeddings/embeddings/"
 
-VECTOR_INDEX_DIR = "vector_index"
+VECTOR_INDEX_DIR = "vector_index/chunked_6seconds"
 
 # template
-ANN_TEMPLATE = f"{VECTOR_INDEX_DIR}/annoy_index_{{pooling_policy}}.ann"
+ANN_TEMPLATE = f"{VECTOR_INDEX_DIR}/annoy_index_chunked_6seconds_{{pooling_policy}}.ann"
 VECTOR_ID_TO_KEY_TEMPLATE = f"{VECTOR_INDEX_DIR}/annoy_int_index_to_uuid_{{pooling_policy}}.csv"
 
 POOLING_POLICY: List[Literal["mean", "max", "mean+max", "VLAD_PCA_64", "VLAD_PCA_512", "VLAD_PCA_1024", "VLAD_PCA_2048"]] = ["mean", "mean+max", "VLAD_PCA_64", "VLAD_PCA_512", "VLAD_PCA_1024", "VLAD_PCA_2048"]
