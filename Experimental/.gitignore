@@ -1,6 +1,11 @@
+# Data & embeddings
 embeddings/
 data/
 !jukeboxmir/jukebox/jukebox/data/
+similarity/
+test/
+
+# Large/generated binary files
 *.wav
 *.flac
 *.pt
@@ -12,10 +17,19 @@ data/
 *.faiss
 *.pkl
 *.png
+*.7z
 
+# Staging & deployment artifacts
 vertex_index_staging/
+
+# IDE & tooling
 .vscode/
 .claude/
+__pycache__/
+.cache/
+
+# Notes / drafts
 notes/
 
+# OS
 .DS_Store

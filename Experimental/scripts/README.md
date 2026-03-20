@@ -1,6 +1,6 @@
 # `scripts/` — Experiment entrypoints
 
-This folder contains **runnable entrypoints** (not library code). Most scripts rely on the repo’s shared utilities in `utils/` and loaders in `loader.py`.
+This folder contains **runnable entrypoints** (not library code). Most scripts rely on the repo’s shared utilities in `utils/` and loaders in `utils/loader.py`.
 
 ## How to run
 

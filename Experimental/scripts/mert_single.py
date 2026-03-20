@@ -12,7 +12,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT_DIR))
 
 # Local imports
-from loader import SourceFileInfo, load_flac, ChunkingConfig
+from utils.loader import SourceFileInfo, load_flac, ChunkingConfig
 from utils import utils
 
 MERT_SAMPLE_RATE = 24000

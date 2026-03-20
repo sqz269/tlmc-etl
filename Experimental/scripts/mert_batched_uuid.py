@@ -14,7 +14,7 @@ from transformers import AutoModel, Wav2Vec2FeatureExtractor
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT_DIR))
 
-from loader import AudioChunk, SourceFileInfo, load_flac, load_m3u8, load_m4a, ChunkingConfig
+from utils.loader import AudioChunk, SourceFileInfo, load_flac, load_m3u8, load_m4a, ChunkingConfig
 
 from torch.utils.data import DataLoader, IterableDataset
 

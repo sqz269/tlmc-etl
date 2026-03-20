@@ -7,7 +7,7 @@ import torch
 import numpy as np
 from typing import Dict, List, Literal, Literal, Set, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from loader import SourceFileInfo
+from utils.loader import SourceFileInfo
 
 def load_embeddings(pool_mode: Literal["mean", "max", "mean+max"] = "mean") -> torch.Tensor:
   embedding_dir = "embeddings"
