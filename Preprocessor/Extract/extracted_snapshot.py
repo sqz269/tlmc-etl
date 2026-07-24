@@ -12,13 +12,13 @@ output_path = get_output_path(
 )
 
 
-def generate_rar_list(root: str):
-    files = []
+def generate_file_list(root: str):
+    results = []
     for fp, dirs, files in os.walk(root):
         for file in files:
-            files.append(os.path.join(fp, file))
+            results.append(os.path.join(fp, file))
 
-    return files
+    return results
 
 
 def filter_filelist_by_completed(filelist: List[str]):
@@ -69,7 +69,7 @@ if __name__ == "__main__":
             pass
 
     print("Generating file list")
-    files = generate_rar_list(tlmc_root)
+    files = generate_file_list(tlmc_root)
     print("Total: ", len(files))
     print("Filtering file list")
     files = filter_filelist_by_completed(files)

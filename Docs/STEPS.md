@@ -139,9 +139,11 @@ Install 7-zip 64 bit as per your operating system's instructions
 
 ## SECTION: PREPROCESSING
 
-### 0. RAR File Snapshot
+### 0. Archive Snapshot
 
 This section details the process of snapshotting the downloaded collection files for their hash and size. This step is needed to ensure we can correctly and efficiently identify added albums from new versions of the collection and retroactively apply updates instead of the need to go through the process again with every new release.
+
+**Note on cross-release matching**: a hash only carries across releases while the container format stays the same. v4 shipped `.rar` and v6 ships `.7z`, so no v4 hash matches a v6 archive even where the album contents are byte identical. Across such a change the album path (`<circle>/<album>`) is the only usable identity, which is what `Processor/InfoCollector/Aggregator/existing_id_metadata_update.py` matches on.
 
 ### Prerequisites
 
@@ -149,8 +151,7 @@ This section details the process of snapshotting the downloaded collection files
 
 ### Preparation
 
-- Ensure that you have moved `!Misc` in the TLMC release to the root folder so that it's properly merged with the rest of the directory.
-  - Can be achieved via `cp * .. -r` in the `!Misc` directory or `cp !Misc/* . -r` in TLMC root directory then with `rm -r !Misc`
+- N/A. Unlike older releases there is no `!Misc` directory to merge by hand; the release roots are merged by the extraction plan in step 1.
 
 ### Execution
 
@@ -159,7 +160,9 @@ This section details the process of snapshotting the downloaded collection files
 
 ### 1. Archive Extraction
 
-This section details the process of extracting .rar files contained in the TLMC (Touhou Lossless Music Collection) directory. Before processing the files, they must be extracted.
+The release ships as archives spread over several parallel roots (for v6: `TLMC`, `various album`, `Other album`, `non touhou circle`, `temp`, plus a `Software` directory that is not music). The extraction step merges the roots the pipeline should ingest into one `<circle>/<album>/` tree, which is the layout every later stage assumes.
+
+Extraction runs in two passes: `extract_plan.py` decides where everything goes and writes a plan for review, then `extract.py` carries the plan out.
 
 #### Prerequisites
 
@@ -168,12 +171,53 @@ This section details the process of extracting .rar files contained in the TLMC 
 
 #### Preparation
 
-- Confirm that the drive where the TLMC files are stored has at least 300GB of free space.
-- **Important Warning**: The .rar files will be permanently deleted after extraction. Ensure you have backups if necessary. (Or disable this behavior by editing `extract.py` and remove line `os.unlink(file)`)
+- **Disk space**: the v6 archives are stored uncompressed (`Method = Copy`), so extraction is close to 1:1. Budget the size of the source roots you are ingesting, not the 300GB quoted for older releases. `extract.py` prints the required and available space before it starts.
+- Review `Preprocessor/Extract/extraction_exclusions.json`. This file records every decision about what the release contributes and what it does not, and is the only place those decisions should be written: the plan is regenerated output and hand edits to it are lost on the next run. It is version controlled, so the exclusions for one release can be diffed against the next. See [Exclusions file](#exclusions-file) below.
+- **Optional warning**: setting `DELETE_ARCHIVE_AFTER_EXTRACT = True` in `extract.py` halves the peak disk requirement but permanently destroys the downloaded release (and any torrent seeding from it). It is off by default.
 
 #### Execution
 
-1. Execute the script by running `python ./extract.py`. This will start the extraction process.
+1. Run `python Preprocessor/Extract/extract_plan.py`. It reads every archive's index (no extraction) and writes:
+    - `output/extraction_plan.output.json` — the plan `extract.py` executes.
+    - `output/extraction_plan.review.output.json` — everything a human should look at.
+2. Work through the review file:
+    - **`Collisions`** — album directories that more than one archive would write to. These are the same release appearing in two roots (or once as its own archive and again inside an `!MP3` circle bundle). Pick a winner and delete the loser's entry from the plan, or rename its album. **`extract.py` refuses to run while any collision remains.**
+    - **`NeedsManualReview`** — archives whose internal shape is not the usual "loose track files at the archive root". Confirm the `Layout` and `Albums` fields are right, and correct them in the plan if not:
+        - `flat` — one album, named after the archive. The normal case.
+        - `nested` — the archive carries its own album directory; one level gets stripped so the album does not end up one level too deep.
+        - `bundle` — the archive holds several album directories, each of which becomes its own album.
+    - **`UnreachableContent`** — loose audio files sitting at circle level, and directories nested where an archive was expected. `Processor/InfoCollector/AlbumInfo/info_scanner_ph1.py` only descends two levels, so these are dropped silently unless you move them into a proper `<circle>/<album>/` directory by hand.
+3. Run `python Preprocessor/Extract/extract.py`. Progress is journaled to `output/extraction_journal.output.jsonl`, so the script can be interrupted and rerun; archives already recorded as complete are skipped. Failures are appended to `output/extraction_log.error.output.log`.
+
+#### Exclusions file
+
+`Preprocessor/Extract/extraction_exclusions.json` is the record of what the release contributes and what it does not. It is version controlled and never regenerated, so it is the only durable place to write these decisions. Paths in it are relative to the release root, which keeps it portable between machines and diffable against the next release.
+
+| Section | Purpose |
+| --- | --- |
+| `SourceRoots` | Release roots merged into the output tree, highest priority first. When one circle appears under several roots the spelling from the earliest root wins. |
+| `ExcludedRoots` | Roots deliberately not ingested, each with the reason. |
+| `IncludedSubtrees` | Cherry-picks a single circle out of an excluded root, e.g. `"temp/[IOSYS]": {"Circle": "[IOSYS] イオシス"}` pulls in the IOSYS backfill without the rest of `temp`. |
+| `ArchiveIsCircleDirs` | Directories whose archives are named after a circle rather than an album (`various album/!MP3`). |
+| `ExcludedCircles` | Individual circle directories to skip. |
+| `ExcludedArchives` | Individual archives to skip, e.g. corrupt or empty ones. |
+| `CollisionResolutions` | For a `<circle>/<album>` claimed by more than one archive, names the archive to keep. Every other archive loses that album; an archive that bundles several albums keeps the rest, and one left with nothing is dropped. |
+| `CircleAliasOverrides` | Forces a circle directory onto a specific canonical name, overriding the automatic mapping. |
+
+Three audits protect the file from rotting silently between releases:
+
+- Every top-level directory of the release must appear in `SourceRoots` or `ExcludedRoots`. **The plan refuses to build otherwise**, so a root introduced by a future release cannot be dropped without someone deciding to drop it.
+- Any entry whose path no longer exists in the release is reported as stale, so entries carried over from an older release can be pruned.
+- A `CollisionResolutions` entry whose `Keep` path matches none of the archives claiming that album would drop the album from every source that has it. **The plan refuses to build** rather than lose it, which catches a mistyped path or a `Keep` pointing at an archive that is also excluded.
+
+The review file mirrors all of this back under `Excluded`, so what was left out and why is visible next to what was kept.
+
+To clear the collision list, copy the `SuggestedCollisionResolutions` block from the review file into `CollisionResolutions` in the exclusions file and correct any entry you disagree with, then re-run the plan. Suggestions default to the highest priority source root and prefer a standalone archive over an `!MP3` bundle (the latter is a lossy rip of the same release), but they are only a starting point: which of two rips is better is a judgement call, and every suggested `Reason` says so.
+
+#### Notes
+
+- Circle directories spelled differently across roots (`[IOSYS]` vs `[IOSYS] イオシス`, `[CYTOKINE]` vs `[Cytokine]`) are folded onto one canonical name, otherwise `Processor/InfoCollector/ArtistInfo/artist_scanner_ph2.py` creates a separate circle for each spelling. The mapping is recorded under `CircleAliases` in the plan; to change one, add it to `CircleAliasOverrides` in the exclusions file rather than editing the plan.
+- Archives holding only codecs the pipeline does not accept (`ogg`, `mpc`, `ape`, `tak`, `tta`, `dff`, `wma`) are flagged as having no audio. Their tracks would otherwise be silently filed as assets, since `ACCEPTED_AUDIO_FILE_EXTENSIONS` is `flac, mp3, wav, wv, m4a`.
 
 ### 2. Extracted Filesystem Snapshot
 
@@ -181,7 +225,7 @@ This section details the process of snapshotting the extracted files for their h
 
 #### Prerequisites
 
-- All `.rar` files has been extracted and the `.rar` files has been moved/deleted from the TLMC root
+- All archives have been extracted into the merged album tree, and the snapshot is taken against that tree (the destination given to `extract.py`), not the source release
 
 ### Preparation
 

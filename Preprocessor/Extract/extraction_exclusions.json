@@ -1,0 +1,209 @@
+{
+    "Description": [
+        "Per-release decisions for the extraction stage: which parts of the release are ingested,",
+        "which are deliberately left out, and why. extract_plan.py reads this file; nothing here is",
+        "regenerated, so edits survive re-running the plan. All paths are relative to the release",
+        "root (the directory holding TLMC/) so this file stays portable between machines and can be",
+        "diffed against the next release.",
+        "",
+        "Every top level directory of the release must appear in either SourceRoots or ExcludedRoots.",
+        "extract_plan.py reports any that appear in neither, so a root added by a future release",
+        "cannot be dropped silently."
+    ],
+    "SourceRoots": [
+        "TLMC",
+        "various album",
+        "Other album",
+        "non touhou circle"
+    ],
+    "ExcludedRoots": {
+        "temp": "Maintainer intake area, not normalised: 0 of 2640 audio files follow the '(NN) [Artist] Title.flac' convention and 2 of 237 album directories carry a date prefix. 118 of its 237 archives are alternate rips of albums already under TLMC. See IncludedSubtrees for the IOSYS backfill, which is the one part that holds albums found nowhere else.",
+        "Software": "Player and archiver binaries shipped with the release, not music."
+    },
+    "IncludedSubtrees": {},
+    "ArchiveIsCircleDirs": {
+        "various album/!MP3": "Archives here are named after a circle and contain that circle's album directories, e.g. '!MP3/dBu music.7z' holds '[東方紅楼夢11] dBu music — 三面楚歌 ...'. The circle is taken from the archive name rather than the parent directory."
+    },
+    "ExcludedCircles": {},
+    "ExcludedArchives": {
+        "various album/Various Artists/2022_10_28_NA_旅行恋恋Art_Book_恋恋下午茶喂养指南_Simple_Tea_Time.rar": "Corrupt: 7z reports 'Can not open the file as archive'.",
+        "various album/!MP3/As／Hi Soundworks × 梶迫小道具店.7z": "Contains a single empty directory and no files.",
+        "various album/[TTL SOUND]/Singles.7z": "Bundle of 11 singles that all exist individually under Other album/[TTL SOUND] (which carries 12 further singles the bundle lacks). Fully redundant.",
+        "various album/[岸田教団&THE明星ロケッツ]/岸田教団＆the明星ロケッツ - Super Pro Max Ti.7z": "Contains only Thumbs.db. The real 415.7 MiB / 15 track release is under Other album."
+    },
+    "CollisionResolutions": {
+        "[Alter Synth]/2016.04.24 Lunarium": {
+            "Keep": "TLMC/[Alter Synth]/2016.04.24 Lunarium.7z",
+            "Reason": "TLMC copy uses the '(NN) [Artist] Title.flac' naming that info_scanner_ph2 parses; the other copy does not."
+        },
+        "[Alter Synth]/2016.07.30 Starship North": {
+            "Keep": "TLMC/[Alter Synth]/2016.07.30 Starship North.7z",
+            "Reason": "TLMC copy uses the '(NN) [Artist] Title.flac' naming that info_scanner_ph2 parses; the other copy does not."
+        },
+        "[Alter Synth]/2017.06.10 TAHWA EP": {
+            "Keep": "TLMC/[Alter Synth]/2017.06.10 TAHWA EP.7z",
+            "Reason": "TLMC copy uses the '(NN) [Artist] Title.flac' naming that info_scanner_ph2 parses; the other copy does not."
+        },
+        "[Alter Synth]/2019.05.27 TAHWA 2": {
+            "Keep": "TLMC/[Alter Synth]/2019.05.27 TAHWA 2.7z",
+            "Reason": "TLMC copy uses the '(NN) [Artist] Title.flac' naming that info_scanner_ph2 parses; the other copy does not."
+        },
+        "[Alter Synth]/2021.04.30 TAHWA 3": {
+            "Keep": "TLMC/[Alter Synth]/2021.04.30 TAHWA 3.7z",
+            "Reason": "TLMC copy uses the '(NN) [Artist] Title.flac' naming that info_scanner_ph2 parses; the other copy does not."
+        },
+        "[Attrielectrock]/[2011.07.10] Attrielectrock — MMM {PAER-0036} [CD-FLAC] (80%)": {
+            "Keep": "various album/[Attrielectrock]/[2011.07.10] Attrielectrock — MMM {PAER-0036} [CD-FLAC] (80%).7z",
+            "Reason": "FLAC standalone preferred over the MP3 rip in !MP3."
+        },
+        "[Attrielectrock]/[C86] Attrielectrock — nic@log e.p. {PAER-0060} [CD-FLAC] (No Log)": {
+            "Keep": "various album/[Attrielectrock]/[C86] Attrielectrock — nic@log e.p. {PAER-0060} [CD-FLAC] (No Log).7z",
+            "Reason": "FLAC standalone preferred over the MP3 rip in !MP3."
+        },
+        "[BLANKFIELD]/[2017.03.09] BLANKFIELD — Danmaku Unlimited 3 {DECD-0002} [WEB-FLAC]": {
+            "Keep": "various album/[BLANKFIELD]/[2017.03.09] BLANKFIELD — Danmaku Unlimited 3 {DECD-0002} [WEB-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[BLANKFIELD]/[C84] BLANKFIELD — Danmaku Unlimited 2 Storm Strikers {DECD-0001} [WEB-FLAC]": {
+            "Keep": "various album/[BLANKFIELD]/[C84] BLANKFIELD — Danmaku Unlimited 2 Storm Strikers {DECD-0001} [WEB-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[BLANKFIELD]/[C89] BLANKFIELD — A DAY EP [WEB-FLAC]": {
+            "Keep": "various album/[BLANKFIELD]/[C89] BLANKFIELD — A DAY EP [WEB-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[2002.10.27] CODE ZTS LABEL — Selfregards {ZTSL-007} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[2002.10.27] CODE ZTS LABEL — Selfregards {ZTSL-007} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[2004.06.06] CODE ZTS LABEL — ixion {ZTSL-010} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[2004.06.06] CODE ZTS LABEL — ixion {ZTSL-010} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[2005.06.05] CODE ZTS LABEL — eleison {ZTSL-012} [CD-FLAC] (No Log)": {
+            "Keep": "various album/[CODE ZTS LABEL]/[2005.06.05] CODE ZTS LABEL — eleison {ZTSL-012} [CD-FLAC] (No Log).7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[2009.04.10] CODE ZTS LABEL — VAGUE IN WINTER 3 {ZTSL-017} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[2009.04.10] CODE ZTS LABEL — VAGUE IN WINTER 3 {ZTSL-017} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[2019.11.09] CODE ZTS LABEL — 「うみねこのなく頃に」未完成未使用曲 [WEB-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[2019.11.09] CODE ZTS LABEL — 「うみねこのなく頃に」未完成未使用曲 [WEB-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[2020.11.08] CODE ZTS LABEL — ひぐらしのなく頃に (composed by zts) [WEB-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[2020.11.08] CODE ZTS LABEL — ひぐらしのなく頃に (composed by zts) [WEB-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C58] CODE ZTS LABEL — TurnR {ZTSL-002} [MP3 V0]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C58] CODE ZTS LABEL — TurnR {ZTSL-002} [MP3 V0].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C60] CODE ZTS LABEL — AEON {ZTSL-003} [CD-FLAC] (50%)": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C60] CODE ZTS LABEL — AEON {ZTSL-003} [CD-FLAC] (50%).7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C61] CODE ZTS LABEL — Snow Moon Flower {ZTSL-005} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C61] CODE ZTS LABEL — Snow Moon Flower {ZTSL-005} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C62] CODE ZTS LABEL — VAGUE {ZTSL-006} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C62] CODE ZTS LABEL — VAGUE {ZTSL-006} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C63] CODE ZTS LABEL — oblivion {ZTSL-008} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C63] CODE ZTS LABEL — oblivion {ZTSL-008} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C64] CODE ZTS LABEL — VAGUE2 {ZTSL-009} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C64] CODE ZTS LABEL — VAGUE2 {ZTSL-009} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C66] CODE ZTS LABEL — VAGUE3 {ZTSL-011} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C66] CODE ZTS LABEL — VAGUE3 {ZTSL-011} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C71] CODE ZTS LABEL — VAGUE IN WINTER {ZTSL-014} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C71] CODE ZTS LABEL — VAGUE IN WINTER {ZTSL-014} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C76] CODE ZTS LABEL — うみねこのなく頃に musicbox Red {ZTSL-018} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C76] CODE ZTS LABEL — うみねこのなく頃に musicbox Red {ZTSL-018} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[CODE ZTS LABEL]/[C81] CODE ZTS LABEL — うみねこのなく頃に散 musicbox Red {ZTSL-019} [CD-FLAC]": {
+            "Keep": "various album/[CODE ZTS LABEL]/[C81] CODE ZTS LABEL — うみねこのなく頃に散 musicbox Red {ZTSL-019} [CD-FLAC].7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[COOL＆CREATE／5884組]/[C86] COOL＆CREATE／5884組 — 林檎華憐歌 {BTOA-0002} [CD-FLAC] (No Log)": {
+            "Keep": "various album/[COOL＆CREATE／5884組]/[C86] COOL＆CREATE／5884組 — 林檎華憐歌 {BTOA-0002} [CD-FLAC] (No Log).7z",
+            "Reason": "Lossless standalone release preferred over the MP3 rip in !MP3."
+        },
+        "[Dawn of the Daywalker]/2017.12.29 The Words of Silence [C93]": {
+            "Keep": "TLMC/[Dawn of the Daywalker]/2017.12.29 The Words of Silence [C93].7z",
+            "Reason": "TLMC copy uses the '(NN) [Artist] Title.flac' naming that info_scanner_ph2 parses; the other copy does not."
+        },
+        "[Exist twinkle]/[C88] Exist twinkle × RTTF Records — Mutual Star {RRET-0001} [CD-FLAC]": {
+            "Keep": "Other album/[Exist Twinkle]/[C88] Exist twinkle × RTTF Records — Mutual Star {RRET-0001} [CD-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[Exist twinkle]/[C89] Exist twinkle — Nostalxia Drops -fears story- {EXTW-0003} [CD-FLAC] (40%)": {
+            "Keep": "Other album/[Exist Twinkle]/[C89] Exist twinkle — Nostalxia Drops -fears story- {EXTW-0003} [CD-FLAC] (40%).7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[Exist twinkle]/[C91] Exist twinkle × RTTF Records — 失格少女が空を仰ぐ {RRET-0002} [CD-FLAC]": {
+            "Keep": "Other album/[Exist Twinkle]/[C91] Exist twinkle × RTTF Records — 失格少女が空を仰ぐ {RRET-0002} [CD-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[Fragile Online]/2009.11.01 [FOCD-0024] MUSIC+ -ミュージックプラス-": {
+            "Keep": "Other album/[Fragile Online]/2009.11.01 [FOCD-0024] MUSIC+ -ミュージックプラス-.7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[Login Records]/[C100] Login Records — SPLASH TRIGGER 3 {LOGCD-027} [CD-FLAC]": {
+            "Keep": "Other album/[Login Records]/[C100] Login Records — SPLASH TRIGGER 3 {LOGCD-027} [CD-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[Re：SPEC]/[M3-20] Re：SPEC — colorful note -からふるのーと- {RSPC-0009} [CDr-FLAC]": {
+            "Keep": "Other album/[Re：SPEC]/[M3-20] Re：SPEC — colorful note -からふるのーと- {RSPC-0009} [CDr-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[Sound Square]/[2017.06.18] Sound Square — Beep Beep {SOSQ-0018} [WEB-FLAC]": {
+            "Keep": "Other album/[Sound Square]/[2017.06.18] Sound Square — Beep Beep {SOSQ-0018} [WEB-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[Sound Square]/[2018.09.24] Sound Square — SpRush Off {SOSQ-0023} [CD-FLAC]": {
+            "Keep": "Other album/[Sound Square]/[2018.09.24] Sound Square — SpRush Off {SOSQ-0023} [CD-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[Sound Square]/[M3-40] Sound Square — mint {SOSQ-0021} [CD-FLAC]": {
+            "Keep": "Other album/[Sound Square]/[M3-40] Sound Square — mint {SOSQ-0021} [CD-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[attractor]/[M3-37] attractor — 始期 -SHIKI- {ATR-007} [CD-FLAC]": {
+            "Keep": "Other album/[attractor]/[M3-37] attractor — 始期 -SHIKI- {ATR-007} [CD-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[attractor]/[M3-38] attractor — 不思議の国の音物語 {ARK-001} [CD-FLAC]": {
+            "Keep": "Other album/[attractor]/[M3-38] attractor — 不思議の国の音物語 {ARK-001} [CD-FLAC].7z",
+            "Reason": "Other album preferred over various album for duplicate releases."
+        },
+        "[姫騎士オフライン x SOUTH OF HEAVEN]/2009.12.30 [SOH-0022] RING! DONG! [C77]": {
+            "Keep": "various album/[姫騎士オフライン x SOUTH OF HEAVEN]/2009.12.30 [SOH-0022] RING! DONG! [C77].7z",
+            "Reason": "Byte-identical copies under two roots; kept the higher priority source root (various album over non touhou circle)."
+        },
+        "[姫騎士オフライン x SOUTH OF HEAVEN]/2011.08.13 [SOH-0031]  シンデレラロワイヤル [C80]": {
+            "Keep": "various album/[姫騎士オフライン x SOUTH OF HEAVEN]/2011.08.13 [SOH-0031]  シンデレラロワイヤル [C80].7z",
+            "Reason": "Byte-identical copies under two roots; kept the higher priority source root (various album over non touhou circle)."
+        },
+        "[姫騎士オフライン x SOUTH OF HEAVEN]/2011.12.30 [SOH-0035] らぶらぶぽっぴんぱんち! [C81]": {
+            "Keep": "various album/[姫騎士オフライン x SOUTH OF HEAVEN]/2011.12.30 [SOH-0035] らぶらぶぽっぴんぱんち! [C81].7z",
+            "Reason": "Byte-identical copies under two roots; kept the higher priority source root (various album over non touhou circle)."
+        },
+        "[姫騎士オフライン x SOUTH OF HEAVEN]/2012.05.27 [SOH-0038]  恋は剣よりも強し [例大祭9]": {
+            "Keep": "various album/[姫騎士オフライン x SOUTH OF HEAVEN]/2012.05.27 [SOH-0038]  恋は剣よりも強し [例大祭9].7z",
+            "Reason": "Byte-identical copies under two roots; kept the higher priority source root (various album over non touhou circle)."
+        }
+    },
+    "CircleAliasOverrides": {}
+}
