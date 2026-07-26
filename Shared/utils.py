@@ -77,7 +77,7 @@ def oslex_quote(path):
     return shlex.quote(path)
 
 
-def probe_flac(ffprobe: str, path: str):
+def probe_flac(ffprobe: str, path: str, timeout: int = 60):
     exec = ffprobe
     args = [
         "-show_format",
@@ -90,14 +90,27 @@ def probe_flac(ffprobe: str, path: str):
         "quiet",
     ]
     cmd = [exec] + args
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    out, err = p.communicate()
-    if err:
-        print(f"\n{err}\n")
-
+    try:
+        p = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        # A hung or missing ffprobe used to block the caller forever.
+        print(f"\nffprobe failed on {path}: {e}\n")
         return None
-    return out
+
+    # Success is decided by exit status, not by whether anything reached stderr.
+    # ffprobe emits warnings there for perfectly readable files, and the old
+    # `if err: return None` turned every such warning into a silent failure --
+    # which made check_cuesheet_attr report "no cuesheet" for albums that did
+    # have one, hiding split candidates.
+    if p.returncode != 0:
+        err = p.stderr.decode("utf-8", errors="replace").strip()
+        print(f"\nffprobe exit {p.returncode} on {path}: {err}\n")
+        return None
+
+    return p.stdout
 
 
 def check_cuesheet_attr(path: str) -> bool:

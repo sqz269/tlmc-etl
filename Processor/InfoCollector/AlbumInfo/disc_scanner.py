@@ -19,15 +19,34 @@ INTEGER_EXTRACTOR = re.compile(r"(\d+)")
 POTENTIAL_DISC_EXTRACTOR = re.compile(r"^\d+\D\d+.+$")
 
 
+def list_dir(path: str) -> List[str]:
+    """
+    Entries of `path`, or an empty list if it cannot be read.
+
+    ext4's root-owned `lost+found` sits at the root of the library and raises
+    PermissionError from a bare os.listdir, which used to abort the whole scan.
+    """
+    try:
+        return sorted(os.listdir(path))
+    except OSError as e:
+        print(f"Skipping unreadable directory {path}: {e}")
+        return []
+
+
 def recurse_search_for_tracks(path: str) -> Dict[str, List[str]]:
     def _recuse_helper(path: str, result: Dict[str, List[str]]):
-        files = os.listdir(path)
-        for file in files:
+        for file in list_dir(path):
             file_path = os.path.join(path, file)
-            if os.path.isdir(file_path):
+            try:
+                is_dir = os.path.isdir(file_path)
+                is_file = os.path.isfile(file_path)
+            except OSError:
+                continue
+
+            if is_dir:
                 _recuse_helper(file_path, result)
 
-            elif os.path.isfile(file_path):
+            elif is_file:
                 if file.endswith(ACCEPTED_AUDIO_FILE_EXTENSIONS):
                     if path not in result:
                         result[path] = [file_path]
@@ -66,28 +85,39 @@ def check_album_dir(album_root: str):
 
 def scan_discs(tlmc_root: str) -> Dict[str, List[str]]:
     potentials = {}
-    for artist_dir in os.listdir(tlmc_root):
+    scanned = 0
+    for artist_dir in list_dir(tlmc_root):
         artist_dir_path = os.path.join(tlmc_root, artist_dir)
         if not os.path.isdir(artist_dir_path):
             continue
 
-        for album_dir in os.listdir(artist_dir_path):
+        for album_dir in list_dir(artist_dir_path):
             album_dir_path = os.path.join(artist_dir_path, album_dir)
             if not os.path.isdir(album_dir_path):
                 continue
 
             potential = check_album_dir(album_dir_path)
+            scanned += 1
             if len(potential) > 0:
                 potentials[album_dir_path] = potential
 
+            if scanned % 500 == 0:
+                print(f"[{scanned}] scanned, {len(potentials)} flagged", end="\r")
+
+    print(f"[{scanned}] scanned, {len(potentials)} flagged")
     return potentials
 
 
 def main():
     tlmc_root = input("Enter TLMC root: ")
+    if not os.path.isdir(tlmc_root):
+        print("Invalid path")
+        exit(1)
+
     result = scan_discs(tlmc_root)
     print("Found {} potential discs".format(len(result)))
     json_dump(result, scanned_output_file)
+    print(f"Wrote {scanned_output_file}")
 
 
 if __name__ == "__main__":

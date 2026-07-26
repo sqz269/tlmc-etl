@@ -54,10 +54,12 @@ from Preprocessor.CueSplitter.output.path_definitions import (
     CUE_DESIGNATER_OUTPUT_NAME,
     CUE_DESIGNATER_USER_PAIR_CACHE_NAME,
     CUE_SCANNER_OUTPUT_NAME,
+    CUE_SPLIT_PLAN_OUTPUT_NAME,
 )
 
 output_root = get_file_relative(__file__, "output")
 input_potential = os.path.join(output_root, CUE_SCANNER_OUTPUT_NAME)
+input_split_plan = os.path.join(output_root, CUE_SPLIT_PLAN_OUTPUT_NAME)
 output_designated = os.path.join(output_root, CUE_DESIGNATER_OUTPUT_NAME)
 cache_designated = os.path.join(output_root, CUE_DESIGNATER_USER_PAIR_CACHE_NAME)
 
@@ -114,7 +116,13 @@ def manual_designate(root, cues, audios):
 
 
 def gen_full_profile(root, cue_path):
-    result = CueSplit.SplitCue(root, cue_path)
+    # A cue's FILE reference is relative to the cue's OWN directory, not the
+    # album root. Multi-disc rips keep each cue beside its image in a "Disc N/"
+    # subdirectory, and passing the album root there resolved FILE against the
+    # wrong directory: the profile came back Invalid with a non-existent
+    # AudioFilePath, and the tracks would have been written to the album root
+    # instead of alongside their disc.
+    result = CueSplit.SplitCue(os.path.dirname(cue_path) or root, cue_path)
     result = json.loads(result)
     return result
 
@@ -179,14 +187,51 @@ def rescan_and_probe(potential: dict) -> dict:
     return profiles
 
 
+def load_split_plan():
+    """
+    Roots the cue analysis decided actually need splitting.
+
+    Returns None when no plan is present, in which case every scanner hit is
+    designated (the original behaviour). Set CUE_SPLIT_PLAN to point at a subset
+    of the plan, which is how a trial run is scoped.
+    """
+    path = os.environ.get("CUE_SPLIT_PLAN", input_split_plan)
+    if not os.path.isfile(path):
+        return None
+
+    with open(path, "r", encoding="utf-8") as f:
+        plan = json.load(f)
+
+    return {
+        entry["root"]
+        for entry in plan
+        if str(entry.get("verdict", "")).startswith("SPLIT")
+    }
+
+
 def main():
     with open(input_potential, "r") as f:
         potential = json.load(f)
 
+    split_roots = load_split_plan()
+    if split_roots is None:
+        print(f"No split plan at {input_split_plan}; designating every scanner hit.")
+        print("This includes albums that are already split. Review before running")
+        print("the splitter, which deletes the source audio it splits from.")
+    else:
+        before = len(potential)
+        potential = [t for t in potential if t["root"] in split_roots]
+        print(f"Split plan: {len(potential)} of {before} scanner hits need splitting")
+
     profiles = {}
-    for target in potential:
-        print("Generating Full Profile " + target["root"])
-        profilez = rescan_and_probe(target)
+    for idx, target in enumerate(potential):
+        print(f"[{idx + 1}/{len(potential)}] Generating Full Profile " + target["root"])
+        try:
+            profilez = rescan_and_probe(target)
+        except Exception as e:
+            # One unparseable album should not lose the whole designation run.
+            print(f"  FAILED to designate {target['root']}: {e}")
+            continue
 
         for profile in profilez:
             id = str(uuid4())
@@ -194,6 +239,7 @@ def main():
             profiles[id] = profile
 
     json_dump(profiles, output_designated)
+    print(f"\nWrote {len(profiles)} profiles to {output_designated}")
 
 
 if __name__ == "__main__":

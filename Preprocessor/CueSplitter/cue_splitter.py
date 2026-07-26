@@ -37,13 +37,19 @@ def mk_ffmpeg_cmd(track, info):
     return f'ffmpeg -i {oslex_quote(audio_path)} -ss {track["Begin"]} -t {track["Duration"]} -movflags faststart {oslex_quote(out)} -y -stats -v quiet'
 
 
+# Delete the source image and its cue once every track has been written and
+# verified. Off by default: splitting is irreversible, and a mistake in the
+# designation (wrong cue paired to the wrong audio, stale CUESHEET tag on an
+# already-split track) destroys the only copy. Turn on once a trial run has
+# confirmed the profiles are right.
+DELETE_SOURCE_AFTER_SPLIT = False
+
 print_logs = {}
 stats = {
     "processed": 0,
     "failed": 0,
     "total": 0,
 }
-cmd_exec = []
 
 
 def process_one(profile):
@@ -82,14 +88,20 @@ def process_one(profile):
         ) in enumerate(profile["Tracks"]):
             # Perform a final check to make sure the file exists and is not empty
             out = os.path.join(profile["Root"], track["TrackName"])
+            # `exec_cmds`, not the module-level `cmd_exec` which was never
+            # appended to: indexing that raised IndexError from inside the
+            # raise, so the journal recorded "list index out of range" instead
+            # of which track failed.
             if not os.path.exists(out):
                 raise Exception(
-                    f"Track {track} does not exist after processing (FFmpeg Cmd Executed: {cmd_exec[idx]})"
+                    f"Track {track['TrackName']} does not exist after processing "
+                    f"(FFmpeg Cmd Executed: {exec_cmds[idx]})"
                 )
 
             if os.path.getsize(out) == 0:
                 raise Exception(
-                    f"Track {track} is empty after processing (FFmpeg Cmd Executed: {cmd_exec[idx]})"
+                    f"Track {track['TrackName']} is empty after processing "
+                    f"(FFmpeg Cmd Executed: {exec_cmds[idx]})"
                 )
 
         stats["processed"] += 1
@@ -103,9 +115,12 @@ def process_one(profile):
             else profile["AudioFilePathGuessed"]
         )
 
-        if profile["CueFilePath"] != "<EMBEDDED>":
-            os.unlink(profile["CueFilePath"])
-        os.unlink(audio_track)
+        # Reached only after every track was verified present and non-empty, so
+        # a partial failure above leaves the source untouched for a retry.
+        if DELETE_SOURCE_AFTER_SPLIT:
+            if profile["CueFilePath"] != "<EMBEDDED>":
+                os.unlink(profile["CueFilePath"])
+            os.unlink(audio_track)
     except Exception as e:
         stats["failed"] += 1
         journal_failed_file.write(profile["id"] + f" [Reason: {e}] [Exec cmds]" + "\n")
