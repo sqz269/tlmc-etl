@@ -63,14 +63,39 @@ _PEAK = re.compile(r"Peak:\s*(-?[\d.]+)\s*dBFS")
 _lock = threading.Lock()
 
 
+# ebur128 reports -70 LUFS for silence, and anything near it is either silent or
+# below the measurement gate. Normalising such a track to the target means
+# amplifying its noise floor by tens of dB.
+SILENCE_FLOOR_LUFS = -60.0
+
+# A boost this large means the source is quiet for a reason -- a field
+# recording, a hidden track, an ambient interlude -- and forcing it to the target
+# would misrepresent it and raise its noise floor. Measured on this corpus, only
+# 0.15% of tracks want more than this.
+MAX_BOOST_DB = 12.0
+
+
 def static_gain_db(measured_i: float, measured_tp: float) -> float:
     """
     Gain that reaches the loudness target without pushing true peak past its own.
 
     Clamping against true peak is what makes this safe to apply blind: the gain
     can never introduce clipping, because the peak headroom bounds it.
+
+    Two further limits, both from measuring this corpus:
+
+      * A track at or below the silence floor is left alone. Three tracks
+        measured exactly -70.0 LUFS, and the peak clamp does not help there
+        because their peaks are equally tiny -- the naive formula asked for
+        +56 dB.
+      * Boost is capped. Attenuation is not, since turning a loud master down
+        can never manufacture noise.
     """
-    return min(TARGET_I - measured_i, TARGET_TP - measured_tp)
+    if measured_i <= SILENCE_FLOOR_LUFS:
+        return 0.0
+
+    gain = min(TARGET_I - measured_i, TARGET_TP - measured_tp)
+    return min(gain, MAX_BOOST_DB)
 
 
 def measure(path: str):
