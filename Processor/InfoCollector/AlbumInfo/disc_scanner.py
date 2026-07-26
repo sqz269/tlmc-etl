@@ -54,6 +54,12 @@ MAX_PLAUSIBLE_DISCS = 20
 
 DISC_INDEX = re.compile(
     r"(?:disc|disk|disque|ディスク|disc)\s*[:：._\-]?\s*(?:\d+|[a-z]\b|one|two|three|four)"
+    # "CD1"/"CD 2" is as common a disc directory as "Disc 1", and
+    # disc_index_from_name already decodes it -- the classifier just did not
+    # recognise it, so 16 albums fell through to the duration guard and two of
+    # them lost a disc. Digits only: a letter after "cd" is far more often a
+    # word ("CDExtra") than an index, and BONUS_TOKEN owns "cd extra".
+    r"|\bcd\s*[:：._\-]?\s*\d{1,2}\b"
     r"|(?:^|[\s\-_（(【])side\s*[:：._\-]?\s*(?:\d+|[a-z]\b|red|white|black)"
     r"|\bfile\s*[:：]\s*[a-z0-9]\b"
     # "THVA2_ASide" / "BSide": the index letter is glued to the word, so there is

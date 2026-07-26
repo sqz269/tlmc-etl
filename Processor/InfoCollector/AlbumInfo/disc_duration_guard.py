@@ -34,7 +34,10 @@ from typing import Dict, List, Optional
 
 import Shared.utils as utils
 from Processor.InfoCollector.AlbumInfo.disc_auto_classify import disc_index_from_name
-from Processor.InfoCollector.AlbumInfo.disc_scanner import ACCEPTED_AUDIO_FILE_EXTENSIONS
+from Processor.InfoCollector.AlbumInfo.disc_scanner import (
+    ACCEPTED_AUDIO_FILE_EXTENSIONS,
+    looks_like_disc,
+)
 from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
     DISC_MANUAL_CHECKER_OUTPUT_NAME,
 )
@@ -124,13 +127,34 @@ def classify(album: str, audio_dirs: List[str]):
         else:
             dropped[d] = mirror_of
 
-    # PROMOTE: what survives has to look like a programme, not an extra.
+    # PROMOTE: what survives has to look like a programme, not an extra -- unless
+    # its name already says it is a disc. The size test exists to judge
+    # directories whose names carry no information; applying it to a named disc
+    # discards evidence in favour of a guess. A 2-track, 6:48 "CD1" is a short
+    # disc, not a bonus folder, and dropping it renumbered CD2 to disc 1.
     discs = [
         d for d in kept
-        if len(measured[d]) >= MIN_TRACKS
-        and sum(measured[d]) / 60.0 >= MIN_MINUTES
+        if looks_like_disc(os.path.basename(d))
+        or (len(measured[d]) >= MIN_TRACKS
+            and sum(measured[d]) / 60.0 >= MIN_MINUTES)
     ]
     rejected = [d for d in kept if d not in discs]
+
+    # A single disc that is NOT the album root still has to be written out.
+    # info_scanner_ph1 falls back to process_one() for any album missing from the
+    # artifact, and that only reads audio sitting directly in the album root; it
+    # promotes subdirectory tracks solely when they all share one directory,
+    # which a surviving mirror prevents. Leaving these out yields an album with
+    # zero tracks -- 12 of them here. Where the disc IS the album root, ph1 finds
+    # it unaided and no entry is needed.
+    if len(discs) == 1 and discs[0] != album:
+        return [{"path": discs[0], "disc_number": 1,
+                 "disc_name": os.path.basename(discs[0])}], {
+            "dropped_as_mirror": {os.path.basename(k): os.path.basename(v)
+                                  for k, v in dropped.items()},
+            "dropped_as_small": [os.path.basename(d) for d in rejected],
+            "note": "single disc, held in a subdirectory rather than the album root",
+        }
 
     if len(discs) < 2:
         return None, {
