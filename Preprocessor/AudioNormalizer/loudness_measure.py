@@ -75,19 +75,28 @@ def static_gain_db(measured_i: float, measured_tp: float) -> float:
 
 def measure(path: str):
     """Returns (i, tp, lra) via one ebur128 pass, or None if ffmpeg failed."""
-    proc = subprocess.run(
-        [
-            "ffmpeg", "-hide_banner", "-nostats", "-i", path,
-            "-threads", "1", "-af", "ebur128=peak=true", "-f", "null", "-",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        # Bytes, not text. ffmpeg echoes the input filename into its output, and
+        # this library is full of Shift-JIS and GB18030 names, so decoding
+        # stderr as UTF-8 raises UnicodeDecodeError on the undecodable byte --
+        # which kills the worker and, through the executor, the whole run.
+        proc = subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-nostats", "-i", path,
+                "-threads", "1", "-af", "ebur128=peak=true", "-f", "null", "-",
+            ],
+            capture_output=True,
+            timeout=600,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
     if proc.returncode != 0:
         return None
 
-    # ebur128 prints its summary at the end of stderr.
-    tail = proc.stderr[-2000:]
+    # ebur128 prints its summary at the end of stderr. Only the numbers matter,
+    # so any undecodable filename bytes can be replaced rather than raising.
+    tail = proc.stderr[-2000:].decode("utf-8", errors="replace")
     i, lra, peak = _I.search(tail), _LRA.search(tail), _PEAK.search(tail)
     if not (i and lra and peak):
         return None
@@ -177,7 +186,14 @@ def main():
     state = {"n": 0, "failed": 0}
 
     def work(path):
-        result = measure(path)
+        # A single unmeasurable file must not take the run down with it: the
+        # executor propagates a worker exception to the caller, which previously
+        # ended the whole pass.
+        try:
+            result = measure(path)
+        except Exception as e:  # noqa: BLE001 - deliberately broad
+            print(f"\nmeasure failed for {path!r}: {e!r}")
+            result = None
         with _lock:
             state["n"] += 1
             if result is None:
