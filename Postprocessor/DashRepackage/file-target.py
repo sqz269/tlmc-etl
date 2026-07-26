@@ -3,6 +3,7 @@ import re
 import json
 import Postprocessor.DashRepackage.output.path_definitions as DashRepackagePathDef
 from Shared import utils
+from Postprocessor.HlsTranscode.hls_assignment import SEGMENT_NAME_SINGLE
 
 dash_repackage_filelist_output = utils.get_output_path(
     DashRepackagePathDef,
@@ -32,24 +33,11 @@ def generate_shaka_command(song_root):
         if not os.path.isdir(variant_path):
             continue
 
-        init_path = os.path.join(variant_path, "init.mp4")
-        if not os.path.exists(init_path):
-            print(f"⚠️  Skipping {variant_path} — no init.mp4")
-            continue
-
-        segment_files = sorted([
-            f for f in os.listdir(variant_path)
-            if re.match(r"segment_\d+\.m4s", f)
-        ])
-        if not segment_files:
-            print(f"⚠️  Skipping {variant_path} — no .m4s segments")
-            continue
-
         bitrate_value = re.sub(r"\D", "", bitrate_dir)
         if not bitrate_value:
             print(f"⚠️  Skipping {variant_path} — invalid bitrate name")
             continue
-        
+
         playlist_path = os.path.join(variant_path, "playlist.m3u8")
         if not os.path.exists(playlist_path):
             print(f"⚠️  Skipping {variant_path} — no playlist.m3u8")
@@ -58,11 +46,39 @@ def generate_shaka_command(song_root):
         stream_cmd = {
             "path": variant_path,
             "stream": "audio",
-            "init_segment": init_path,
             "playlist": playlist_path,
-            "segment_template": os.path.join(variant_path, "segment_$Number%03d$.m4s"),
-            "bandwidth": int(bitrate_value) * 1000
+            "bandwidth": int(bitrate_value) * 1000,
         }
+
+        # Two layouts coexist: the v5 tree is per-segment, anything transcoded
+        # after HLS_SINGLE_FILE was enabled is one file with byte ranges (and no
+        # separate init.mp4 — the init segment sits inside stream.m4s).
+        # Byte ranges are not copied here; dash-repackage.py already parses the
+        # playlist for durations and reads them from the same place.
+        single_path = os.path.join(variant_path, SEGMENT_NAME_SINGLE)
+        if os.path.exists(single_path):
+            stream_cmd["layout"] = "single_file"
+            stream_cmd["media_file"] = single_path
+        else:
+            init_path = os.path.join(variant_path, "init.mp4")
+            if not os.path.exists(init_path):
+                print(f"⚠️  Skipping {variant_path} — no {SEGMENT_NAME_SINGLE} and no init.mp4")
+                continue
+
+            segment_files = sorted([
+                f for f in os.listdir(variant_path)
+                if re.match(r"segment_\d+\.m4s", f)
+            ])
+            if not segment_files:
+                print(f"⚠️  Skipping {variant_path} — no .m4s segments")
+                continue
+
+            stream_cmd["layout"] = "segments"
+            stream_cmd["init_segment"] = init_path
+            stream_cmd["segment_template"] = os.path.join(
+                variant_path, "segment_$Number%03d$.m4s"
+            )
+
         stream_commands.append(stream_cmd)
 
     if stream_commands:

@@ -1,0 +1,39 @@
+#!/bin/sh
+# Ad-hoc ffmpeg/ffprobe from the tlmc-ffmpeg image, as if it were installed locally.
+#
+#   ln -s "$PWD/Postprocessor/HlsTranscode/docker/ffmpeg-docker" ~/.local/bin/ffmpeg
+#   ln -s "$PWD/Postprocessor/HlsTranscode/docker/ffmpeg-docker" ~/.local/bin/ffprobe
+#
+# The invoked binary is chosen from the name it is called as.
+#
+# DO NOT use this for the HLS batch. Each call pays ~236 ms of container startup
+# (measured); across 162k tracks x 4 rungs that is ~12 h of pure overhead, which
+# is comparable to the entire encode. Run hls_runner inside one long-lived
+# container instead -- see README.md.
+#
+# Env:
+#   TLMC_FFMPEG_IMAGE    image to run          (default tlmc-ffmpeg:latest)
+#   TLMC_LIBRARY_ROOT    library mount point   (default /mnt/tlmc)
+set -eu
+
+IMAGE="${TLMC_FFMPEG_IMAGE:-tlmc-ffmpeg:latest}"
+LIB_ROOT="${TLMC_LIBRARY_ROOT:-/mnt/tlmc}"
+
+case "$(basename "$0")" in
+    ffprobe) BIN=ffprobe ;;
+    *)       BIN=ffmpeg  ;;
+esac
+
+# The library is mounted at its own path so the absolute paths baked into the
+# worklist resolve identically inside and outside the container.
+#
+# Arguments are prepended rather than interpolated so that paths containing
+# spaces or non-ASCII survive -- the TLMC tree is full of both.
+set -- "$IMAGE" "$BIN" "$@"
+case "$PWD" in
+    "$LIB_ROOT" | "$LIB_ROOT"/*) set -- -w "$PWD" "$@" ;;
+    *)                           set -- -v "$PWD:$PWD" -w "$PWD" "$@" ;;
+esac
+set -- docker run --rm --user "$(id -u):$(id -g)" -v "$LIB_ROOT:$LIB_ROOT" "$@"
+
+exec "$@"

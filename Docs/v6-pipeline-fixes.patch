@@ -1,0 +1,1254 @@
+# TLMC v6 pipeline corrections
+# Generated 2026-07-25 22:49 UTC from working tree at d01916f
+#
+# Apply with:  git apply Docs/v6-pipeline-fixes.patch
+# Inspect with: git apply --stat --check Docs/v6-pipeline-fixes.patch
+
+diff --git a/Postprocessor/DashRepackage/dash-repackage.py b/Postprocessor/DashRepackage/dash-repackage.py
+index 5400d5e..290c3a3 100644
+--- a/Postprocessor/DashRepackage/dash-repackage.py
++++ b/Postprocessor/DashRepackage/dash-repackage.py
+@@ -15,25 +15,72 @@ json_input_path = utils.get_output_path(
+     DashRepackagePathDef.DASH_REPACKAGE_FILELIST_OUTPUT_NAME,
+ )
+ 
+-with open(json_input_path, 'r', encoding='utf-8') as f:
+-    projects = json.load(f)
+-
+ def seconds_to_iso_duration(seconds: float) -> str:
+     """Converts seconds to ISO 8601 duration format (e.g., PT60S)."""
+     td = timedelta(seconds=seconds)
+     total_seconds = int(td.total_seconds())
+     return f"PT{total_seconds}S"
+ 
++TIMESCALE = 48000
++
++
++def parse_hls_byterange(byterange: str, prev_end: int):
++    """
++    '402196@762' -> (762, 403157) as an inclusive DASH start-end pair.
++
++    HLS writes LENGTH@OFFSET and permits the offset to be omitted, meaning the
++    range starts immediately after the previous one. ffmpeg always emits it, but
++    both forms are accepted here.
++    """
++    if "@" in byterange:
++        length_s, offset_s = byterange.split("@", 1)
++        start = int(offset_s)
++    else:
++        length_s = byterange
++        start = prev_end + 1
++
++    return start, start + int(length_s) - 1
++
++
++def read_playlist(rep):
++    """
++    Returns (durations, media_ranges, init_range).
++
++    media_ranges and init_range are None for the per-segment layout, where each
++    segment is its own file and no byte ranges appear in the playlist.
++    """
++    playlist = m3u8.load(rep["playlist"])
++    durations = [s.duration for s in playlist.segments if s.duration is not None]
++
++    if rep.get("layout") != "single_file":
++        return durations, None, None
++
++    media_ranges = []
++    prev_end = -1
++    for segment in playlist.segments:
++        start, end = parse_hls_byterange(segment.byterange, prev_end)
++        media_ranges.append((start, end))
++        prev_end = end
++
++    # #EXT-X-MAP:URI="stream.m4s",BYTERANGE="762@0" -- the fMP4 init segment
++    # lives at the head of the same file rather than in its own init.mp4.
++    init_map = playlist.segment_map[0]
++    init_start, init_end = parse_hls_byterange(init_map.byterange, -1)
++
++    return durations, media_ranges, (init_start, init_end)
++
++
+ def create_mpd(project):
+     playlist_segment_durations: Dict[str, List[float]] = {}
++    playlist_ranges = {}
+     max_total_duration = 0.0
+ 
+     # Load segment durations from each playlist and compute max total duration
+     for rep in project["packager_args"]:
+-        playlist = m3u8.load(rep["playlist"])
+-        durations = [segment.duration for segment in playlist.segments if segment.duration is not None]
++        durations, media_ranges, init_range = read_playlist(rep)
+         total_duration = sum(durations)
+         playlist_segment_durations[rep["bandwidth"]] = durations
++        playlist_ranges[rep["bandwidth"]] = (media_ranges, init_range)
+         max_total_duration = max(max_total_duration, total_duration)
+ 
+     # Format total duration as ISO 8601 string
+@@ -49,34 +96,73 @@ def create_mpd(project):
+                                 codecs="mp4a.40.2", startWithSAP="1", segmentAlignment="true", lang="en")
+ 
+     for rep in project["packager_args"]:
+-        base_path = os.path.dirname(rep["segment_template"])
+-        init_file = os.path.basename(rep["init_segment"])
+-        media_template = os.path.basename(rep["segment_template"])
++        base_path = rep["path"]
+         durations = playlist_segment_durations[rep["bandwidth"]]
++        media_ranges, init_range = playlist_ranges[rep["bandwidth"]]
+ 
+         representation = SubElement(adaptation_set, "Representation",
+                                     id=str(rep["bandwidth"]),
+                                     bandwidth=str(rep["bandwidth"]))
+         base_url = SubElement(representation, "BaseURL")
+-        
++
+         base_url_actual = os.path.relpath(base_path, start=os.path.dirname(project["output_mpd"])) + "/"
+         base_url.text = base_url_actual.replace("hls/", "")
+-        
+-        segment_template = SubElement(representation, "SegmentTemplate",
+-                                      initialization=init_file,
+-                                      media=media_template,
+-                                      startNumber="0",
+-                                      timescale="48000")
+-
+-        segment_timeline = SubElement(segment_template, "SegmentTimeline")
+-        for duration_sec in durations:
+-            d = str(int(round(duration_sec * 48000)))
+-            SubElement(segment_timeline, "S", d=d)
++
++        if rep.get("layout") == "single_file":
++            # SegmentTemplate cannot express byte ranges, so the single-file
++            # layout maps onto SegmentList instead: one SegmentURL per segment,
++            # all pointing at the same media file with a mediaRange.
++            #
++            # SegmentBase/indexRange would be more compact but needs an sidx box,
++            # and ffmpeg's HLS muxer does not write one.
++            #
++            # Child order is fixed by the DASH schema: Initialization, then
++            # SegmentTimeline, then the SegmentURL list.
++            media_file = os.path.basename(rep["media_file"])
++            segment_list = SubElement(representation, "SegmentList",
++                                      timescale=str(TIMESCALE))
++            SubElement(segment_list, "Initialization",
++                       sourceURL=media_file,
++                       range=f"{init_range[0]}-{init_range[1]}")
++
++            segment_timeline = SubElement(segment_list, "SegmentTimeline")
++            for duration_sec in durations:
++                SubElement(segment_timeline, "S",
++                           d=str(int(round(duration_sec * TIMESCALE))))
++
++            for start, end in media_ranges:
++                SubElement(segment_list, "SegmentURL",
++                           media=media_file,
++                           mediaRange=f"{start}-{end}")
++        else:
++            init_file = os.path.basename(rep["init_segment"])
++            media_template = os.path.basename(rep["segment_template"])
++
++            segment_template = SubElement(representation, "SegmentTemplate",
++                                          initialization=init_file,
++                                          media=media_template,
++                                          startNumber="0",
++                                          timescale=str(TIMESCALE))
++
++            segment_timeline = SubElement(segment_template, "SegmentTimeline")
++            for duration_sec in durations:
++                SubElement(segment_timeline, "S",
++                           d=str(int(round(duration_sec * TIMESCALE))))
+ 
+     xmlstr = minidom.parseString(tostring(mpd)).toprettyxml(indent="  ")
+     with open(project["output_mpd"], "w", encoding='utf-8') as f:
+         f.write(xmlstr)
+ 
+-for i, proj in enumerate(projects):
+-    create_mpd(proj)
+-    print(f"Created {i+1} of {len(projects)}")
+\ No newline at end of file
++def main():
++    # Guarded so importing create_mpd does not read the filelist and rebuild
++    # every manifest as an import side effect.
++    with open(json_input_path, 'r', encoding='utf-8') as f:
++        projects = json.load(f)
++
++    for i, proj in enumerate(projects):
++        create_mpd(proj)
++        print(f"Created {i+1} of {len(projects)}")
++
++
++if __name__ == "__main__":
++    main()
+\ No newline at end of file
+diff --git a/Postprocessor/DashRepackage/file-target.py b/Postprocessor/DashRepackage/file-target.py
+index e2e3dad..4dd9828 100644
+--- a/Postprocessor/DashRepackage/file-target.py
++++ b/Postprocessor/DashRepackage/file-target.py
+@@ -3,6 +3,7 @@ import re
+ import json
+ import Postprocessor.DashRepackage.output.path_definitions as DashRepackagePathDef
+ from Shared import utils
++from Postprocessor.HlsTranscode.hls_assignment import SEGMENT_NAME_SINGLE
+ 
+ dash_repackage_filelist_output = utils.get_output_path(
+     DashRepackagePathDef,
+@@ -32,24 +33,11 @@ def generate_shaka_command(song_root):
+         if not os.path.isdir(variant_path):
+             continue
+ 
+-        init_path = os.path.join(variant_path, "init.mp4")
+-        if not os.path.exists(init_path):
+-            print(f"⚠️  Skipping {variant_path} — no init.mp4")
+-            continue
+-
+-        segment_files = sorted([
+-            f for f in os.listdir(variant_path)
+-            if re.match(r"segment_\d+\.m4s", f)
+-        ])
+-        if not segment_files:
+-            print(f"⚠️  Skipping {variant_path} — no .m4s segments")
+-            continue
+-
+         bitrate_value = re.sub(r"\D", "", bitrate_dir)
+         if not bitrate_value:
+             print(f"⚠️  Skipping {variant_path} — invalid bitrate name")
+             continue
+-        
++
+         playlist_path = os.path.join(variant_path, "playlist.m3u8")
+         if not os.path.exists(playlist_path):
+             print(f"⚠️  Skipping {variant_path} — no playlist.m3u8")
+@@ -58,11 +46,39 @@ def generate_shaka_command(song_root):
+         stream_cmd = {
+             "path": variant_path,
+             "stream": "audio",
+-            "init_segment": init_path,
+             "playlist": playlist_path,
+-            "segment_template": os.path.join(variant_path, "segment_$Number%03d$.m4s"),
+-            "bandwidth": int(bitrate_value) * 1000
++            "bandwidth": int(bitrate_value) * 1000,
+         }
++
++        # Two layouts coexist: the v5 tree is per-segment, anything transcoded
++        # after HLS_SINGLE_FILE was enabled is one file with byte ranges (and no
++        # separate init.mp4 — the init segment sits inside stream.m4s).
++        # Byte ranges are not copied here; dash-repackage.py already parses the
++        # playlist for durations and reads them from the same place.
++        single_path = os.path.join(variant_path, SEGMENT_NAME_SINGLE)
++        if os.path.exists(single_path):
++            stream_cmd["layout"] = "single_file"
++            stream_cmd["media_file"] = single_path
++        else:
++            init_path = os.path.join(variant_path, "init.mp4")
++            if not os.path.exists(init_path):
++                print(f"⚠️  Skipping {variant_path} — no {SEGMENT_NAME_SINGLE} and no init.mp4")
++                continue
++
++            segment_files = sorted([
++                f for f in os.listdir(variant_path)
++                if re.match(r"segment_\d+\.m4s", f)
++            ])
++            if not segment_files:
++                print(f"⚠️  Skipping {variant_path} — no .m4s segments")
++                continue
++
++            stream_cmd["layout"] = "segments"
++            stream_cmd["init_segment"] = init_path
++            stream_cmd["segment_template"] = os.path.join(
++                variant_path, "segment_$Number%03d$.m4s"
++            )
++
+         stream_commands.append(stream_cmd)
+ 
+     if stream_commands:
+diff --git a/Postprocessor/HlsTranscode/hls_assignment.py b/Postprocessor/HlsTranscode/hls_assignment.py
+index a2e8b3a..902b878 100644
+--- a/Postprocessor/HlsTranscode/hls_assignment.py
++++ b/Postprocessor/HlsTranscode/hls_assignment.py
+@@ -21,12 +21,39 @@ target_qualities = [
+     "320k",
+ ]
+ 
++# Emit one contiguous media file per quality plus a byte-range playlist, instead
++# of ~25 loose segment files.
++#
++# Why: hls_runner transcodes a flat worklist in parallel, so ext4 interleaved
++# every track's segments with every other track's. Segments of one track ended up
++# scattered TB apart, making playback N random seeks with no sequential run for
++# readahead to exploit (measured on the USB HDD: 55 files/s, 18.3 ms each).
++# One file per quality lets kernel readahead and ZFS zfetch prefetch a whole
++# track for free, with no cache logic anywhere.
++#
++# Catalog-wide file count: ~17.7M -> ~1.5M.
++#
++# Note ffmpeg folds the fMP4 init segment into the same file under this flag and
++# points #EXT-X-MAP at a byte range, so a quality directory holds exactly two
++# files and there is no separate init.mp4. Consumers must handle both layouts
++# while the v5 tree still contains per-segment output; they detect it from the
++# playlist (`byterange is None` means legacy).
++HLS_SINGLE_FILE = True
++
++SEGMENT_NAME_SINGLE = "stream.m4s"
++SEGMENT_NAME_MULTI = "segment_%03d.m4s"
++
++
++def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate, single_file=None):
++    if single_file is None:
++        single_file = HLS_SINGLE_FILE
+ 
+-def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate):
+     src = utils.oslex_quote(src)
+-    seg_path = utils.oslex_quote(os.path.join(dst_root, "segment_%03d.m4s"))
++    media_name = SEGMENT_NAME_SINGLE if single_file else SEGMENT_NAME_MULTI
++    seg_path = utils.oslex_quote(os.path.join(dst_root, media_name))
+     dst_playlist = utils.oslex_quote(os.path.join(dst_root, "playlist.m3u8"))
+-    return [
++
++    cmd = [
+         "ffmpeg",
+         "-i",
+         src,
+@@ -39,21 +66,26 @@ def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate):
+         "10",
+         "-hls_list_size",
+         "0",
+-        "-hls_fmp4_init_filename",
+-        "init.mp4",
+         "-hls_segment_filename",
+         seg_path,
+         "-hls_segment_type",
+         "fmp4",
+         "-c:a",
+         "libfdk_aac",
+-        dst_playlist,
+-        "-y",
+-        "-v",
+-        "quiet",
+-        "-stats",
+     ]
+ 
++    if single_file:
++        # -hls_fmp4_init_filename is deliberately omitted here: with
++        # single_file ffmpeg writes the init segment into the media file and
++        # ignores the option, so passing it only implies a file that never
++        # appears.
++        cmd += ["-hls_flags", "single_file"]
++    else:
++        cmd += ["-hls_fmp4_init_filename", "init.mp4"]
++
++    cmd += [dst_playlist, "-y", "-v", "quiet", "-stats"]
++    return cmd
++
+ 
+ def generate_worklist_from_ids(entry: dict):
+     all_tracks = {}
+diff --git a/Postprocessor/HlsTranscode/hls_completed_cleanup.py b/Postprocessor/HlsTranscode/hls_completed_cleanup.py
+index f135b46..45ffebf 100644
+--- a/Postprocessor/HlsTranscode/hls_completed_cleanup.py
++++ b/Postprocessor/HlsTranscode/hls_completed_cleanup.py
+@@ -18,18 +18,50 @@ hls_completed_output = get_output_path(
+ )
+ 
+ def remove_completed(workslist: dict):
++    """
++    Deletes the source audio of every track that has finished transcoding.
++
++    Irreversible: HLS output is lossy, so this destroys the only copy that can
++    be re-encoded, and the one the embedding pipeline reads.
++    """
+     complted = set()
+     with utils.open_for_read(hls_completed_output) as f:
+         for line in f:
+             if line.strip():
+                 complted.add(line.strip())
+ 
++    removed = 0
+     for key in list(workslist.keys()):
+         if key in complted:
+-            src = worklist[key]["128k"]["src"]
++            # Was `worklist[key]` — the module-level global rather than the
++            # parameter, so this only worked by accident when the caller
++            # happened to pass that same dict.
++            src = workslist[key]["128k"]["src"]
+             os.unlink(src)
+             print(f"Removing file: {src}")
+             del workslist[key]
++            removed += 1
++
++    return removed
++
++
++def main():
++    worklist = json_utils.json_load(hls_worklist_output)
++
++    print(f"Worklist entries: {len(worklist)}")
++    print()
++    print("This permanently deletes the source audio of every completed track.")
++    print("HLS output is lossy and the embedding pipeline reads the source, so")
++    print("this cannot be undone from the transcoded files.")
++    if input("Type DELETE to continue: ").strip() != "DELETE":
++        print("Aborted.")
++        return
++
++    removed = remove_completed(worklist)
++    print(f"Removed {removed} source files")
++
+ 
+-worklist = json_utils.json_load(hls_worklist_output)
+-remove_completed(worklist)
++# Guarded: without this, `import hls_completed_cleanup` deleted source audio as
++# an import side effect.
++if __name__ == "__main__":
++    main()
+diff --git a/Postprocessor/HlsTranscode/hls_finalizer.py b/Postprocessor/HlsTranscode/hls_finalizer.py
+index 3b17b02..27c3ccd 100644
+--- a/Postprocessor/HlsTranscode/hls_finalizer.py
++++ b/Postprocessor/HlsTranscode/hls_finalizer.py
+@@ -10,6 +10,7 @@ from Shared.reporting_multi_processor import (
+     StatAutoMuxMultiProcessor,
+ )
+ from Shared.utils import get_output_path
++from Postprocessor.HlsTranscode.hls_assignment import SEGMENT_NAME_SINGLE
+ 
+ SEGMENT_INDEX_EXTRACTOR = re.compile(r'segment_(\d+)\.m4s');
+ 
+@@ -21,7 +22,49 @@ hls_finalized_struct_output_pth = utils.get_output_path(
+     HlsTranscodePathDef, HlsTranscodePathDef.HLS_FINALIZED_FILELIST_OUTPUT_NAME
+ )
+ 
+-hls_worklist = json_utils.json_load(hls_worklist_output)
++unknown_files = []
++
++
++def scan_quality_dir(dst_root) -> dict:
++    """
++    Returns {'playlist': <path>, 'segments': {<path>: <index>}} for one quality.
++
++    Two layouts exist in the tree and both are handled, since the v5 output is
++    per-segment and anything transcoded after HLS_SINGLE_FILE was enabled is not:
++
++      segments     init.mp4 at index -1, then segment_NNN.m4s at index N.
++      single_file  playlist.m3u8 + stream.m4s only. The init segment lives
++                   inside stream.m4s as a byte range, so there is a single media
++                   entry at index 0 rather than an init plus N segments.
++
++    The shape is identical either way, so AlbumTrackMetadataProcessor.cs consumes
++    it unchanged -- it just inserts one HlsSegment row per quality instead of
++    ~26. Playback does not need per-segment rows: the player reads the byte
++    ranges out of playlist.m3u8 and issues HTTP Range requests against the one
++    media file, which any static file server already supports.
++    """
++    scanned = {'segments': {}}
++
++    for file in sorted(os.listdir(dst_root)):
++        fp = os.path.join(dst_root, file)
++
++        if file == 'playlist.m3u8':
++            scanned['playlist'] = fp
++        elif file == SEGMENT_NAME_SINGLE:
++            scanned['segments'][fp] = 0
++        elif file == 'init.mp4':
++            scanned['segments'][fp] = -1
++        else:
++            index = SEGMENT_INDEX_EXTRACTOR.search(file)
++            if index:
++                scanned['segments'][fp] = int(index[1])
++            else:
++                # Was a blocking input() prompt, which stalls a 162k-track batch
++                # on the first stray file and cannot be answered unattended.
++                unknown_files.append(fp)
++
++    return scanned
++
+ 
+ def generate_master_playlist(hls_scan_result, proc_root) -> str:
+     lines_to_write = [
+@@ -37,63 +80,75 @@ def generate_master_playlist(hls_scan_result, proc_root) -> str:
+ 
+     return "\n".join(lines_to_write)
+ 
+-all_results = {}
+-for index, (_, entry) in enumerate(hls_worklist.items()):
+-    print(f"[{index}/{len(hls_worklist)}] Processing: {_}", end='\r')
+-    try:
+-        src = entry[list(entry.keys())[0]]['src']
+-        src_root = os.path.dirname(src)
+-        src_filename_no_ext = os.path.splitext(os.path.basename(src))[0]
+-        proc_root = os.path.join(src_root, src_filename_no_ext)
+-
+-        """
+-        Result sample: 
+-        { 
++def main():
++    # Guarded so that importing scan_quality_dir does not run the whole
++    # finalizer -- and does not fail outright when no worklist exists yet.
++    hls_worklist = json_utils.json_load(hls_worklist_output)
++
++    all_results = {}
++    for index, (track_id, entry) in enumerate(hls_worklist.items()):
++        print(f"[{index}/{len(hls_worklist)}] Processing: {track_id}", end='\r')
++        proc_root = None
++        try:
++            src = entry[list(entry.keys())[0]]['src']
++            src_root = os.path.dirname(src)
++            src_filename_no_ext = os.path.splitext(os.path.basename(src))[0]
++            proc_root = os.path.join(src_root, src_filename_no_ext)
++
++            """
++        Result sample (single_file layout -- one media entry per quality, the
++        init segment living inside it as a byte range):
++        {
++            "320k": {
++                "playlist": "<Full FP Omitted>/hls/320k/playlist.m3u8",
++                "segments": {
++                    "<Full FP Omitted>/hls/320k/stream.m4s": 0
++                }
++            }
++        }
++
++        Legacy per-segment layout, still present across the v5 tree:
++        {
+             "320k": {
+                 "playlist": "<Full FP Omitted>/hls/320k/playlist.m3u8",
+                 "segments": {
+-                    // note here that init.mp4 will always receive an index assignment of 1
++                    // init.mp4 always receives an index assignment of -1
+                     "<Full FP Omitted>/hls/320k/init.mp4": -1,
+ 
+-                    // index assignment based of segment extractor regex 
++                    // index assignment based of segment extractor regex
+                     "<Full FP Omitted>/hls/320k/segment_000.m4s": 0
+                 }
+             }
++            }
++            """
++            result = {}
++            for quality, target_info in entry.items():
++                result[quality] = scan_quality_dir(target_info['dst_root'])
++
++            # Test if master playlist file already exists
++            master_playlist_path = os.path.join(proc_root, "playlist.m3u8")
++            if not os.path.isfile(master_playlist_path):
++                utils.append_file(master_playlist_path, generate_master_playlist(result, proc_root))
++        except Exception as e:
++            # proc_root is unset if the failure happened before it was built,
++            # which made the old handler raise NameError and abort the run.
++            utils.append_file("error.txt", f"{proc_root or track_id}\t{e!r}\n", True)
++            continue
++
++        all_results[src] = {
++            "master_playlist": master_playlist_path,
++            "medias": result
+         }
+-        """
+-        result = {}
+-        for quality, target_info in entry.items():
+-            result[quality] = {'segments': {}}
+-            dst_root = target_info['dst_root']
+-            for file in os.listdir(dst_root):
+-                fp = os.path.join(dst_root, file)
+-                if file == 'playlist.m3u8':
+-                    result[quality]['playlist'] = fp
+-                    continue
+-
+-                if file == 'init.mp4':
+-                    result[quality]['segments'][fp] = -1
+-                    continue
+-
+-                index = SEGMENT_INDEX_EXTRACTOR.search(file)
+-                if not index:
+-                    input(f"UnKNOWN FILE: {file}")
+-
+-                index_value = int(index[1])
+-                result[quality]['segments'][fp] = index_value
+-
+-        # Test if master playlist file already exists
+-        master_playlist_path = os.path.join(proc_root, "playlist.m3u8")
+-        if not os.path.isfile(master_playlist_path): 
+-            utils.append_file(master_playlist_path, generate_master_playlist(result, proc_root))
+-    except:
+-        utils.append_file("error.txt", proc_root + '\n', True)
+-        continue
+-
+-    all_results[src] = {
+-        "master_playlist": master_playlist_path,
+-        "medias": result
+-    }
+-
+-print("\nPrcoessing Complete, writing results to output")
+-json_utils.json_dump(all_results, hls_finalized_struct_output_pth)
++
++    print("\nPrcoessing Complete, writing results to output")
++
++    if unknown_files:
++        print(f"WARNING: {len(unknown_files)} unrecognised file(s) in quality "
++              f"directories, see unknown_files.txt")
++        utils.append_file("unknown_files.txt", "\n".join(unknown_files) + "\n", True)
++
++    json_utils.json_dump(all_results, hls_finalized_struct_output_pth)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/Postprocessor/HlsTranscode/hls_runner.py b/Postprocessor/HlsTranscode/hls_runner.py
+index 34cd422..2c0e496 100644
+--- a/Postprocessor/HlsTranscode/hls_runner.py
++++ b/Postprocessor/HlsTranscode/hls_runner.py
+@@ -28,6 +28,12 @@ hls_completed_output = get_output_path(
+     HlsTranscodePathDef, HlsTranscodePathDef.HLS_TRANSCODE_COMPLETED_OUTPUT_NAME
+ )
+ 
++# Delete each source FLAC once all of its qualities have transcoded. Off by
++# default: HLS output is lossy, so the FLAC is the only copy that can be
++# re-encoded later, and the MERT embedding pipeline reads the FLAC directly.
++# Deleting here makes both regeneration and embedding generation impossible.
++DELETE_SOURCE_AFTER_TRANSCODE = False
++
+ 
+ class HlsRunner:
+     @staticmethod
+@@ -52,6 +58,7 @@ class HlsRunner:
+     ):
+         try:
+             src_file = None
++            succeeded = 0
+             for quality, work_details in work.items():
+                 src = work_details["src"]
+                 src_file = src
+@@ -76,16 +83,32 @@ class HlsRunner:
+                     )
+                     continue
+ 
+-                outputWriter.write(f"{track_id}\n")
++                succeeded += 1
++
++            # A track only counts as done when every quality rendered. The old
++            # code reported "Completed" and unlinked the source even when all
++            # four encodes failed, which destroyed the only lossless copy of a
++            # track that had produced no playable output at all.
++            if succeeded != len(work):
++                journalWriter.report_error(
++                    f"Incomplete {track_id}: {succeeded}/{len(work)} qualities "
++                    f"rendered, source kept for retry\n"
++                )
++                return
+ 
++            # Written once per track, not once per quality: `remove_completed`
++            # reads this back into a set, so the extra lines were only bloat.
++            outputWriter.write(f"{track_id}\n")
+             journalWriter.report_completed(f"Completed {track_id}\n")
+-            os.unlink(src_file)
+-            # Unlink completed
++
++            if DELETE_SOURCE_AFTER_TRANSCODE and src_file:
++                os.unlink(src_file)
+ 
+         except Exception as e:
+-            journalWriter.report_error(
+-                f"Failed to process {track_id} with command [{work['cmd']}]\n"
+-            )
++            # `work` is {quality: {...}}, so the old `work['cmd']` raised
++            # KeyError from inside the handler. Nothing calls .result() on these
++            # futures, so that exception was swallowed and the failure vanished.
++            journalWriter.report_error(f"Failed to process {track_id}: {e}\n")
+ 
+     @staticmethod
+     def start():
+diff --git a/Preprocessor/CueSplitter/cue_scanner.py b/Preprocessor/CueSplitter/cue_scanner.py
+index d88053b..971d609 100644
+--- a/Preprocessor/CueSplitter/cue_scanner.py
++++ b/Preprocessor/CueSplitter/cue_scanner.py
+@@ -1,12 +1,23 @@
+ import json
+ import os
+-import subprocess
++import threading
++from concurrent.futures import ThreadPoolExecutor, as_completed
+ 
+ from Preprocessor.CueSplitter.output.path_definitions import CUE_SCANNER_OUTPUT_NAME
+ from Shared.utils import check_cuesheet_attr, get_file_relative
+ 
+ TARGET_TYPES = (".flac", ".wav", ".mp3", ".m4a")
+ 
++# One ffprobe is spawned per audio file (~48ms each, ~150k files), so the scan is
++# subprocess bound rather than CPU or disk bound. Scanning albums concurrently
++# turns a two hour serial walk into minutes. Kept modest so the probes do not
++# swamp a rotational disk with seeks.
++MAX_WORKERS = 8
++
++# The full result is written once, at the end. Flushing partial results
++# periodically means an interrupted scan still leaves something usable.
++PARTIAL_WRITE_EVERY = 250
++
+ output_root = get_file_relative(__file__, "output")
+ os.makedirs(output_root, exist_ok=True)
+ output_file = os.path.join(output_root, CUE_SCANNER_OUTPUT_NAME)
+@@ -54,12 +65,39 @@ def assign_confidence(potential: dict):
+     return score
+ 
+ 
++def list_subdirectories(path: str):
++    """
++    Subdirectories of `path`, skipping anything that cannot be read.
++
++    An unreadable directory (ext4's root owned `lost+found` is the one that
++    always exists) used to raise PermissionError out of the scan loop and kill
++    the whole run.
++    """
++    try:
++        entries = os.listdir(path)
++    except OSError as e:
++        print(f"Skipping unreadable directory {path}: {e}")
++        return []
++
++    result = []
++    for name in sorted(entries):
++        full = os.path.join(path, name)
++        try:
++            if os.path.isdir(full):
++                result.append(full)
++        except OSError:
++            continue
++    return result
++
++
+ def scan_potential_album(album_root: str):
+     pending_cue = []
+     pending_audio = []
+     total_flac_count = 0
+     flag_reason = None
+ 
++    # os.walk swallows traversal errors by default, which is what we want here:
++    # one unreadable subdirectory should not abort the album.
+     for root, dirs, files in os.walk(album_root):
+         for file in files:
+             if file.lower().endswith(".cue"):
+@@ -71,7 +109,15 @@ def scan_potential_album(album_root: str):
+                 # probe file and check if have cue metadata
+                 total_flac_count += 1
+                 path = os.path.join(root, file)
+-                if check_cuesheet_attr(path):
++                try:
++                    has_cuesheet = check_cuesheet_attr(path)
++                except Exception as e:
++                    # A single unreadable or malformed file should not lose the
++                    # rest of the album.
++                    print(f"Probe failed for {path}: {e}")
++                    has_cuesheet = False
++
++                if has_cuesheet:
+                     pending_audio.append(path)
+                     if flag_reason is None:
+                         flag_reason = "Audio file with cuesheet attribute found"
+@@ -85,6 +131,19 @@ def scan_potential_album(album_root: str):
+     }
+ 
+ 
++def write_results(potential: list):
++    """Scores, sorts and writes the result set, replacing the output atomically."""
++    for pot in potential:
++        pot["confidence"] = assign_confidence(pot)
++
++    potential.sort(key=lambda x: x["confidence"], reverse=True)
++
++    tmp = output_file + ".partial"
++    with open(tmp, "w", encoding="utf-8") as f:
++        json.dump(potential, f, indent=4, ensure_ascii=False)
++    os.replace(tmp, output_file)
++
++
+ def main():
+     tlmc_root = input("Enter the path to the root of the TLMC: ")
+ 
+@@ -92,38 +151,57 @@ def main():
+         print("Invalid path")
+         exit(1)
+ 
++    # Only directories are albums. The previous listdir had no isdir filter, so
++    # loose files sitting at circle level were scanned as albums; os.walk on a
++    # file yields nothing, so they silently contributed an empty result.
++    circles = list_subdirectories(tlmc_root)
++    album_paths = []
++    for circle_path in circles:
++        album_paths.extend(list_subdirectories(circle_path))
++
++    print(f"Found {len(album_paths)} albums under {len(circles)} circles")
++    print(f"Scanning with {MAX_WORKERS} workers")
++
+     potential = []
+-    artists = [
+-        i for i in os.listdir(tlmc_root) if os.path.isdir(os.path.join(tlmc_root, i))
+-    ]
++    lock = threading.Lock()
+     scanned = 0
+-    for artist in artists:
+-        artist_path = os.path.join(tlmc_root, artist)
+-
+-        # scan each ablum
+-        albums = os.listdir(artist_path)
+-        for album in albums:
+-            print(
+-                f"[{scanned} | {len(potential)}] Scanning {os.path.join(artist_path, album)}"
+-            )
+-            album_path = os.path.join(artist_path, album)
+-            pot = scan_potential_album(album_path)
+-            if (len(pot["cue"]) > 0 or len(pot["audio"]) > 0) and pot[
+-                "total_flac_count"
+-            ] > 0:
+-                potential.append(pot)
+-                print(f"Flagged potential album: {album}. Reason: {pot['flag_reason']}")
+-            scanned += 1
+-
+-    # assign confidence score
+-    for pot in potential:
+-        pot["confidence"] = assign_confidence(pot)
+ 
+-    # sort by confidence score
+-    potential.sort(key=lambda x: x["confidence"], reverse=True)
+-
+-    with open(output_file, "w") as f:
+-        json.dump(potential, f, indent=4, ensure_ascii=False)
++    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
++        futures = {
++            executor.submit(scan_potential_album, path): path for path in album_paths
++        }
++
++        for future in as_completed(futures):
++            album_path = futures[future]
++            try:
++                pot = future.result()
++            except Exception as e:
++                print(f"Failed to scan {album_path}: {e}")
++                pot = None
++
++            with lock:
++                scanned += 1
++                if (
++                    pot is not None
++                    and (len(pot["cue"]) > 0 or len(pot["audio"]) > 0)
++                    and pot["total_flac_count"] > 0
++                ):
++                    potential.append(pot)
++                    print(
++                        f"[{scanned}/{len(album_paths)} | {len(potential)}] Flagged "
++                        f"{os.path.basename(album_path)}. Reason: {pot['flag_reason']}"
++                    )
++                elif scanned % 200 == 0:
++                    print(
++                        f"[{scanned}/{len(album_paths)} | {len(potential)}] scanning..."
++                    )
++
++                if scanned % PARTIAL_WRITE_EVERY == 0:
++                    write_results(potential)
++
++    write_results(potential)
++    print(f"\nScanned {scanned} albums, flagged {len(potential)}")
++    print(f"Wrote {output_file}")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/Shared/utils.py b/Shared/utils.py
+index 83be73b..b93f631 100644
+--- a/Shared/utils.py
++++ b/Shared/utils.py
+@@ -77,7 +77,7 @@ def oslex_quote(path):
+     return shlex.quote(path)
+ 
+ 
+-def probe_flac(ffprobe: str, path: str):
++def probe_flac(ffprobe: str, path: str, timeout: int = 60):
+     exec = ffprobe
+     args = [
+         "-show_format",
+@@ -90,14 +90,27 @@ def probe_flac(ffprobe: str, path: str):
+         "quiet",
+     ]
+     cmd = [exec] + args
+-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+ 
+-    out, err = p.communicate()
+-    if err:
+-        print(f"\n{err}\n")
++    try:
++        p = subprocess.run(
++            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout
++        )
++    except (subprocess.TimeoutExpired, OSError) as e:
++        # A hung or missing ffprobe used to block the caller forever.
++        print(f"\nffprobe failed on {path}: {e}\n")
++        return None
+ 
++    # Success is decided by exit status, not by whether anything reached stderr.
++    # ffprobe emits warnings there for perfectly readable files, and the old
++    # `if err: return None` turned every such warning into a silent failure --
++    # which made check_cuesheet_attr report "no cuesheet" for albums that did
++    # have one, hiding split candidates.
++    if p.returncode != 0:
++        err = p.stderr.decode("utf-8", errors="replace").strip()
++        print(f"\nffprobe exit {p.returncode} on {path}: {err}\n")
+         return None
+-    return out
++
++    return p.stdout
+ 
+ 
+ def check_cuesheet_attr(path: str) -> bool:
+diff --git a/shell.nix b/shell.nix
+new file mode 100644
+index 0000000..a934714
+--- /dev/null
++++ b/shell.nix
+@@ -0,0 +1,61 @@
++# Development environment for the TLMC ETL pipeline.
++#
++# The pipeline shells out to ffmpeg/ffprobe and loads a .NET assembly through
++# pythonnet, none of which live in the NixOS system profile. Entering this shell
++# puts them on PATH so every stage in Docs/STEPS.md can run:
++#
++#     nix-shell            # then run the pipeline steps as documented
++#
++# Python itself is NOT provided here: the repo uses a uv-managed .venv (which
++# carries mslex, pythonnet, xxhash and the rest). Use ./.venv/bin/python, or the
++# `py` alias defined below.
++#
++# NOTE ON libfdk_aac: Docs/STEPS.md asks for an ffmpeg built with libfdk-aac for
++# the HLS transcode stage. nixpkgs ships ffmpeg-full WITHOUT it, because fdk-aac
++# is unfree and cannot be redistributed in binary form. This shell therefore
++# provides a stock ffmpeg, which is enough for every preprocessing stage
++# (normalization, cue splitting) since those only decode and re-encode FLAC.
++# For HLS you must either set withFdkAac (see ffmpegFdk below, requires
++# allowUnfree and a local build) or fall back to ffmpeg's native `aac` encoder.
++
++{ pkgs ? import <nixpkgs> { } }:
++
++let
++  # Opt-in: an ffmpeg with libfdk_aac for the HLS stage. Building this compiles
++  # ffmpeg from source and requires NIXPKGS_ALLOW_UNFREE=1, so it is not part of
++  # the default buildInputs.
++  ffmpegFdk = pkgs.ffmpeg-full.override { withFdkAac = true; };
++in
++pkgs.mkShell {
++  name = "tlmc-etl";
++
++  buildInputs = with pkgs; [
++    ffmpeg # ffmpeg + ffprobe: normalizer, cue splitter, HLS transcode
++    dotnet-sdk_8 # builds and hosts CueSplitInfoProvider via pythonnet
++    p7zip # 7z: archive extraction
++    icu # .NET globalization support
++    openssl
++    zlib
++  ];
++
++  shellHook = ''
++    # STEPS.md: the repo root must be importable for `python -m Preprocessor...`
++    export PYTHONPATH="$PWD:$PYTHONPATH"
++
++    # pythonnet locates the runtime through DOTNET_ROOT
++    export DOTNET_ROOT="${pkgs.dotnet-sdk_8}/share/dotnet"
++    export DOTNET_CLI_TELEMETRY_OPTOUT=1
++    export DOTNET_NOLOGO=1
++
++    alias py='./.venv/bin/python'
++
++    echo "tlmc-etl dev shell"
++    echo "  ffmpeg  $(ffmpeg  -version 2>/dev/null | head -1 | cut -d' ' -f3)"
++    echo "  ffprobe $(ffprobe -version 2>/dev/null | head -1 | cut -d' ' -f3)"
++    echo "  dotnet  $(dotnet --version 2>/dev/null)"
++    echo "  7z      $(7z 2>/dev/null | sed -n 2p | cut -d' ' -f1-3)"
++    echo "  python  ./.venv/bin/python (alias: py)"
++    echo
++    echo "Library root for every stage that prompts: /mnt/tlmc"
++  '';
++}
+diff --git a/Postprocessor/HlsTranscode/docker/Dockerfile b/Postprocessor/HlsTranscode/docker/Dockerfile
+new file mode 100644
+index 0000000..5234c63
+--- /dev/null
++++ b/Postprocessor/HlsTranscode/docker/Dockerfile
+@@ -0,0 +1,126 @@
++# ffmpeg with libfdk_aac, for the HLS transcode stage.
++#
++# Why this image exists: `-c:a libfdk_aac` is hardcoded in hls_assignment.py, but
++# no distro or public binary build ships it. fdk-aac's license is GPL-incompatible,
++# so --enable-libfdk-aac forces --enable-nonfree, and the resulting binary cannot
++# be redistributed. nixpkgs omits it for the same reason (see shell.nix).
++#
++# LICENSING: the image built here is NON-REDISTRIBUTABLE. Build it on each machine
++# that needs it, or push only to a private registry. Do not publish it.
++#
++#   docker build -t tlmc-ffmpeg:latest Postprocessor/HlsTranscode/docker
++#
++# syntax=docker/dockerfile:1
++
++ARG DEBIAN_TAG=bookworm-slim
++ARG FFMPEG_VERSION=8.1.2
++ARG FDK_AAC_VERSION=2.0.3
++
++# ---------------------------------------------------------------- builder ----
++FROM debian:${DEBIAN_TAG} AS build
++ARG FFMPEG_VERSION
++ARG FDK_AAC_VERSION
++
++RUN apt-get update \
++ && apt-get install -y --no-install-recommends \
++      autoconf automake libtool pkg-config \
++      build-essential ca-certificates curl nasm xz-utils \
++ && rm -rf /var/lib/apt/lists/*
++
++WORKDIR /src
++
++# Sources are fetched to disk before extracting, never piped into tar: ffmpeg.org
++# reset the connection mid-transfer during development, and a truncated pipe
++# corrupts the extract with no chance to retry.
++#
++# fdk-aac from source rather than a distro package: not every base has it, and
++# pinning the version keeps worker images byte-comparable across machines.
++# Static + PIC so the final image carries no fdk shared object.
++RUN curl -fsSL --retry 5 --retry-all-errors -o fdk-aac.tar.gz \
++      "https://github.com/mstorsjo/fdk-aac/archive/refs/tags/v${FDK_AAC_VERSION}.tar.gz" \
++ && tar xzf fdk-aac.tar.gz \
++ && cd "fdk-aac-${FDK_AAC_VERSION}" \
++ && ./autogen.sh \
++ && ./configure --prefix=/opt/deps --disable-shared --enable-static --with-pic \
++ && make -j"$(nproc)" \
++ && make install
++
++# nasm above matters: without it ffmpeg silently drops its x86 SIMD paths and
++# both the FLAC decoder and the MDCT get materially slower.
++RUN curl -fsSL --retry 5 --retry-all-errors -o ffmpeg.tar.xz \
++      "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
++ && tar xJf ffmpeg.tar.xz \
++ && cd "ffmpeg-${FFMPEG_VERSION}" \
++ && PKG_CONFIG_PATH=/opt/deps/lib/pkgconfig ./configure \
++      --prefix=/opt/ffmpeg \
++      --pkg-config-flags=--static \
++      --extra-cflags=-I/opt/deps/include \
++      --extra-ldflags=-L/opt/deps/lib \
++      --enable-gpl \
++      --enable-version3 \
++      --enable-nonfree \
++      --enable-libfdk-aac \
++      --disable-doc \
++      --disable-ffplay \
++      --disable-debug \
++ && make -j"$(nproc)" \
++ && make install
++
++# ---------------------------------------------------------------- runtime ----
++# Target `ffmpeg`: the bare tool, for ad-hoc use and the other pipeline stages
++# that shell out to ffmpeg (normalizer, cue splitter).
++#   docker build --target ffmpeg -t tlmc-ffmpeg:latest Postprocessor/HlsTranscode/docker
++FROM debian:${DEBIAN_TAG} AS ffmpeg
++
++RUN apt-get update \
++ && apt-get install -y --no-install-recommends ca-certificates \
++ && rm -rf /var/lib/apt/lists/* \
++ && useradd --create-home --shell /usr/sbin/nologin --uid 1000 tlmc
++
++COPY --from=build /opt/ffmpeg/bin/ffmpeg  /usr/local/bin/ffmpeg
++COPY --from=build /opt/ffmpeg/bin/ffprobe /usr/local/bin/ffprobe
++
++# Build-time self-test. The whole point of the image is libfdk_aac; if a future
++# base image or version bump drops it, fail here rather than three days into a
++# transcode run that silently fell back or errored per-track.
++RUN ffmpeg -hide_banner -encoders | grep -q ' libfdk_aac ' \
++ && ffprobe -hide_banner -version >/dev/null \
++ && echo "OK: $(ffmpeg -hide_banner -version | head -1) with libfdk_aac"
++
++USER tlmc
++WORKDIR /work
++
++# No ENTRYPOINT: both binaries stay reachable as
++#   docker run --rm tlmc-ffmpeg ffmpeg  ...
++#   docker run --rm tlmc-ffmpeg ffprobe ...
++CMD ["ffmpeg", "-hide_banner", "-version"]
++
++# ----------------------------------------------------------------- runner ----
++# Default target. Adds just enough Python to run hls_runner.py *inside* one
++# long-lived container.
++#
++# This exists because `docker run` costs ~236 ms measured. hls_runner issues one
++# ffmpeg call per track per rung — 162k x 4 = 648k invocations — so wrapping each
++# call in its own container would burn ~12 h of pure startup, comparable to the
++# entire encode. Run the batch inside one container instead; see README.md.
++#
++# Only mslex is installed: hls_runner reaches Shared/utils.py, which imports it
++# unconditionally at module top. The repo itself is bind-mounted, not baked in,
++# so code edits need no rebuild.
++FROM ffmpeg AS runner
++USER root
++
++RUN apt-get update \
++ && apt-get install -y --no-install-recommends python3 python3-venv \
++ && rm -rf /var/lib/apt/lists/* \
++ && python3 -m venv /opt/venv \
++ && /opt/venv/bin/pip install --no-cache-dir --upgrade pip mslex \
++ && chown -R tlmc /opt/venv
++
++ENV PATH=/opt/venv/bin:$PATH \
++    PYTHONPATH=/repo \
++    PYTHONUNBUFFERED=1
++
++USER tlmc
++WORKDIR /repo
++CMD ["python", "-m", "Postprocessor.HlsTranscode.hls_runner"]
+diff --git a/Postprocessor/HlsTranscode/docker/ffmpeg-docker b/Postprocessor/HlsTranscode/docker/ffmpeg-docker
+new file mode 100755
+index 0000000..aa7a428
+--- /dev/null
++++ b/Postprocessor/HlsTranscode/docker/ffmpeg-docker
+@@ -0,0 +1,39 @@
++#!/bin/sh
++# Ad-hoc ffmpeg/ffprobe from the tlmc-ffmpeg image, as if it were installed locally.
++#
++#   ln -s "$PWD/Postprocessor/HlsTranscode/docker/ffmpeg-docker" ~/.local/bin/ffmpeg
++#   ln -s "$PWD/Postprocessor/HlsTranscode/docker/ffmpeg-docker" ~/.local/bin/ffprobe
++#
++# The invoked binary is chosen from the name it is called as.
++#
++# DO NOT use this for the HLS batch. Each call pays ~236 ms of container startup
++# (measured); across 162k tracks x 4 rungs that is ~12 h of pure overhead, which
++# is comparable to the entire encode. Run hls_runner inside one long-lived
++# container instead -- see README.md.
++#
++# Env:
++#   TLMC_FFMPEG_IMAGE    image to run          (default tlmc-ffmpeg:latest)
++#   TLMC_LIBRARY_ROOT    library mount point   (default /mnt/tlmc)
++set -eu
++
++IMAGE="${TLMC_FFMPEG_IMAGE:-tlmc-ffmpeg:latest}"
++LIB_ROOT="${TLMC_LIBRARY_ROOT:-/mnt/tlmc}"
++
++case "$(basename "$0")" in
++    ffprobe) BIN=ffprobe ;;
++    *)       BIN=ffmpeg  ;;
++esac
++
++# The library is mounted at its own path so the absolute paths baked into the
++# worklist resolve identically inside and outside the container.
++#
++# Arguments are prepended rather than interpolated so that paths containing
++# spaces or non-ASCII survive -- the TLMC tree is full of both.
++set -- "$IMAGE" "$BIN" "$@"
++case "$PWD" in
++    "$LIB_ROOT" | "$LIB_ROOT"/*) set -- -w "$PWD" "$@" ;;
++    *)                           set -- -v "$PWD:$PWD" -w "$PWD" "$@" ;;
++esac
++set -- docker run --rm --user "$(id -u):$(id -g)" -v "$LIB_ROOT:$LIB_ROOT" "$@"
++
++exec "$@"
+diff --git a/Postprocessor/HlsTranscode/docker/README.md b/Postprocessor/HlsTranscode/docker/README.md
+new file mode 100644
+index 0000000..46fee01
+--- /dev/null
++++ b/Postprocessor/HlsTranscode/docker/README.md
+@@ -0,0 +1,109 @@
++# ffmpeg with libfdk_aac (containerized)
++
++`hls_assignment.py` hardcodes `-c:a libfdk_aac`, but no distro package or public
++binary build ships it. fdk-aac's license is GPL-incompatible, so
++`--enable-libfdk-aac` forces `--enable-nonfree` and the result cannot be
++redistributed — which is why nixpkgs omits it (`shell.nix`), and why the
++gyan.dev and BtbN Windows builds omit it too. This image builds it from source.
++
++Without it the HLS stage does not merely run slower — every ffmpeg call exits
++non-zero with `Encoder not found`.
++
++## Build
++
++```sh
++docker build -t tlmc-ffmpeg:runner Postprocessor/HlsTranscode/docker            # default target
++docker build --target ffmpeg -t tlmc-ffmpeg:latest Postprocessor/HlsTranscode/docker
++```
++
++| target | size | contents |
++|---|---|---|
++| `ffmpeg` | 201 MB | ffmpeg + ffprobe only. Ad-hoc use, and the other stages that shell out to ffmpeg (normalizer, cue splitter). |
++| `runner` *(default)* | 295 MB | adds Python + `mslex` so `hls_runner.py` runs inside the container. |
++
++The build self-tests: if a base image or version bump ever drops libfdk_aac, the
++build fails rather than a transcode run failing three days in. Pin overrides with
++`--build-arg FFMPEG_VERSION=8.1.2 --build-arg FDK_AAC_VERSION=2.0.3`.
++
++## Running the batch — use one long-lived container
++
++`docker run` costs **~236 ms** measured. `hls_runner` issues one ffmpeg call per
++track per rung: 162k × 4 = **648k invocations**, so wrapping each individual call
++would burn **~12 h of pure container startup** — comparable to the entire encode.
++Run the whole stage inside one container:
++
++```sh
++docker run --rm -it \
++  --user "$(id -u):$(id -g)" \
++  -v "$PWD:/repo" \
++  -v /mnt/tlmc:/mnt/tlmc \
++  tlmc-ffmpeg:runner
++```
++
++The library **must** be mounted at the same absolute path it has on the host
++(`/mnt/tlmc:/mnt/tlmc`), because `hls_assignment.py` bakes absolute paths into
++the worklist. `/repo` is bind-mounted read-write so journals and the completed
++list land back on the host, and so code edits need no rebuild.
++
++## Ad-hoc use
++
++`ffmpeg-docker` makes the container transparent for one-off commands. Symlink it
++under the name you want to invoke:
++
++```sh
++ln -s "$PWD/Postprocessor/HlsTranscode/docker/ffmpeg-docker" ~/.local/bin/ffmpeg
++ln -s "$PWD/Postprocessor/HlsTranscode/docker/ffmpeg-docker" ~/.local/bin/ffprobe
++```
++
++Override `TLMC_LIBRARY_ROOT` (default `/mnt/tlmc`) and `TLMC_FFMPEG_IMAGE`
++(default `tlmc-ffmpeg:latest`) as needed. Not for the batch — see above.
++
++## Measured: libfdk_aac vs the native encoder
++
++4-min 44.1 kHz stereo FLAC, `-threads 1`, best of 3, on a 13900H. Two synthetic
++sources bracketing real material (tonal / noisy):
++
++| rung | native `aac` | libfdk_aac | speedup |
++|---|---|---|---|
++| 128k | 2.67 s / 3.07 s | 1.21 s / 1.63 s | 2.2× / 1.9× |
++| 192k | 4.21 s / 3.44 s | 1.15 s / 1.74 s | 3.7× / 2.0× |
++| 256k | 8.18 s / 3.42 s | 1.17 s / 1.74 s | 7.0× / 2.0× |
++| 320k | 20.28 s / 17.10 s | 1.18 s / 1.75 s | **17.2× / 9.8×** |
++| **full ladder** | **35.3 s / 27.0 s** | **4.7 s / 6.9 s** | **7.5× / 3.9×** |
++
++Catalog projection (162k tracks, 5.0 min mean per `V6-MIGRATION-HANDOFF.md`
++§4.2, 20 cores): **~76–99 h → ~13–19 h.**
++
++### Keep the 320k rung
++
++Earlier analysis of the native encoder showed 320k costing 57% of ladder CPU on
++its own, and recommended dropping it. **That no longer applies.** libfdk's cost
++is essentially flat across bitrate (1.15–1.75 s at every rung) — the cliff was a
++degenerate rate-distortion search in ffmpeg's native encoder, not anything
++inherent to AAC. With libfdk the top rung is nearly free, so there is no
++throughput reason to drop it.
++
++### Note on bit depth
++
++ffmpeg's libfdk_aac wrapper declares `AV_SAMPLE_FMT_S16` only, so 24-bit FLAC
++sources are converted to 16-bit by an auto-inserted `aresample` before encoding.
++The native `aac` encoder takes `fltp` and keeps float precision through the MDCT.
++This is inherent to the wrapper, not to this image.
++
++## Windows workers
++
++Docker Desktop (WSL2 backend) runs this image unchanged. Two caveats:
++
++- **Keep scratch inside the Linux filesystem.** Bind-mounting a Windows path and
++  writing the ~109 files per track across the 9P boundary hits a well-known
++  performance cliff. Transcode to a container-local path, then move results.
++- **Paths differ.** The worklist's absolute POSIX paths will not resolve against
++  a Windows host mount, and `Shared/utils.py:oslex_quote` produces `mslex`
++  quoting on Windows and `shlex` on POSIX — a worklist generated on one will
++  produce malformed commands on the other. Generate the worklist on the same
++  platform that consumes it, or stop baking pre-joined shell strings into it.
++
++## Licensing
++
++**The built image is non-redistributable.** Build it on each machine that needs
++it, or push only to a private registry. Do not publish it or share the layers.

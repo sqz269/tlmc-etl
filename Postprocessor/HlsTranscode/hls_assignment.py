@@ -21,12 +21,39 @@ target_qualities = [
     "320k",
 ]
 
+# Emit one contiguous media file per quality plus a byte-range playlist, instead
+# of ~25 loose segment files.
+#
+# Why: hls_runner transcodes a flat worklist in parallel, so ext4 interleaved
+# every track's segments with every other track's. Segments of one track ended up
+# scattered TB apart, making playback N random seeks with no sequential run for
+# readahead to exploit (measured on the USB HDD: 55 files/s, 18.3 ms each).
+# One file per quality lets kernel readahead and ZFS zfetch prefetch a whole
+# track for free, with no cache logic anywhere.
+#
+# Catalog-wide file count: ~17.7M -> ~1.5M.
+#
+# Note ffmpeg folds the fMP4 init segment into the same file under this flag and
+# points #EXT-X-MAP at a byte range, so a quality directory holds exactly two
+# files and there is no separate init.mp4. Consumers must handle both layouts
+# while the v5 tree still contains per-segment output; they detect it from the
+# playlist (`byterange is None` means legacy).
+HLS_SINGLE_FILE = True
 
-def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate):
+SEGMENT_NAME_SINGLE = "stream.m4s"
+SEGMENT_NAME_MULTI = "segment_%03d.m4s"
+
+
+def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate, single_file=None):
+    if single_file is None:
+        single_file = HLS_SINGLE_FILE
+
     src = utils.oslex_quote(src)
-    seg_path = utils.oslex_quote(os.path.join(dst_root, "segment_%03d.m4s"))
+    media_name = SEGMENT_NAME_SINGLE if single_file else SEGMENT_NAME_MULTI
+    seg_path = utils.oslex_quote(os.path.join(dst_root, media_name))
     dst_playlist = utils.oslex_quote(os.path.join(dst_root, "playlist.m3u8"))
-    return [
+
+    cmd = [
         "ffmpeg",
         "-i",
         src,
@@ -39,20 +66,25 @@ def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate):
         "10",
         "-hls_list_size",
         "0",
-        "-hls_fmp4_init_filename",
-        "init.mp4",
         "-hls_segment_filename",
         seg_path,
         "-hls_segment_type",
         "fmp4",
         "-c:a",
         "libfdk_aac",
-        dst_playlist,
-        "-y",
-        "-v",
-        "quiet",
-        "-stats",
     ]
+
+    if single_file:
+        # -hls_fmp4_init_filename is deliberately omitted here: with
+        # single_file ffmpeg writes the init segment into the media file and
+        # ignores the option, so passing it only implies a file that never
+        # appears.
+        cmd += ["-hls_flags", "single_file"]
+    else:
+        cmd += ["-hls_fmp4_init_filename", "init.mp4"]
+
+    cmd += [dst_playlist, "-y", "-v", "quiet", "-stats"]
+    return cmd
 
 
 def generate_worklist_from_ids(entry: dict):
