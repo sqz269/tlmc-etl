@@ -27,6 +27,7 @@ up too, since its measured_i/measured_tp are the same quantities.
 """
 
 import json
+import math
 import os
 import re
 import subprocess
@@ -55,10 +56,15 @@ os.makedirs(output_root, exist_ok=True)
 OUTPUT_PATH = os.path.join(output_root, "loudness.output.jsonl")
 LEGACY_PASS1 = os.path.join(output_root, "normalize.firstpass_detect.output.json")
 
-_I = re.compile(r"I:\s*(-?[\d.]+)\s*LUFS")
-_TH = re.compile(r"Threshold:\s*(-?[\d.]+)\s*LUFS")
-_LRA = re.compile(r"LRA:\s*(-?[\d.]+)\s*LU")
-_PEAK = re.compile(r"Peak:\s*(-?[\d.]+)\s*dBFS")
+# ebur128 prints "-inf" for a digitally silent track's peak, and can print "nan"
+# for a stream it could not gate. A digits-only pattern does not match those, so
+# the summary parse failed and the track was counted as an ffmpeg failure -- 85
+# tracks on this corpus, every one of them silence rather than a broken file.
+_NUM = r"(-?(?:inf|nan|[\d.]+))"
+_I = re.compile(r"I:\s*" + _NUM + r"\s*LUFS")
+_TH = re.compile(r"Threshold:\s*" + _NUM + r"\s*LUFS")
+_LRA = re.compile(r"LRA:\s*" + _NUM + r"\s*LU")
+_PEAK = re.compile(r"Peak:\s*" + _NUM + r"\s*dBFS")
 
 _lock = threading.Lock()
 
@@ -91,6 +97,10 @@ def static_gain_db(measured_i: float, measured_tp: float) -> float:
       * Boost is capped. Attenuation is not, since turning a loud master down
         can never manufacture noise.
     """
+    # -inf (silence) and nan (ungateable stream) both mean there is nothing to
+    # normalise, and arithmetic on them would propagate into the gain.
+    if not (math.isfinite(measured_i) and math.isfinite(measured_tp)):
+        return 0.0
     if measured_i <= SILENCE_FLOOR_LUFS:
         return 0.0
 
@@ -107,7 +117,12 @@ def measure(path: str):
         # which kills the worker and, through the executor, the whole run.
         proc = subprocess.run(
             [
-                "ffmpeg", "-hide_banner", "-nostats", "-i", path,
+                # -vn: a FLAC's embedded cover art is a video stream to ffmpeg,
+                # and some in this library declare image/png while holding JPEG
+                # bytes. Decoding that fails and takes the whole command down
+                # with it, even though the audio is intact -- nine tracks on
+                # this corpus. Nothing here needs the picture.
+                "ffmpeg", "-hide_banner", "-nostats", "-i", path, "-vn",
                 "-threads", "1", "-af", "ebur128=peak=true", "-f", "null", "-",
             ],
             capture_output=True,
@@ -208,7 +223,7 @@ def main():
         return
 
     out = open(OUTPUT_PATH, "a", encoding="utf-8")
-    state = {"n": 0, "failed": 0}
+    state = {"n": 0, "failed": 0, "silent": 0}
 
     def work(path):
         # A single unmeasurable file must not take the run down with it: the
@@ -225,8 +240,18 @@ def main():
                 state["failed"] += 1
             else:
                 i, tp, lra = result
+                # A silent track reads I = -70 LUFS with a peak of -inf, so the
+                # peak is the non-finite one, not the loudness.
+                if not (math.isfinite(i) and math.isfinite(tp)) or i <= SILENCE_FLOOR_LUFS:
+                    state["silent"] += 1
+                # json.dumps would write bare Infinity/NaN, which no strict JSON
+                # reader accepts. Null says the same thing portably, and gain_db
+                # is 0 either way.
                 out.write(json.dumps({
-                    "path": path, "i": i, "tp": tp, "lra": lra,
+                    "path": path,
+                    "i": i if math.isfinite(i) else None,
+                    "tp": tp if math.isfinite(tp) else None,
+                    "lra": lra if math.isfinite(lra) else None,
                     "gain_db": round(static_gain_db(i, tp), 3),
                     "source": "ebur128",
                 }, ensure_ascii=False) + "\n")
@@ -239,6 +264,7 @@ def main():
 
     out.close()
     print(f"\nMeasured {state['n'] - state['failed']} tracks, {state['failed']} failed")
+    print(f"Of those, {state['silent']} are digitally silent (gain 0)")
     print(f"Wrote {OUTPUT_PATH}")
 
 
