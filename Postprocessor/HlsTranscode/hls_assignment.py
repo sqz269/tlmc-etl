@@ -1,8 +1,11 @@
+import json
 import os
 from typing import Dict, List
 
 import Processor.InfoCollector.Aggregator.output.path_definitions as AggregatorPathDef
 import Postprocessor.HlsTranscode.output.path_definitions as HlsTranscodePathDef
+import Preprocessor.AudioNormalizer.output.path_definitions as AudioNormalizerPathDef
+from Preprocessor.AudioNormalizer.output.path_definitions import LOUDNESS_OUTPUT_NAME
 from Shared import json_utils, utils
 
 assigned_merged_output = utils.get_output_path(
@@ -44,7 +47,7 @@ SEGMENT_NAME_SINGLE = "stream.m4s"
 SEGMENT_NAME_MULTI = "segment_%03d.m4s"
 
 
-def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate, single_file=None):
+def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate, single_file=None, gain_db=None):
     if single_file is None:
         single_file = HLS_SINGLE_FILE
 
@@ -58,6 +61,22 @@ def make_ffmpeg_hls_transcode_cmd(src, dst_root, bitrate, single_file=None):
         "-i",
         src,
         "-vn",
+    ]
+
+    # Loudness normalization happens here rather than by rewriting the source.
+    # This pass already decodes and re-encodes, so a static gain is free, and
+    # the lossless library stays untouched and re-encodable. The gain is
+    # clamped against true peak upstream (loudness_measure.static_gain_db), so
+    # it cannot introduce clipping.
+    #
+    # Doing it at serve time instead is not an option: WebKit cannot route HLS
+    # audio through Web Audio (webkit bug 231656) and iOS ignores writes to
+    # HTMLMediaElement.volume, so a browser client has no way to apply gain to
+    # an HLS stream.
+    if gain_db is not None and abs(gain_db) >= 0.05:
+        cmd += ["-af", f"volume={gain_db:.3f}dB"]
+
+    cmd += [
         "-b:a",
         bitrate,
         "-f",
@@ -101,7 +120,37 @@ def generate_worklist_from_ids(entry: dict):
     return generate_worklist(all_tracks)
 
 
+def load_gain_map():
+    """
+    Per-track gain in dB, keyed by source path, from loudness_measure.py.
+
+    Missing measurements are not fatal: a track with no entry transcodes at its
+    original level. That keeps the stage runnable before the measurement pass
+    finishes, at the cost of those tracks being un-normalized.
+    """
+    path = utils.get_output_path(AudioNormalizerPathDef, LOUDNESS_OUTPUT_NAME)
+    if not os.path.isfile(path):
+        print(f"No loudness measurements at {path}; transcoding without gain.")
+        return {}
+
+    gains = {}
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+                gains[rec["path"]] = float(rec["gain_db"])
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+                continue
+    return gains
+
+
 def generate_worklist(all_tracks: Dict[str, str]):
+    gains = load_gain_map()
+    missing = 0
+
     work = {}
     for track_id, track_path in all_tracks.items():
         file_parent = os.path.dirname(track_path)
@@ -109,17 +158,28 @@ def generate_worklist(all_tracks: Dict[str, str]):
         file_name_no_ext = os.path.splitext(file_name)[0]
         hls_target_base_dir = os.path.join(file_parent, file_name_no_ext)
 
+        gain_db = gains.get(track_path)
+        if gain_db is None:
+            missing += 1
+
         work_group = {}
         for quality in target_qualities:
             dst_root = os.path.join(hls_target_base_dir, "hls", quality)
             work_group[quality] = {
                 "src": track_path,
                 "dst_root": dst_root,
+                "gain_db": gain_db,
                 "cmd": " ".join(
-                    make_ffmpeg_hls_transcode_cmd(track_path, dst_root, quality)
+                    make_ffmpeg_hls_transcode_cmd(
+                        track_path, dst_root, quality, gain_db=gain_db
+                    )
                 ),
             }
         work[track_id] = work_group
+
+    if missing:
+        print(f"WARNING: {missing} of {len(all_tracks)} tracks have no loudness "
+              f"measurement and will transcode at their original level.")
 
     return work
 

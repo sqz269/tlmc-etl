@@ -374,9 +374,8 @@ they should be reviewed and attributed before being folded into a commit.
 
 ## 8. Not done
 
-- **Normalization (step 3)** — not run. Lossy and in-place over 151,332 FLACs with
-  no backup step. It also changes the audio, so any embeddings generated before it
-  are invalidated: decide normalization *before* generating embeddings.
+- **Normalization (step 3) — replaced, not run.** The two-pass in-place
+  normalizer is superseded by measure-then-apply-at-transcode; see §9.
 - **Cue splitting (step 4 execution)** — analysed only. `cue_split_plan.json` is
   the input; `cue_designator.py` and `cue_splitter.py` have not been run, and
   `cue_splitter.py` deletes originals.
@@ -392,3 +391,82 @@ they should be reviewed and attributed before being folded into a commit.
   (`hls_verify.py` ends mid-assignment at line 20; `finalize_filelist.py:30` has a
   `def` with no colon or body). Neither can be imported.
 - **Branch `extract-stage-v6` is unmerged** and everything in §7 is uncommitted.
+
+
+---
+
+## 9. Loudness: measured once, applied at transcode
+
+The original stage measured every FLAC with `loudnorm` and then rewrote it in
+place. That is replaced by measuring with `ebur128` and applying a static gain
+while transcoding to HLS. The source audio is never modified.
+
+### Why
+
+- **`loudnorm` analysis is the cost, not the decode.** Measured here: plain FLAC
+  decode runs at 1753x realtime, decode+`loudnorm` at 26x, decode+`ebur128` at
+  156x. For 166,787 tracks that is ~8h instead of ~45h.
+- **`loudnorm`'s machinery is for a problem this corpus does not have.** Its
+  dynamic-fallback limiter and `target_offset` exist to push quiet broadcast
+  material up against a peak ceiling. Measured over 1,044 tracks: the true-peak
+  clamp binds on **0%**, and exactly **1 track** needs any boost. Everything else
+  only ever gets turned down.
+- **A plain static gain is exact.** `min(target_I - measured_I,
+  target_TP - measured_TP)` hit the target on 10/10 sampled tracks. Verified
+  end-to-end: a track measured at -8.20 LUFS took -5.800 dB and landed at exactly
+  -14.00 LUFS with 3.8 dB of peak headroom.
+- **The second pass was the only irreversible step in the pipeline.** It is gone.
+
+### Why not at serve time
+
+Applying gain in the client would be better still, and is what Spotify does --
+they measure at upload and never modify the audio. It is not available to a
+browser client serving HLS:
+
+- `HTMLMediaElement.volume` is not settable on iOS; writes are ignored and it
+  always reads 1.
+- The documented workaround, Web Audio, cannot see HLS audio in WebKit:
+  `createMediaElementSource()` on an HLS stream yields silence. Open WebKit bug
+  231656, affects desktop Safari and every iOS browser.
+
+Both paths are closed on Apple platforms, so the gain is baked into the AAC at
+transcode time instead. The FLAC stays untouched.
+
+### Does loudness contaminate MERT embeddings?
+
+Tested on the RTX 5090, since MERT's feature extractor has `do_normalize: false`
+and raw amplitude reaches the model:
+
+| test | result |
+| --- | --- |
+| same track, +/-24 dB | cosine 0.9903 - 1.0000 |
+| same track, +/-6 dB (realistic spread) | 0.9986 - 0.9990 |
+| different tracks, same loudness | 0.9175 (0.8357 - 0.9689) |
+
+A 24 dB shift moves a track 0.0097 in cosine distance; different tracks sit
+0.0825 apart, so the gain effect is ~8x smaller than the musical signal. Over 24
+clips spanning 41 dB, re-normalising changed pairwise-similarity rankings by
+rho = 0.9893 and left the top-1 neighbour unchanged for 20/24.
+
+The corpus is tighter than that test: median -7.0 LUFS, p10 -10.3, p90 -5.2, a
+**5 dB interdecile spread**, where the effect is ~1%.
+
+Normalising does not remove the correlation anyway: 54 embedding dimensions
+correlate with loudness at |r|>0.7 on natural audio, and still 42 after
+normalising to a common target. What MERT encodes is production style -- loud
+masters are compressed, limited and bright -- not level. Attenuating a
+brickwalled track does not make it sound un-brickwalled.
+
+**Conclusion: embeddings do not need normalised input, and no longer depend on
+the normalization stage at all.**
+
+### Open choices
+
+- **Target is -14 LUFS / -1.0 dBTP** (`loudness_measure.py`), matching Spotify,
+  YouTube, Tidal and Amazon. The pipeline previously targeted -24, the EBU
+  *broadcast* figure, which would leave the library conspicuously quiet. Cheap to
+  change now that it lives in the transcode.
+- **Per-track gain, not album gain.** Spotify normalises per album during album
+  playback so quiet interludes stay quiet relative to their neighbours. Baking
+  per-track gain in loses that. The measurement file has what album gain needs;
+  it is a grouping decision, not more measurement.

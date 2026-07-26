@@ -13,3 +13,7 @@ NORMALIZE_SECOND_PASS_CONVERT_COMPLETED_NAME = (
 )
 NORMALIZE_SECOND_PASS_CONVERT_FAILED_NAME = "normalize.secondpass_convert.failed.log"
 NORMALIZE_SECOND_PASS_CONVERT_JOURNAL_NAME = "normalize.secondpass_convert.journal.log"
+
+# Per-track loudness measurement used to apply a static gain at HLS transcode
+# time (loudness_measure.py). Replaces the two-pass in-place normalizer.
+LOUDNESS_OUTPUT_NAME = "loudness.output.jsonl"

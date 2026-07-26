@@ -21,6 +21,14 @@ NORMALIZATION_TARGET = {
     "LRA": 7,
 }
 
+# The loudnorm analysis filter is what costs, not the decode: measured on this
+# corpus, plain FLAC decode runs at 1753x realtime while decode+loudnorm runs at
+# 26x. Each ffmpeg saturates one core despite -threads 1, so throughput is
+# linear in worker count. cpu_count()//2 left half the machine idle and put the
+# 166,787-file pass at ~55 hours. Two cores are held back so the box stays
+# responsive; set this lower if you need to run something else alongside.
+MAX_WORKERS = max(1, (os.cpu_count() or 4) - 2)
+
 stage_1_worklist = get_output_path(
     AudioNormalizerOutputPaths,
     AudioNormalizerOutputPaths.NORMALIZE_FIRST_PASS_DETECT_WORKLIST_PATH,
@@ -317,7 +325,7 @@ class Stage1:
         output_writer = OutputWriter(output_path)
 
         processor = StatAutoMuxMultiProcessor(
-            os.cpu_count() // 2,
+            MAX_WORKERS,
             journal_writer,
             output_writer,
         )
