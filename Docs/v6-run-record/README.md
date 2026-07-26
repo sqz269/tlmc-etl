@@ -172,9 +172,25 @@ Scope: 18,525 archives — the whole release, including the 266 the extraction p
 excluded. That is intentional; the snapshot is the identity baseline for the
 release, not for what was ingested.
 
+**Completed: 18,525 / 18,525 archives, 5.92 TB hashed in 8h57m.** Verified after
+the run: no malformed lines, no duplicate entries, and a walk of the release
+found 0 archives absent from the snapshot.
+
 **Measured throughput ~175 MB/s median on cold sequential reads, ~8.6 h total.**
 An earlier estimate of 5–6 h was wrong; it reused a 283 MB/s figure measured
 under different conditions instead of re-deriving it for this workload.
+
+Two anomalies, both benign, both worth carrying into the next release:
+
+- **One album is duplicated in the release under two circle spellings.** The
+  same 301 MB archive appears as `various album/[Alice in the Hole ! ]/…` and
+  `various album/[Alice in the hole!]/…`, byte-identical (xxh128
+  `fe7b139c0d19a21a`). Both are in the extraction plan, so it was extracted
+  twice. Circle-alias folding normalises `[IOSYS]`/`[IOSYS] イオシス`-style
+  variants but not this pair, which differs by case and internal spacing — add
+  it to `CircleAliasOverrides` in `extraction_exclusions.json`.
+- **One zero-byte archive** (an art-book entry under `Various Artists`). Already
+  excluded from the extraction plan, so it never reached extraction.
 
 The 4 KB read block size in `unextracted_snapshot.py` was investigated and left
 alone. Warm-cache it sustains 4,372 MB/s, ~15× what the disk supplies, and a
@@ -303,9 +319,7 @@ to any cue-file-based scan.
 | `908a2d22a8129917` | 33,906 | `Preprocessor/CueSplitter/output/scanner.potential.output.json` |
 | `a58f975b9131ed3d` | 24,129 | `Preprocessor/CueSplitter/output/cue_split_plan.json` |
 | `e85abaca8647e5f5` | 142,974 | `Docs/v6-run-record/cue_facts.json` |
-
-`unextracted_rar_snapshot.output.json` is still being written; hash it when the
-run completes.
+| `5a2a95c556866284` | 18,525 | `Preprocessor/Extract/output/unextracted_rar_snapshot.output.json` |
 
 `scripts/` holds the analysis chain in execution order. `scripts/audits/` holds
 the scripts the adversarial auditors wrote — kept because they produced the
