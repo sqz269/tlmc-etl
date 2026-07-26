@@ -28,6 +28,12 @@ hls_completed_output = get_output_path(
     HlsTranscodePathDef, HlsTranscodePathDef.HLS_TRANSCODE_COMPLETED_OUTPUT_NAME
 )
 
+# Delete each source FLAC once all of its qualities have transcoded. Off by
+# default: HLS output is lossy, so the FLAC is the only copy that can be
+# re-encoded later, and the MERT embedding pipeline reads the FLAC directly.
+# Deleting here makes both regeneration and embedding generation impossible.
+DELETE_SOURCE_AFTER_TRANSCODE = False
+
 
 class HlsRunner:
     @staticmethod
@@ -52,6 +58,7 @@ class HlsRunner:
     ):
         try:
             src_file = None
+            succeeded = 0
             for quality, work_details in work.items():
                 src = work_details["src"]
                 src_file = src
@@ -76,16 +83,32 @@ class HlsRunner:
                     )
                     continue
 
-                outputWriter.write(f"{track_id}\n")
+                succeeded += 1
 
+            # A track only counts as done when every quality rendered. The old
+            # code reported "Completed" and unlinked the source even when all
+            # four encodes failed, which destroyed the only lossless copy of a
+            # track that had produced no playable output at all.
+            if succeeded != len(work):
+                journalWriter.report_error(
+                    f"Incomplete {track_id}: {succeeded}/{len(work)} qualities "
+                    f"rendered, source kept for retry\n"
+                )
+                return
+
+            # Written once per track, not once per quality: `remove_completed`
+            # reads this back into a set, so the extra lines were only bloat.
+            outputWriter.write(f"{track_id}\n")
             journalWriter.report_completed(f"Completed {track_id}\n")
-            os.unlink(src_file)
-            # Unlink completed
+
+            if DELETE_SOURCE_AFTER_TRANSCODE and src_file:
+                os.unlink(src_file)
 
         except Exception as e:
-            journalWriter.report_error(
-                f"Failed to process {track_id} with command [{work['cmd']}]\n"
-            )
+            # `work` is {quality: {...}}, so the old `work['cmd']` raised
+            # KeyError from inside the handler. Nothing calls .result() on these
+            # futures, so that exception was swallowed and the failure vanished.
+            journalWriter.report_error(f"Failed to process {track_id}: {e}\n")
 
     @staticmethod
     def start():
