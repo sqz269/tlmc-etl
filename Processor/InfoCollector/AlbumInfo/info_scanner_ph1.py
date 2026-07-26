@@ -310,9 +310,16 @@ class Phase01:
 
         """
         track_list = []
-        files = flatten[dir_path]
+        # .get, not [], so an artifact naming a directory the file list does not
+        # contain yields a disc with no tracks -- which is flagged downstream --
+        # instead of a KeyError that ends the whole phase after the probe.
+        files = flatten.get(dir_path, [])
         for file in files:
-            file_ext = file[file.rfind(".") + 1 :]
+            # .lower(): the single-disc path lowercases and this one did not, so
+            # "TRACK.MP3" inside a disc directory was not recognised as audio and
+            # was silently filed as an asset rather than a track. The library
+            # holds 217 uppercase-extension files.
+            file_ext = file[file.rfind(".") + 1 :].lower()
             if file_ext in ACCEPTED_AUDIO_FILE_EXTENSIONS:
                 track_list.append(join_paths(dir_path, file))
         return track_list
@@ -340,7 +347,10 @@ class Phase01:
                 if fp in all_tracks_set:
                     continue
 
-                file_ext = file[file.rfind(".") + 1 :]
+                # .lower() for the same reason as gen_track_list_from_discs: an
+                # uppercase extension here made a stray track an asset instead of
+                # an unidentified track, so it was never even flagged.
+                file_ext = file[file.rfind(".") + 1 :].lower()
                 if file_ext in ACCEPTED_AUDIO_FILE_EXTENSIONS:
                     unid_track_list.append(fp)
                     continue
@@ -431,14 +441,27 @@ class Phase01:
 
         """
         results = []
+        failed = []
         for dir_path, dir_info in self.file_list.items():
             # if dir_path.endswith(IGNORED_ALBUMS):
             #     print(f"Skipping {dir_path}")
             #     continue
-            if dir_path in self.discs_info:
-                results.append(self.process_discs(dir_path, dir_info))
-                continue
-            results.append(self.process_one(dir_path, dir_info))
+            # One malformed album must not discard the whole phase. This runs
+            # after the probe, so an exception here used to throw away hours of
+            # work for every other album in the library.
+            try:
+                if dir_path in self.discs_info:
+                    results.append(self.process_discs(dir_path, dir_info))
+                    continue
+                results.append(self.process_one(dir_path, dir_info))
+            except Exception as e:  # noqa: BLE001 - deliberately broad
+                failed.append((dir_path, repr(e)))
+
+        if failed:
+            print(f"\n{len(failed)} album(s) could not be processed:")
+            for dir_path, err in failed:
+                print(f"   {dir_path}: {err}")
+            print("They are absent from the output rather than merged in blank.")
         return results
 
 
@@ -593,6 +616,28 @@ def gen_probe_results(file_list):
     return [done[p] for p in filtered if p in done]
 
 
+def check_file_list_fresh(file_list, discs_info) -> List[str]:
+    """
+    Complaints about a file list that no longer describes the disc artifact.
+
+    The file list is cached and reused whenever it exists, while the artifact is
+    read fresh every run. Regenerating the artifact -- or moving files on disk,
+    which the disc reorganisation does -- leaves the two describing different
+    trees. Every mismatch is a disc that silently contributes no tracks, so it is
+    worth saying so up front rather than letting it look like an empty disc.
+    """
+    problems = []
+    for album, discs in discs_info.items():
+        if album not in file_list:
+            problems.append(f"album absent from file list: {album}")
+            continue
+        flat = flatten_dir_from_path(file_list, album)
+        for disc in discs:
+            if disc["path"] not in flat:
+                problems.append(f"disc absent from file list: {disc['path']}")
+    return problems
+
+
 def main():
     if not os.path.exists(disc_final_output_file):
         raise FileNotFoundError(
@@ -611,16 +656,27 @@ def main():
         print(f"Reusing file list at {filelist_output_path}")
         file_list = json_load(filelist_output_path)
 
+    print("Loading discs info...")
+    discs_info = json_load(disc_final_output_file)
+
+    # Checked before the probe, not after: probing is the expensive step and a
+    # stale file list is cheap to detect and cheap to fix.
+    problems = check_file_list_fresh(file_list, discs_info)
+    if problems:
+        print(f"\nThe cached file list disagrees with the disc artifact "
+              f"({len(problems)} mismatches):")
+        for p in problems[:20]:
+            print(f"   {p}")
+        if len(problems) > 20:
+            print(f"   ... and {len(problems) - 20} more")
+        print(f"\nDelete {filelist_output_path} and rerun to rebuild it "
+              f"from the current tree.")
+        raise SystemExit(1)
+
     if not os.path.exists(probed_results_path):
         print("Generating probe results...")
         probe_results = gen_probe_results(file_list)
-        reformat_probed_results = reformat_probed(probe_results)
-        json_dump(reformat_probed_results, probed_results_path)
-
-    reformat_probed_results = json_load(probed_results_path)
-
-    print("Loading discs info...")
-    discs_info = json_load(disc_final_output_file)
+        json_dump(reformat_probed(probe_results), probed_results_path)
 
     print("Starting phase 1...")
     phase1 = Phase01(file_list, discs_info)

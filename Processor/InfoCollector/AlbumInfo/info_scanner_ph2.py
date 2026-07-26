@@ -112,7 +112,13 @@ class Phase02TrackExtractor:
 
     def extract_track_info_from_probed_results(self, track_path):
         keys = Phase02TrackExtractor.KEYS
-        probed_data = self.probe_result[track_path].get("tags", {})
+        # A track with no probe entry is one ffprobe could not read: the v6
+        # release ships 40 truncated or zero-length files, 20 of which phase 1
+        # lists as tracks. Indexing directly raised KeyError on the first one and
+        # ended phase 2. Treating it as untagged lets the filename supply what it
+        # can and flags the track for review.
+        probed = self.probe_result.get(track_path)
+        probed_data = probed.get("tags", {}) if probed else {}
 
         # convert all keys to lower case
         probed_data = {k.lower(): v for k, v in probed_data.items()}
@@ -143,6 +149,11 @@ class Phase02TrackExtractor:
 
         needs_manual_check = False
         needs_manual_check_reason = []
+        # Say so explicitly. Otherwise a broken file whose name happens to parse
+        # looks like a perfectly good track all the way into the database.
+        if track_path not in self.probe_result:
+            needs_manual_check = True
+            needs_manual_check_reason.append("No probe data (file unreadable)")
         if probed_data["track"] == -1:
             needs_manual_check = True
             needs_manual_check_reason.append("Track number is empty")
@@ -247,8 +258,11 @@ class Phase02AlbumExtractor:
         tracks = get_all_tracks(album)
         aggr_tags = {}
         for track in tracks:
-            probe_data = self.probe_result[track]
-            tags = probe_data.get("tags", {})
+            # Same as the track extractor: an unprobeable file contributes no
+            # tags rather than ending the phase. Album fields are a majority vote
+            # across tracks, so one silent track does not change the outcome.
+            probe_data = self.probe_result.get(track)
+            tags = probe_data.get("tags", {}) if probe_data else {}
             tags = {k.lower(): v for k, v in tags.items()}
             tags = {k: v for k, v in tags.items() if k in keys}
             for k, v in tags.items():
