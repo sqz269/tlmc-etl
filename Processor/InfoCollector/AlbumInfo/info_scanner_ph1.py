@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Tuple
 
 import Shared.utils as utils
@@ -24,6 +26,10 @@ filelist_output_path = os.path.join(output_root, INFO_SCANNER_FILELIST_OUTPUT_NA
 phase1_output_path = os.path.join(output_root, INFO_SCANNER_PHASE1_OUTPUT_NAME)
 
 ACCEPTED_AUDIO_FILE_EXTENSIONS = {"flac", "mp3", "wav", "wv", "m4a"}
+
+# ffprobe is one short-lived process per file and the library sits on a USB
+# disk, so the pass is bound by seek latency, not CPU.
+PROBE_WORKERS = max(1, (os.cpu_count() or 4) - 2)
 THUMBNAIL_FILE_NAMES = {"folder", "cover"}
 IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "bmp", "svg", "webp", "ico", "tif"}
 # Video, DVD, and other media of interest
@@ -436,12 +442,26 @@ class Phase01:
         return results
 
 
-def _gen_directory_tree_help(path: str, relative_depth: int) -> dict:
-    files = [
-        file for file in os.listdir(path) if os.path.isfile(join_paths(path, file))
-    ]
+def list_dir(path: str) -> List[str]:
+    """
+    Entries of `path`, or an empty list if it cannot be read.
 
-    dirs = [dir for dir in os.listdir(path) if os.path.isdir(join_paths(path, dir))]
+    ext4 puts a root-owned `lost+found` at the root of the library, and a bare
+    os.listdir raises PermissionError on it, aborting the whole scan. disc_scanner
+    and cue_scanner carry the same guard.
+    """
+    try:
+        return os.listdir(path)
+    except OSError as e:
+        print(f"Skipping unreadable directory {path}: {e}")
+        return []
+
+
+def _gen_directory_tree_help(path: str, relative_depth: int) -> dict:
+    entries = list_dir(path)
+    files = [file for file in entries if os.path.isfile(join_paths(path, file))]
+
+    dirs = [dir for dir in entries if os.path.isdir(join_paths(path, dir))]
 
     return {
         path: {
@@ -462,13 +482,13 @@ def gen_directory_tree(path: str):
 def gen_file_list(root):
     circles = [
         full_path
-        for name in os.listdir(root)
+        for name in list_dir(root)
         if (full_path := join_paths(root, name)) and os.path.isdir(full_path)
     ]
     albums = [
         full_path
         for circle in circles
-        for name in os.listdir(circle)
+        for name in list_dir(circle)
         if (full_path := join_paths(circle, name)) and os.path.isdir(full_path)
     ]
 
@@ -479,33 +499,98 @@ def gen_file_list(root):
     return directory_tree
 
 
+def load_probed_lines():
+    """
+    Probe results from an earlier, interrupted run, keyed by file path.
+
+    The tmp_lines file is appended to as each probe lands, so it survives an
+    interruption. Reading it back makes the pass resumable instead of starting
+    178k ffprobe calls over again, and stops a rerun appending a second copy of
+    every line.
+    """
+    done = {}
+    if not os.path.isfile(probed_results_path_tmp_lines):
+        return done
+    with open(probed_results_path_tmp_lines, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+                done[rec["format"]["filename"]] = rec
+            except (json.JSONDecodeError, KeyError, TypeError):
+                continue
+    return done
+
+
 def gen_probe_results(file_list):
-    probe_results = []
     filtered = filter_probe_list(file_list)
-    for index, file_path in enumerate(filtered):
-        file_name = os.path.basename(file_path)
-        print(f"[{index}/{len(filtered)}] Probing: {file_name}", end="\r")
-        result = utils.probe_flac("ffprobe", file_path)
+
+    done = load_probed_lines()
+    pending = [p for p in filtered if p not in done]
+    print(f"Files to probe: {len(filtered)}  already probed: {len(done)}  pending: {len(pending)}")
+
+    # One ffprobe per file, serially, was the longest single step in the
+    # pipeline: the library holds ~178k tracks on a USB disk, where each call is
+    # dominated by seek latency rather than CPU. Probing concurrently turns that
+    # from hours into minutes, exactly as it did for the loudness pass.
+    lock = threading.Lock()
+    state = {"n": 0, "failed": 0}
+    tmp_out = open(probed_results_path_tmp_lines, "a", encoding="utf-8")
+    dbg_out = open(probed_results_path_debug, "a", encoding="utf-8")
+
+    def work(item):
+        index, file_path = item
+        try:
+            result = utils.probe_flac("ffprobe", file_path)
+        except Exception as e:  # noqa: BLE001 - one bad file must not end the pass
+            print(f"\nprobe failed for {file_path!r}: {e!r}")
+            result = None
+
+        json_result = None
         if result:
-            json_result = json.loads(result)
-            utils.append_file(
-                probed_results_path_tmp_lines,
-                json.dumps(json_result, ensure_ascii=False) + "\n",
-            )
-            utils.append_file(
-                probed_results_path_debug,
-                json.dumps(
-                    {
-                        "index": index,
-                        "path": file_path,
-                        "format": json_result.get("format"),
-                    },
-                    ensure_ascii=False,
+            try:
+                json_result = json.loads(result)
+            except json.JSONDecodeError:
+                json_result = None
+
+        with lock:
+            state["n"] += 1
+            if json_result is None:
+                state["failed"] += 1
+            else:
+                done[file_path] = json_result
+                tmp_out.write(json.dumps(json_result, ensure_ascii=False) + "\n")
+                dbg_out.write(
+                    json.dumps(
+                        {
+                            "index": index,
+                            "path": file_path,
+                            "format": json_result.get("format"),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
                 )
-                + "\n",
-            )
-            probe_results.append(json_result)
-    return probe_results
+            if state["n"] % 200 == 0:
+                tmp_out.flush()
+                dbg_out.flush()
+                print(
+                    f"[{state['n']}/{len(pending)}] probed, {state['failed']} failed",
+                    end="\r",
+                )
+
+    with ThreadPoolExecutor(max_workers=PROBE_WORKERS) as executor:
+        list(executor.map(work, enumerate(pending)))
+
+    tmp_out.close()
+    dbg_out.close()
+    print(f"\nProbed {state['n'] - state['failed']} files, {state['failed']} failed")
+
+    # Return them in the file list's order so the output does not depend on the
+    # order threads happened to finish in.
+    return [done[p] for p in filtered if p in done]
 
 
 def main():
@@ -519,6 +604,12 @@ def main():
         print("Generating file list...")
         file_list = gen_file_list(tlmc_root)
         json_dump(file_list, filelist_output_path)
+    else:
+        # file_list was previously only bound inside the branch above, so a
+        # rerun that had the file list but no probe results raised NameError
+        # before probing a single file -- precisely the resume case.
+        print(f"Reusing file list at {filelist_output_path}")
+        file_list = json_load(filelist_output_path)
 
     if not os.path.exists(probed_results_path):
         print("Generating probe results...")
@@ -526,7 +617,6 @@ def main():
         reformat_probed_results = reformat_probed(probe_results)
         json_dump(reformat_probed_results, probed_results_path)
 
-    file_list = json_load(filelist_output_path)
     reformat_probed_results = json_load(probed_results_path)
 
     print("Loading discs info...")
