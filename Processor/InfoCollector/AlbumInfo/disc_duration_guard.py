@@ -37,6 +37,7 @@ from Processor.InfoCollector.AlbumInfo.disc_auto_classify import disc_index_from
 from Processor.InfoCollector.AlbumInfo.disc_scanner import (
     ACCEPTED_AUDIO_FILE_EXTENSIONS,
     looks_like_disc,
+    never_a_disc,
 )
 from Processor.InfoCollector.AlbumInfo.output.path_definitions import (
     DISC_MANUAL_CHECKER_OUTPUT_NAME,
@@ -111,8 +112,23 @@ def is_mirror(a: List[float], b: List[float]) -> bool:
     return matched / max(len(a), len(b)) >= DEDUPE_MATCH_RATIO
 
 
+def relative(album: str, directory: str) -> str:
+    return directory[len(album) + 1:] if directory.startswith(album) else directory
+
+
 def classify(album: str, audio_dirs: List[str]):
     """Returns (discs, reason) in disc_auto_classify's contract."""
+    # Production material is excluded before anything is measured. Promotion
+    # rests on track count and duration, and a stem folder or a DAW project's
+    # media directory outscores the album it belongs to.
+    excluded = {d: why for d in audio_dirs
+                if (why := never_a_disc(relative(album, d))) is not None}
+    audio_dirs = [d for d in audio_dirs if d not in excluded]
+    if not audio_dirs:
+        return None, {"verdict": "no candidate directories after exclusions",
+                      "excluded": {os.path.basename(k): v
+                                   for k, v in excluded.items()}}
+
     measured = {d: durations(d) for d in audio_dirs}
 
     # DEDUPE: drop any directory that mirrors an earlier one. The earlier one in
@@ -154,6 +170,7 @@ def classify(album: str, audio_dirs: List[str]):
                                   for k, v in dropped.items()},
             "dropped_as_small": [os.path.basename(d) for d in rejected],
             "note": "single disc, held in a subdirectory rather than the album root",
+            "excluded": {os.path.basename(k): v for k, v in excluded.items()},
         }
 
     if len(discs) < 2:
@@ -165,6 +182,7 @@ def classify(album: str, audio_dirs: List[str]):
                 f"{os.path.basename(d)} ({len(measured[d])} trk, "
                 f"{sum(measured[d])/60:.1f} min)" for d in rejected
             ],
+            "excluded": {os.path.basename(k): v for k, v in excluded.items()},
         }
 
     indices = [disc_index_from_name(os.path.basename(d)) for d in discs]
@@ -181,6 +199,7 @@ def classify(album: str, audio_dirs: List[str]):
         "dropped_as_mirror": {os.path.basename(k): os.path.basename(v)
                               for k, v in dropped.items()},
         "dropped_as_small": [os.path.basename(d) for d in rejected],
+        "excluded": {os.path.basename(k): v for k, v in excluded.items()},
     }
     return entry, note
 

@@ -93,6 +93,45 @@ BARE_DISC = re.compile(r"disc|disk|ディスク", re.I)
 MAX_AUDIO_DIRS_FOR_AUTO_DISC = 5
 
 
+# Directories that hold audio but can never be a disc, however large they are.
+#
+# The name rules above answer "does this look like a disc?", and a directory that
+# answers no is usually just unnamed -- which is why disc_duration_guard is
+# allowed to promote it on track count and duration. These two families are
+# different: they are positively identified as production material, so no amount
+# of audio in them makes them a programme. Without this the guard turned a Logic
+# Pro project's scratch audio into a 176-track disc, inflating a 4-track release
+# to 180.
+#
+# Deliberately narrow. Bonus and instrumental folders are NOT listed: "Bonus
+# Disc" is a real second disc, and vetoing that family costs 78 discs and 893
+# tracks across the library, several albums losing every disc they have.
+DAW_PROJECT_EXTENSIONS = (
+    ".logicx", ".als", ".flp", ".ptx", ".cpr", ".band",
+    ".reason", ".rpp", ".aup", ".sesx", ".ptf", ".song", ".dawproject",
+)
+STEM_EXPORT = re.compile(
+    r"(?:^|[\s\-_（(【])stems?(?:$|[\s\-_）)】])|instrumental\s+stems?|\bmulti-?track",
+    re.I,
+)
+
+
+def never_a_disc(relative_path: str):
+    """
+    Why `relative_path` (a disc candidate, relative to its album root) cannot be
+    a disc, or None if nothing rules it out.
+    """
+    segments = [s for s in relative_path.replace("\\", "/").split("/") if s]
+    if not segments:
+        return None
+    for segment in segments:
+        if os.path.splitext(segment)[1].lower() in DAW_PROJECT_EXTENSIONS:
+            return "inside a DAW project bundle"
+    if STEM_EXPORT.search(segments[-1]):
+        return "stem export, not a programme"
+    return None
+
+
 def looks_like_disc(dir_name: str) -> bool:
     """
     Whether a directory name denotes a disc rather than supplementary content.
