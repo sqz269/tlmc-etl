@@ -35,6 +35,16 @@ ALBUM_DATE_VALIDATOR = re.compile(r"(\d{4}\.(?:\d|x){2}\.(?:\d|x){2}).?", re.IGN
 
 CIRCLE_INFO_EXTRACTOR = re.compile(r"\[(.+)\]")
 
+# Bracket contents that are never a convention name, however short they are:
+# a bare year or date, the "NA" placeholder, and the rip-quality tokens the
+# collection appends to album directories.
+NOT_A_CONVENTION = re.compile(
+    r"^\s*(?:\d{4}(?:[.\-/]\d{1,2}){0,2}|na)\s*$"
+    r"|\b(?:cdr?|web|dvd|dl|flac|mp3|wav|wv|m4a|aac|ogg|opus|lossless"
+    r"|v0|vbr|hi-?res|24-?bit|16-?bit|no\s*log|scans?)\b",
+    re.I,
+)
+
 ALBUM_DATE_VALIDATOR = re.compile(
     r"(\d{4}(?:\.(?:\d{2}|x{2}))?(?:\.(?:\d{2}|x{2}))?)", re.IGNORECASE
 )
@@ -83,8 +93,10 @@ def extract_bracket_content(s) -> List[str]:
     outer_bracket_start = outer_bracket[0]
     outer_bracket_end = s.find(brackets[outer_bracket[1]], outer_bracket_start)
     if outer_bracket_end == -1:
-        print("Invalid string: Unterminated bracket. Faulty string: " + s)
-        return []
+        # Unterminated. Returning [] here discarded every bracket in the rest of
+        # the string too, so one typo like "{5150-A003]" cost the album its
+        # catalog number. Skip past the offending opener and keep parsing.
+        return extract_bracket_content(s[outer_bracket_start + 1 :])
 
     # include the brackets itself
     outer_bracket_content = s[outer_bracket_start + 1 : outer_bracket_end]
@@ -253,9 +265,18 @@ class Phase02AlbumExtractor:
         # remove catalog from brackets
         brackets = [b for b in brackets if b != catalog]
 
+        # The shortcut below returns a lone bracket whatever it contains, and the
+        # loop after it accepts anything short with a digit and a letter. Between
+        # them they filed a release date, a rip-quality token or the collection's
+        # "NA" placeholder as the convention for 229 albums. A convention looks
+        # like "C97", "例大祭14" or "M3-46"; these shapes never do.
+        brackets = [b for b in brackets if not NOT_A_CONVENTION.search(b)]
+        if not brackets:
+            return ""
+
         if len(brackets) == 1 and len(brackets[0]) >= 1 and len(brackets[0]) <= 10:
             return brackets[0]
-        
+
         for bracket in brackets:
             if len(bracket) >= 1 and len(bracket) <= 10:
                 digits = [c for c in bracket if c.isdigit() or c in other_numerals]
