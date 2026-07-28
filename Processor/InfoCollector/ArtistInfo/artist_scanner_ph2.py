@@ -19,12 +19,22 @@ artist_new_name_dump_output = os.path.join(
 
 CIRCLE_INFO_EXTRACTOR = re.compile(r"\[(.+)\](.+)?")
 
+# Directories at the library root that are not circles. lost+found is ext4's,
+# sitting at the root of every filesystem, and without this it becomes a circle
+# with its own UUID and a database record. Deleting it is not the fix: e2fsck
+# puts recovered orphaned inodes there, and this array has already lost power
+# once. disc_scanner, cue_scanner and info_scanner_ph1 all skip it too.
+NOT_A_CIRCLE = {"lost+found", ".trash-1000", "$recycle.bin", "system volume information"}
+
 
 def main():
     tlmc_root = input("Enter the root directory of the TLMC: ")
     artist_list = []
     for dir in os.listdir(tlmc_root):
         if not os.path.isdir(os.path.join(tlmc_root, dir)):
+            continue
+        if dir.lower() in NOT_A_CIRCLE:
+            print(f"Skipping {dir}: not a circle")
             continue
 
         artist_list.append(dir)
