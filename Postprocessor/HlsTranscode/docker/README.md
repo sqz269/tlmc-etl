@@ -121,6 +121,32 @@ render, media file before playlist, and its scratch directory is removed either
 way — so a failure leaves nothing behind at the destination and nothing in
 scratch.
 
+### Measured on the real run
+
+Two nodes, 164,287 tracks, shard count 2. Each row adds one change:
+
+| | local | SMB node | total |
+|---|---|---|---|
+| single node, no sharding | 0.98 | — | **0.98** |
+| + second node, direct SMB writes | 0.73 | 0.26 | **0.98** |
+| + `TLMC_STAGE_DIR` on the SMB node | 0.58 | 0.43 | **1.01** |
+| + `TLMC_STAGE_DIR` on both | 0.87 | 0.50 | **1.37** |
+| + all cores back to the local container | 1.00 | 0.37 | **1.37** |
+| + one-process ladder (both nodes) | **1.17** | **0.61** | **1.78** |
+
+tracks/s. Projected wall clock: **45 h → 25 h.**
+
+Two things are worth reading off this. Adding a 32-thread machine bought
+*nothing* until staging existed — the second row is the first row exactly. And
+cutting the SMB node from 32 workers to 12 (fifth row) moved throughput between
+the nodes without creating any: the disk, not the worker count, was setting the
+pace.
+
+The local node now runs at 0.1% idle and 0.0% iowait, so it is out of headroom
+until it has more cores. The SMB node is still latency-bound on reads from the
+same spinning disk, which is where any further gain would come from — its own
+CPU sits mostly idle.
+
 ### What each node needs
 
 | | |
