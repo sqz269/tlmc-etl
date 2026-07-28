@@ -143,9 +143,31 @@ the nodes without creating any: the disk, not the worker count, was setting the
 pace.
 
 The local node now runs at 0.1% idle and 0.0% iowait, so it is out of headroom
-until it has more cores. The SMB node is still latency-bound on reads from the
-same spinning disk, which is where any further gain would come from — its own
-CPU sits mostly idle.
+until it has more cores.
+
+### Things that were tried after that and did not work
+
+The SMB node still has 84% of a Ryzen 9 9950X3D idle, so four further changes
+were measured against the 1.78 baseline. **All four lost.** Recorded here so
+they are not re-attempted:
+
+| change | result |
+|---|---|
+| SMB multichannel | not attempted — already enabled server-side, and a single channel already carries 76.5 MB/s of a 1 GbE link (92% of raw rsync-over-ssh) with `smbd` at 3.2% of one core |
+| move HLS output to a separate spindle | ~+4% projected: the library disk does **171.9 MB/s** on 24 concurrent reads against ~48 MB/s in production, so it is not saturated, and interleaved writes cost only 22% |
+| prefetch sources to local disk before encoding | **0.86×** — reading over SMB *while* encoding overlaps I/O with compute; serialising it throws that away |
+| 64 workers instead of 32 | **0.45 vs 0.61**, plus 14 `Software caused connection abort` errors |
+| `TLMC_PUBLISH_WORKERS=16` (overlap publish with encode) | **0.40 vs 0.61**, total 1.78 → 1.39 |
+
+The common thread: the SMB node is bounded by **aggregate throughput of the
+mount under concurrency**, not by its CPU, not by the server's disk, not by the
+serialisation inside a worker, and not by the transport's single-channel
+ceiling. Encode reads and publish writes contend for the same mount, so
+overlapping or re-ordering them creates no capacity — it only adds concurrent
+streams, and this mount degrades past roughly 32 of them.
+
+Raising it means changing what crosses the wire (a faster link, or serving
+sources and output from different machines), not restructuring the client.
 
 ### What each node needs
 

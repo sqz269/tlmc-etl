@@ -106,18 +106,32 @@ STAGE_DIR = os.environ.get("TLMC_STAGE_DIR") or None
 # Publish finished tracks on a separate pool, so a worker starts its next encode
 # instead of waiting for 23 MB to cross the network.
 #
-#   TLMC_PUBLISH_WORKERS=8
+#   TLMC_PUBLISH_WORKERS=16
 #
-# Staging alone left each worker doing encode-then-publish end to end. Measured
-# on the SMB node at 16-way concurrency: encoding to local disk sustains 1.25
-# tracks/s and publishing sustains 1.35, but run in series they give
-# 1/(1/1.25 + 1/1.35) = 0.65 -- and the node was observed at 0.61. Overlapping
-# the two makes the slower of the pair the limit rather than their sum.
+# MEASURED WORSE ON THE ONE NODE IT WAS BUILT FOR. Leave it unset.
 #
-# Raising the worker count instead does not work: it scales encode and publish
-# together and multiplies SMB streams. 64 workers measured *worse* (0.45 vs
-# 0.61) and tripped 14 `Software caused connection abort` errors out of the soft
-# CIFS mount.
+# The reasoning was that staging left each worker doing encode-then-publish end
+# to end: at 16-way concurrency the SMB node encoded to local scratch at 1.25
+# tracks/s and published at 1.35, and in series those give
+# 1/(1/1.25 + 1/1.35) = 0.65 against an observed 0.61. Overlapping them should
+# have made the slower of the pair the limit rather than their sum.
+#
+# In production it went the other way: 0.61 -> 0.40, dragging the total from
+# 1.78 to 1.39. The model was wrong because encode and publish are not
+# independent resources -- both cross the same SMB mount. Overlapping them
+# creates no bandwidth, it just raises the concurrent stream count (32 encode
+# reads plus 16 publish writes), and this mount degrades past roughly 32
+# streams. The publish queue ran permanently full, so encoding was blocked on
+# backpressure and container CPU fell from 503% to 410%.
+#
+# That is the same wall that made 64 workers worse than 32 (0.45 vs 0.61, plus
+# 14 `Software caused connection abort` errors out of the soft CIFS mount). The
+# node is bounded by aggregate SMB throughput under concurrency, and no amount
+# of client-side restructuring moves that.
+#
+# Kept because it is correct and tested, and would pay off on a node whose
+# transport is not already the constraint -- a faster link, or output going to a
+# different server than the sources come from.
 #
 # TLMC_PUBLISH_QUEUE bounds how many finished tracks may sit in scratch waiting
 # to go. Hitting it blocks the encode worker, which is the point: scratch is
