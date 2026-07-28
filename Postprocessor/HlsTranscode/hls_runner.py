@@ -3,6 +3,8 @@ import hashlib
 import os
 import shutil
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import Postprocessor.HlsTranscode.output.path_definitions as HlsTranscodePathDef
 from Postprocessor.HlsTranscode.hls_assignment import make_ffmpeg_hls_ladder_cmd
 from Shared import json_utils, utils
@@ -101,7 +103,37 @@ def shard_path(path: str, index: int, count: int) -> str:
 STAGE_DIR = os.environ.get("TLMC_STAGE_DIR") or None
 
 
+# Publish finished tracks on a separate pool, so a worker starts its next encode
+# instead of waiting for 23 MB to cross the network.
+#
+#   TLMC_PUBLISH_WORKERS=8
+#
+# Staging alone left each worker doing encode-then-publish end to end. Measured
+# on the SMB node at 16-way concurrency: encoding to local disk sustains 1.25
+# tracks/s and publishing sustains 1.35, but run in series they give
+# 1/(1/1.25 + 1/1.35) = 0.65 -- and the node was observed at 0.61. Overlapping
+# the two makes the slower of the pair the limit rather than their sum.
+#
+# Raising the worker count instead does not work: it scales encode and publish
+# together and multiplies SMB streams. 64 workers measured *worse* (0.45 vs
+# 0.61) and tripped 14 `Software caused connection abort` errors out of the soft
+# CIFS mount.
+#
+# TLMC_PUBLISH_QUEUE bounds how many finished tracks may sit in scratch waiting
+# to go. Hitting it blocks the encode worker, which is the point: scratch is
+# capped at roughly (workers + queue) x 23 MB rather than growing without limit
+# if the network falls behind.
+PUBLISH_WORKERS = int(os.environ.get("TLMC_PUBLISH_WORKERS") or 0)
+PUBLISH_QUEUE = int(os.environ.get("TLMC_PUBLISH_QUEUE") or 32)
+
+
 class HlsRunner:
+    # Set up in start() when TLMC_PUBLISH_WORKERS is on; None means publish
+    # inline on the encoding worker, which is what a node with a local library
+    # should do -- there is nothing to overlap.
+    _publisher = None
+    _publish_slots = None
+
     @staticmethod
     def remove_completed(workslist: dict):
         # Every shard's completed list is honoured, not just this node's. The
@@ -134,6 +166,38 @@ class HlsRunner:
             shutil.copy2(os.path.join(stage_root, name), os.path.join(dst_root, name))
 
     @staticmethod
+    def publish_track(
+        journalWriter: JournalWriter,
+        outputWriter: OutputWriter,
+        track_id: str,
+        work: dict,
+        stage_track_dir: str,
+        src_file: str,
+    ):
+        """Move a finished track from scratch to its destination and record it.
+
+        The completed marker is written here rather than when the encode
+        finished: until the bytes are actually at the destination the track is
+        not done, and recording it earlier would let a later run skip a track
+        whose publish had failed.
+        """
+        try:
+            for quality, work_details in work.items():
+                HlsRunner.publish_one(
+                    os.path.join(stage_track_dir, quality), work_details["dst_root"]
+                )
+
+            outputWriter.write(f"{track_id}\n")
+            journalWriter.report_completed(f"Completed {track_id}\n")
+
+            if DELETE_SOURCE_AFTER_TRANSCODE and src_file:
+                os.unlink(src_file)
+        except Exception as e:
+            journalWriter.report_error(f"Failed to publish {track_id}: {e}\n")
+        finally:
+            shutil.rmtree(stage_track_dir, ignore_errors=True)
+
+    @staticmethod
     def process_one(
         journalWriter: JournalWriter,
         messageWriter: PrintMessageReporter,
@@ -142,6 +206,9 @@ class HlsRunner:
         work: dict,
     ):
         stage_track_dir = os.path.join(STAGE_DIR, track_id) if STAGE_DIR else None
+        # Set before the try: the finally reads it on every path, including a
+        # failure raised before the hand-off point.
+        handed_off = False
         try:
             # Every rung of a track shares a source and a gain -- they differ
             # only in bitrate and destination -- so the ladder is one command.
@@ -190,22 +257,50 @@ class HlsRunner:
                 )
                 return
 
-            # Publish only once every rung has rendered, so a track that fails
-            # halfway leaves nothing behind at the destination to clean up.
-            if stage_track_dir:
-                for quality, work_details in work.items():
-                    HlsRunner.publish_one(
-                        os.path.join(stage_track_dir, quality),
-                        work_details["dst_root"],
-                    )
+            # Publishing happens only once every rung has rendered, so a track
+            # that fails halfway leaves nothing behind at the destination.
+            if not stage_track_dir:
+                # Written once per track, not once per quality: `remove_completed`
+                # reads this back into a set, so the extra lines were only bloat.
+                outputWriter.write(f"{track_id}\n")
+                journalWriter.report_completed(f"Completed {track_id}\n")
+                if DELETE_SOURCE_AFTER_TRANSCODE and src_file:
+                    os.unlink(src_file)
+                return
 
-            # Written once per track, not once per quality: `remove_completed`
-            # reads this back into a set, so the extra lines were only bloat.
-            outputWriter.write(f"{track_id}\n")
-            journalWriter.report_completed(f"Completed {track_id}\n")
+            if HlsRunner._publisher is None:
+                HlsRunner.publish_track(
+                    journalWriter, outputWriter, track_id, work, stage_track_dir, src_file
+                )
+                return
 
-            if DELETE_SOURCE_AFTER_TRANSCODE and src_file:
-                os.unlink(src_file)
+            # Hand off and go straight to the next encode. acquire() blocks once
+            # TLMC_PUBLISH_QUEUE tracks are already waiting, which is the
+            # backpressure that keeps scratch bounded when the network is the
+            # slower half.
+            def publish_and_release(
+                jw=journalWriter,
+                ow=outputWriter,
+                tid=track_id,
+                wk=work,
+                stage=stage_track_dir,
+                src_f=src_file,
+            ):
+                try:
+                    HlsRunner.publish_track(jw, ow, tid, wk, stage, src_f)
+                finally:
+                    HlsRunner._publish_slots.release()
+
+            HlsRunner._publish_slots.acquire()
+            try:
+                HlsRunner._publisher.submit(publish_and_release)
+            except Exception:
+                # Nothing took ownership, so give the slot back and let the
+                # finally below sweep scratch -- otherwise a rejected submit
+                # would leak a permit and eventually wedge every encode worker.
+                HlsRunner._publish_slots.release()
+                raise
+            handed_off = True
 
         except Exception as e:
             # `work` is {quality: {...}}, so the old `work['cmd']` raised
@@ -213,10 +308,11 @@ class HlsRunner:
             # futures, so that exception was swallowed and the failure vanished.
             journalWriter.report_error(f"Failed to process {track_id}: {e}\n")
         finally:
-            # Unconditional: a failed track must not leave its part-encoded
-            # rungs behind. 32 workers x 22 MB is trivial on disk, but a run of
-            # 82k tracks that never swept scratch would accumulate the lot.
-            if stage_track_dir:
+            # A failed track must not leave its part-encoded rungs behind. Once
+            # handed off, ownership of the scratch directory passes to the
+            # publisher -- deleting it here would race the copy that is reading
+            # it, so the publisher sweeps it in its own finally instead.
+            if stage_track_dir and not handed_off:
                 shutil.rmtree(stage_track_dir, ignore_errors=True)
 
     @staticmethod
@@ -226,6 +322,16 @@ class HlsRunner:
         if STAGE_DIR:
             os.makedirs(STAGE_DIR, exist_ok=True)
             print(f"Staging encodes in {STAGE_DIR}, publishing each track on completion")
+
+            if PUBLISH_WORKERS:
+                HlsRunner._publish_slots = threading.Semaphore(PUBLISH_QUEUE)
+                HlsRunner._publisher = ThreadPoolExecutor(
+                    max_workers=PUBLISH_WORKERS, thread_name_prefix="publish"
+                )
+                print(
+                    f"Publishing asynchronously: {PUBLISH_WORKERS} workers, "
+                    f"at most {PUBLISH_QUEUE} finished tracks held in scratch"
+                )
 
         journal_writer = JournalWriter(
             shard_path(hls_journal_general_output, index, count),
@@ -271,6 +377,17 @@ class HlsRunner:
             processor.submit_job(HlsRunner.process_one, track_id, work)
 
         processor.wait_print_complete()
+
+        # The encode futures finishing does not mean the run is done: tracks
+        # handed to the publisher are encoded but not yet at their destination,
+        # and their completed markers are written by the publisher. Exiting here
+        # would strand them -- output half-copied on the share and nothing in the
+        # completed list to say so.
+        if HlsRunner._publisher is not None:
+            print("\nEncodes finished, draining publish queue...")
+            HlsRunner._publisher.shutdown(wait=True)
+            print("Publish queue drained.")
+
         processor.reset_terminal()
 
 
