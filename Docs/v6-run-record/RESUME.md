@@ -1,7 +1,18 @@
 # Where the v6 run stands
 
-Written before a planned shutdown to reconfigure the disk array. Branch
-`extract-stage-v6`, working tree clean, nothing running, nothing pushed.
+Branch `extract-stage-v6`, working tree clean, nothing running, nothing pushed.
+
+## THE LIBRARY ROOT IS `/mnt/tlmc/TLMC v6`
+
+Not `/mnt/tlmc`. Every stage that prompts for a root wants the full path
+including the `TLMC v6` component, and it has a space in it.
+
+The release now sits one level down from the mount point so the disk can hold
+v7 beside it, and so paths carry a named release-root component. The backend's
+`EtlDataLoader/Operations/MpegDashPlaylistProcessor.cs` reconciles HLS and DASH
+paths produced on different machines by anchoring on exactly that component
+(`StripTlmcPrefixRoot(path, "TLMC v5")`), and the flat layout gave it nothing to
+anchor on. The v5 reference tree on `/mnt/tlmc-v5` has the same shape.
 
 ## Completed and verified
 
@@ -13,14 +24,19 @@ Written before a planned shutdown to reconfigure the disk array. Branch
 | Disc identification | 580 albums / 1,263 discs, contract clean |
 | Info scanner phase 1 | 18,360 albums, 164,287 tracks, 19,043 discs |
 | Info scanner phase 2 | 18,360 albums, 164,287 tracks |
+| Info scanner phase 3 | 18,360 albums, 164,287 tracks, 0 contract violations |
+| Artist scanner | 2,865 circles, 2,865 UUIDs, 0 albums unresolvable |
 
-Phase 2 flags 602 tracks (0.4%). Phase 1 flags 842 albums (4.6%).
+Phase 2 flags 602 tracks (0.4%). Phase 1 flags 842 albums (4.6%). Phase 3 leaves
+78 discs carrying duplicate track numbers, all duplicated in the source tags.
 
-## Rerunning after the array work
+## Rerunning
 
-Outputs under `Processor/InfoCollector/AlbumInfo/output/` are all current. If the
-library's mount path changes, everything must be regenerated, because every
-artifact stores absolute paths.
+Outputs under `Processor/InfoCollector/AlbumInfo/output/` are all current and
+already point at the post-move paths. Every artifact stores absolute paths, so
+moving the library again means rewriting all 22 of them -- 2.36 M occurrences
+across ~1 GB. A plain prefix substitution does it, but it is not idempotent:
+guard on the target prefix being absent before running one.
 
 Order matters. `disc_auto_classify` writes the artifact from scratch and
 `disc_duration_guard` merges into it, so running them the other way round
@@ -29,13 +45,20 @@ silently discards the guard's work:
     disc_scanner.py -> disc_auto_classify.py -> disc_duration_guard.py
     info_scanner_ph1.py -> info_scanner_ph2.py
 
+The k8s backend deployment mounts the library identity-mapped -- `hostPath` and
+`mountPath` must both equal the library root, because the backend stores absolute
+paths in `HlsPlaylistPath` and opens them straight off the filesystem. That pair
+lives in `tlmc-player/K8s/Backend/backend-api-depl.yaml` and now reads
+`/mnt/tlmc/TLMC v6/`.
+
 `info_scanner_ph1.py` reuses `info_scanner.filelist.output.json` and
 `info_scanner.probed_result.output.json` whenever they exist. Delete both if the
 library moved. It now refuses to start when the cached file list disagrees with
 the disc artifact, and names the offending paths.
 
 ffmpeg is not on the default PATH; use `nix-shell` or prepend the store path.
-The scripts that read a path from stdin can be fed with `echo /mnt/tlmc | ...`.
+The scripts that read a path from stdin can be fed with
+`echo "/mnt/tlmc/TLMC v6" | ...` -- quote it, the path contains a space.
 
 ## Open decisions — these need a human, not more analysis
 
