@@ -353,7 +353,19 @@ def main():
         executor=executor,  # <--- MODIFIED: Pass the executor
         journal=journal,
         layer_mix="last4",
-        batch_size=224,
+        # Measured on the RTX 5090 (32 GB), 6 s chunks, output_hidden_states=True:
+        #
+        #   batch    8   16   32   64   96  128  224
+        #   chunks/s 275 320  347  342  354  353   25
+        #   VRAM GB  2.5 3.7  6.0 10.8 15.5 20.3  34.6
+        #
+        # Throughput plateaus from 32 up. 224 -- the previous value -- asks for
+        # 34.6 GB on a 32 GB card, spills into host memory over PCIe and runs
+        # 14x SLOWER than any batch that fits. 64 sits on the plateau with room
+        # for real-audio variance and torch.compile's workspace, and cuts the
+        # DataLoader prefetch reservation (workers x prefetch x batch) from
+        # ~8 GB of host RAM to ~2.4 GB.
+        batch_size=64,
         pin_memory=True,
         num_workers=8,
         prefetch_factor=8,
