@@ -240,11 +240,20 @@ class HlsRunner:
 
         output_writer = OutputWriter(shard_path(hls_completed_output, index, count))
 
+        # One worker per core is right only when the library is local and the
+        # cores are the constraint. The sources sit on a single 12 TB spinning
+        # disk, and every worker on every node is an independent read stream
+        # across it -- 20 local plus 32 remote drove read await to 156 ms and
+        # held the disk to 44 MB/s, well under what it does sequentially. A node
+        # that is not CPU-bound anyway (the SMB node ran at 454% of 3200%) buys
+        # nothing from more workers and costs the other node seeks.
+        workers = int(os.environ.get("TLMC_WORKERS") or os.cpu_count())
         processor = StatAutoMuxMultiProcessor(
-            os.cpu_count(),
+            workers,
             journal_writer,
             output_writer,
         )
+        print(f"Using {workers} workers")
 
         print("Loading worklist")
         worklist = json_utils.json_load(hls_worklist_output)
