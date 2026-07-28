@@ -19,6 +19,7 @@ from utils.loader import AudioChunk, SourceFileInfo, load_flac, load_m3u8, load_
 from torch.utils.data import DataLoader, IterableDataset
 
 from utils.utils import save_tensor
+from utils.journal import RunJournal, scan_completed_ids
 import torch.multiprocessing as mp
 
 mp.set_start_method("spawn", force=True)
@@ -26,8 +27,17 @@ mp.set_start_method("spawn", force=True)
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
-DATA_DIRECTORY = str(ROOT_DIR / "data")
-EMBEDDING_DIRECTORY = str(ROOT_DIR / "embeddings" / "chunked_6s")
+# Overridable by environment so the same script runs on a host checkout and
+# inside the container, where the repo is bind-mounted and the library sits at
+# its own absolute path. The former hardcoded /mnt/j/... CSV path was a WSL drive
+# mount that exists on exactly one machine.
+DATA_DIRECTORY = os.environ.get("MERT_DATA_DIR") or str(ROOT_DIR / "data")
+EMBEDDING_DIRECTORY = os.environ.get("MERT_EMBEDDING_DIR") or str(
+  ROOT_DIR / "embeddings" / "chunked_6s"
+)
+TARGET_CSV = os.environ.get("MERT_TARGET_CSV") or str(
+  ROOT_DIR / "data_transfer" / "all_targets.csv"
+)
 
 MERT_SAMPLE_RATE = 24000
 chunking_config = ChunkingConfig(
@@ -41,15 +51,12 @@ UUID_REGEX = re.compile(
 )
 
 def get_completed_embeddings(embedding_dir: str) -> Set[str]:
-  completed: Set[str] = set()
-  for fp, _, files in os.walk(embedding_dir):
-    for f in files:
-      if f.lower().endswith(".pt"):
-        item_id = UUID_REGEX.search(f)
-        if item_id:
-          completed.add(item_id.group(0))
+  """Deprecated: the O(files) directory walk this used to do on every start.
 
-  return completed
+  Kept only as the seed for RunJournal.load_completed, which calls it once when
+  adopting the journal against an embeddings directory that predates it.
+  """
+  return scan_completed_ids(embedding_dir)
 
 def get_m4a_list(dir_path: str) -> Set[str]:
   # genre and list of songs
@@ -64,14 +71,13 @@ def get_m4a_list(dir_path: str) -> Set[str]:
 
   return m4a_files
 
-def get_m3u8_process_list(dir_path: str, target_csv_path: str, embedding_path: str) -> List[SourceFileInfo]:
+def get_m3u8_process_list(dir_path: str, target_csv_path: str, completed: Set[str]) -> List[SourceFileInfo]:
   # target is {"track_id": "m3u8_path"}
   # csv col: AlbumID,TrackID,PlaylistPath
   csv_df = pd.read_csv(target_csv_path)
   targets = csv_df[["TrackID", "PlaylistPath"]].to_dict(orient="records")
   targets = {item["TrackID"]: item["PlaylistPath"] for item in targets}
 
-  completed = get_completed_embeddings(embedding_path)
   proc: List[SourceFileInfo] = []
   loaded = 0
   done = 0
@@ -89,9 +95,13 @@ def get_m3u8_process_list(dir_path: str, target_csv_path: str, embedding_path: s
   print(f"Total files to process: {loaded}, already done: {done}")
   return proc
 
-def get_process_list(dir_path: str, embedding_path: str) -> List[SourceFileInfo]:
+def get_process_list(dir_path: str, completed: Set[str]) -> List[SourceFileInfo]:
+  # NOTE if this path is ever revived (main() uses the m3u8 one): `filename` here
+  # is a whole basename, whereas the journal keys on whatever `filename` holds and
+  # the resume filter below compares bare UUIDs. The m3u8 path sets filename to
+  # the track id, so the two agree; this one would need the same before its
+  # completed entries could be matched on restart.
   m4a_files = get_m4a_list(dir_path)
-  completed = get_completed_embeddings(embedding_path)
   proc: List[SourceFileInfo] = []
   loaded = 0
   done = 0
@@ -134,10 +144,12 @@ class ChunkStreamDataset(IterableDataset):
     self,
     flac_list: List[SourceFileInfo],
     chunking_config,
+    journal: RunJournal = None,
   ):
     super().__init__()
     self.flac_list = flac_list
     self.chunking_config = chunking_config
+    self.journal = journal
 
   def __iter__(self) -> Iterator[AudioChunk]:
     worker_info = torch.utils.data.get_worker_info()
@@ -168,10 +180,14 @@ class ChunkStreamDataset(IterableDataset):
           )
       except Exception as e:
         print(f"Could not load {fp}: {e}")
+        if self.journal is not None:
+          self.journal.report_failed(info.filename, fp, e)
         continue
 
       if len(audio_chunks.chunks) == 0:
         print(f"No audio chunks found in {fp}, skipping.")
+        if self.journal is not None:
+          self.journal.report_failed(info.filename, fp, "decoded to zero chunks")
         continue
 
       # yield one chunk at a time
@@ -181,6 +197,30 @@ class ChunkStreamDataset(IterableDataset):
 def collate_batch_fn(batch):
   return batch
 
+
+def save_and_record(
+  tensor: torch.Tensor,
+  write_path: str,
+  track_id: str,
+  journal: RunJournal,
+) -> None:
+  """Persist one track's embedding, then mark it done -- never the other order.
+
+  Runs on the publish thread pool. The completed marker is written only after
+  save_tensor's atomic rename has landed, so every id in the journal has a whole
+  .pt behind it and resume can trust the list without re-validating files.
+
+  Exceptions are journalled rather than raised: this runs inside executor.submit,
+  whose Future nobody reads, so a raise here would vanish silently and the track
+  would look complete because the progress bar had already advanced.
+  """
+  try:
+    save_tensor(tensor, write_path)
+  except Exception as e:
+    journal.report_failed(track_id, write_path, f"save failed: {e}")
+    return
+  journal.report_completed(track_id)
+
 def embed_waveforms_batched(
   data_set: ChunkStreamDataset,
   model: Any,
@@ -188,6 +228,7 @@ def embed_waveforms_batched(
   device: str,
   results: Dict[str, List[torch.Tensor]],
   executor: ThreadPoolExecutor,  # <--- MODIFIED: Accept executor
+  journal: RunJournal,
   layer_mix: str = "last4",
   batch_size: int = 32,
   pin_memory: bool = True,
@@ -265,8 +306,14 @@ def embed_waveforms_batched(
           )
           
           # <--- MODIFIED: Offload saving to the worker thread pool
-          executor.submit(save_tensor, tensor_stack, write_path)
-          
+          executor.submit(
+            save_and_record,
+            tensor_stack,
+            write_path,
+            metadata.source.filename,
+            journal,
+          )
+
           # print(f"Saved embedding to {write_path}")
           del results[metadata.source.path]
           file_pbar.update(1)
@@ -277,30 +324,56 @@ def embed_waveforms_batched(
 def main():
   intermediate_results: Dict[str, List[torch.Tensor]] = {}
 
-  # proc_list = get_process_list(DATA_DIRECTORY, EMBEDDING_DIRECTORY)
-  proc_list = get_m3u8_process_list(DATA_DIRECTORY, "/mnt/j/PROG/tlmc-etl/Experimental/data_transfer/all_targets.csv", EMBEDDING_DIRECTORY)
+  os.makedirs(EMBEDDING_DIRECTORY, exist_ok=True)
+
+  journal = RunJournal(EMBEDDING_DIRECTORY, name="mert_chunked_6s")
+  # Seeds itself from a directory walk the first time only, so switching to the
+  # journal does not recompute embeddings an earlier run already produced.
+  completed = journal.load_completed(
+    rebuild_from=lambda: get_completed_embeddings(EMBEDDING_DIRECTORY)
+  )
+
+  # proc_list = get_process_list(DATA_DIRECTORY, completed)
+  proc_list = get_m3u8_process_list(DATA_DIRECTORY, TARGET_CSV, completed)
   dataset = ChunkStreamDataset(
     flac_list=proc_list,
     chunking_config=chunking_config,
+    journal=journal,
   )
 
-  os.makedirs(EMBEDDING_DIRECTORY, exist_ok=True)
-
   model, processor, device = init_model()
-  with ThreadPoolExecutor(max_workers=8) as executor:
-    embed_waveforms_batched(
-      data_set=dataset,
-      model=model,
-      processor=processor,
-      device=device,
-      results=intermediate_results,
-      executor=executor,  # <--- MODIFIED: Pass the executor
-      layer_mix="last4",
-      batch_size=224,
-      pin_memory=True,
-      num_workers=8,
-      prefetch_factor=8,
-    )
+  try:
+    with ThreadPoolExecutor(max_workers=8) as executor:
+      embed_waveforms_batched(
+        data_set=dataset,
+        model=model,
+        processor=processor,
+        device=device,
+        results=intermediate_results,
+        executor=executor,  # <--- MODIFIED: Pass the executor
+        journal=journal,
+        layer_mix="last4",
+        batch_size=224,
+        pin_memory=True,
+        num_workers=8,
+        prefetch_factor=8,
+      )
+    # Leaving the `with` block joins the pool, so every queued save has landed
+    # and been journalled before anything below runs.
+
+    # Tracks whose chunks were read but never completed a full set: a mid-stream
+    # decode failure, or a total_chunks mismatch. They are not on disk and not in
+    # the completed list, so a rerun picks them up -- but without this they would
+    # leave no trace of having been attempted.
+    for src_path, chunks in intermediate_results.items():
+      print(f"WARNING: incomplete chunk set, not saved: {src_path}")
+      journal.report_failed(
+        os.path.splitext(os.path.basename(src_path))[0],
+        src_path,
+        f"incomplete chunk set: only {len(chunks)} chunks collected",
+      )
+  finally:
+    journal.close()
 
 if __name__ == "__main__":
   main()

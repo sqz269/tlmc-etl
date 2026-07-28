@@ -155,9 +155,31 @@ def get_uuid_from_filename(fname: str) -> str:
 
 def save_tensor(tensor: torch.Tensor, filepath: str) -> None:
   """
-  Save a tensor to a file.
+  Save a tensor to a file, atomically.
+
+  Written to a sibling temp file and renamed into place. Saving straight to the
+  final name leaves a truncated .pt behind if the process dies mid-write -- and
+  since resume treats the presence of a .pt as proof of completion, that track
+  would be silently skipped forever with a corrupt embedding on disk. os.replace
+  is atomic within a filesystem, so a reader sees either the old file or the
+  whole new one, never a partial.
+
+  The temp file is a sibling rather than /tmp so the rename stays inside one
+  filesystem; across a mount boundary os.replace degrades to a copy and loses
+  the guarantee.
   """
-  torch.save(tensor, filepath)
+  directory = os.path.dirname(filepath) or "."
+  os.makedirs(directory, exist_ok=True)
+  tmp_path = f"{filepath}.{os.getpid()}.tmp"
+  try:
+    torch.save(tensor, tmp_path)
+    os.replace(tmp_path, filepath)
+  except BaseException:
+    try:
+      os.unlink(tmp_path)
+    except OSError:
+      pass
+    raise
 
 def parse_filename_genre_and_title(filename: str) -> Tuple[str, str]:
   try:
