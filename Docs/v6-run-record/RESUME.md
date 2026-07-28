@@ -25,10 +25,18 @@ anchor on. The v5 reference tree on `/mnt/tlmc-v5` has the same shape.
 | Info scanner phase 1 | 18,360 albums, 164,287 tracks, 19,043 discs |
 | Info scanner phase 2 | 18,360 albums, 164,287 tracks |
 | Info scanner phase 3 | 18,360 albums, 164,287 tracks, 0 contract violations |
-| Artist scanner | 2,865 circles, 2,865 UUIDs, 0 albums unresolvable |
+| Artist scanner | 2,943 circles, 196 collaborations, 0 albums unresolvable |
+| ID assignment & merge | 18,360 albums / 19,043 discs / 164,287 tracks / 121,464 assets, 323,154 ids, 0 collisions |
 
 Phase 2 flags 602 tracks (0.4%). Phase 1 flags 842 albums (4.6%). Phase 3 leaves
 78 discs carrying duplicate track numbers, all duplicated in the source tags.
+
+Section 7 output is `Processor/InfoCollector/Aggregator/output/assigned_megered.json`
+(147 MB), which is what the HLS stage and the .NET EtlDataLoader consume. 101 albums
+carry zero tracks -- 49 hold no audio at all (band scores, DVD releases, a
+password-protected archive) and 52 are container albums still in the disc queue.
+They are still emitted, with an AlbumId and their assets, so decide at load time
+whether an album with no tracks should reach the database.
 
 ## Rerunning
 
