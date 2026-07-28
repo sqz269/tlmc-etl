@@ -91,7 +91,8 @@ public class TrackEmbeddingProcessor
                         {
                             TrackId = trackId,
                             EmbeddingMean = new Vector(meanVector),
-                            EmbeddingMeanMax = new Vector(meanMaxVector)
+                            EmbeddingMeanMax = new HalfVector(
+                                Array.ConvertAll(meanMaxVector, f => (Half)f))
                         };
                         trackEmbeddings.Add(trackEmbedding);
                     }
