@@ -78,6 +78,49 @@ gathered from other machines, without re-encoding what is already done.
 Leaving both variables unset is a single node over the whole worklist, which is
 what earlier runs did.
 
+### A node whose library is a network mount must stage locally
+
+`TLMC_STAGE_DIR` points at scratch on the node's **own** disk. Rungs are encoded
+there and the finished track is copied to its real destination in one pass.
+Leave it unset when the library is local — direct writes are then strictly
+better.
+
+```sh
+docker run -d --name tlmc-hls \
+  --user "$(id -u):$(id -g)" \
+  -e TLMC_SHARD_COUNT=2 -e TLMC_SHARD_INDEX=1 \
+  -e TLMC_STAGE_DIR=/stage \
+  -v "$PWD:/repo" \
+  -v "/mnt/tlmc:/mnt/tlmc" \
+  -v "$HOME/hls-stage:/stage" \
+  tlmc-ffmpeg:runner
+```
+
+Measured on the SMB node, same track, same load:
+
+| | |
+|---|---|
+| ladder written straight to SMB | 69.97 s |
+| ladder written to local disk | 8.22 s |
+| bulk copy of the result to SMB | 1.15 s |
+| **staged total** | **9.38 s — 7.5× faster** |
+
+The win is not bandwidth. At the time of measurement the link carried 12 MB/s of
+a measured 83, the server's disk was 41% busy and the `smbd` serving that client
+used 3.6% CPU — yet the node's 32 workers sat at load 36 on 454% CPU of 3200,
+nearly all of them in uninterruptible I/O wait. The cost is round trips: with
+`-hls_list_size 0` ffmpeg rewrites `playlist.m3u8` after **every** segment and
+appends each segment as it is produced, so one rung is hundreds of small
+dependent writes that each pay CIFS latency. Staging collapses a whole track
+into one 22 MB streaming copy.
+
+This is what the "keep scratch inside the Linux filesystem" caution under
+[Windows workers](#windows-workers) is about, and `TLMC_STAGE_DIR` is the
+supported way to honour it. A track is published only after all four rungs
+render, media file before playlist, and its scratch directory is removed either
+way — so a failure leaves nothing behind at the destination and nothing in
+scratch.
+
 ### What each node needs
 
 | | |

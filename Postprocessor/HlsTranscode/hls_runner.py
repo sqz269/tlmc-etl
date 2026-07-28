@@ -1,8 +1,10 @@
 import glob
 import hashlib
 import os
+import shutil
 import subprocess
 import Postprocessor.HlsTranscode.output.path_definitions as HlsTranscodePathDef
+from Postprocessor.HlsTranscode.hls_assignment import make_ffmpeg_hls_transcode_cmd
 from Shared import json_utils, utils
 from Shared.reporting_multi_processor import (
     JournalWriter,
@@ -77,6 +79,28 @@ def shard_path(path: str, index: int, count: int) -> str:
     return f"{root}.shard{index}of{count}{ext}"
 
 
+# Encode to local scratch, then copy the finished track to its real destination.
+# Set to a path on the node's OWN disk; leave unset for direct writes.
+#
+#   TLMC_STAGE_DIR=/stage
+#
+# Only worth setting when the destination is a network mount. Measured on the
+# remote node writing to the library over SMB, same track, same load:
+#
+#   ladder straight to SMB          69.97 s
+#   ladder to local disk             8.22 s
+#   bulk copy of the result to SMB   1.15 s   -> 9.38 s total, 7.5x faster
+#
+# The win is not bandwidth -- the link was carrying 12 MB/s of a measured 83,
+# the server's disk was 41% busy and its smbd used 3.6% CPU. It is round trips.
+# ffmpeg rewrites playlist.m3u8 after every segment and appends each segment as
+# it is produced, so one rung is hundreds of small dependent writes, each paying
+# CIFS latency. The node's 32 workers sat in uninterruptible I/O wait (load 36,
+# 454% CPU of 3200%) waiting on those. Staging turns the whole track into one
+# 22 MB streaming copy, which the link does in about a second.
+STAGE_DIR = os.environ.get("TLMC_STAGE_DIR") or None
+
+
 class HlsRunner:
     @staticmethod
     def remove_completed(workslist: dict):
@@ -96,6 +120,20 @@ class HlsRunner:
                 del workslist[key]
 
     @staticmethod
+    def publish_one(stage_root: str, dst_root: str):
+        """Copy one finished quality directory from scratch to its destination.
+
+        The media file is copied before playlist.m3u8 so an interrupted publish
+        never leaves a playlist referring to bytes that are not there yet. A
+        half-published track is not recorded as completed, so the next run
+        re-encodes it and ffmpeg's -y overwrites whatever landed.
+        """
+        os.makedirs(dst_root, exist_ok=True)
+        names = sorted(os.listdir(stage_root), key=lambda n: n == "playlist.m3u8")
+        for name in names:
+            shutil.copy2(os.path.join(stage_root, name), os.path.join(dst_root, name))
+
+    @staticmethod
     def process_one(
         journalWriter: JournalWriter,
         messageWriter: PrintMessageReporter,
@@ -103,6 +141,7 @@ class HlsRunner:
         track_id: str,
         work: dict,
     ):
+        stage_track_dir = os.path.join(STAGE_DIR, track_id) if STAGE_DIR else None
         try:
             src_file = None
             succeeded = 0
@@ -111,6 +150,19 @@ class HlsRunner:
                 src_file = src
                 cmd = work_details["cmd"]
                 dst_root = work_details["dst_root"]
+
+                # Staging re-derives the command rather than rewriting the one
+                # baked into the worklist: that string is already shell-quoted
+                # and carries dst_root in two places, so patching it textually
+                # would have to re-implement the quoting to stay correct.
+                if stage_track_dir:
+                    dst_root = os.path.join(stage_track_dir, quality)
+                    cmd = " ".join(
+                        make_ffmpeg_hls_transcode_cmd(
+                            src, dst_root, quality, gain_db=work_details["gain_db"]
+                        )
+                    )
+
                 messageWriter.report_state(f"[{quality}] Processing {src}")
                 # Create destination directory
                 os.makedirs(dst_root, exist_ok=True)
@@ -143,6 +195,15 @@ class HlsRunner:
                 )
                 return
 
+            # Publish only once every rung has rendered, so a track that fails
+            # halfway leaves nothing behind at the destination to clean up.
+            if stage_track_dir:
+                for quality, work_details in work.items():
+                    HlsRunner.publish_one(
+                        os.path.join(stage_track_dir, quality),
+                        work_details["dst_root"],
+                    )
+
             # Written once per track, not once per quality: `remove_completed`
             # reads this back into a set, so the extra lines were only bloat.
             outputWriter.write(f"{track_id}\n")
@@ -156,10 +217,20 @@ class HlsRunner:
             # KeyError from inside the handler. Nothing calls .result() on these
             # futures, so that exception was swallowed and the failure vanished.
             journalWriter.report_error(f"Failed to process {track_id}: {e}\n")
+        finally:
+            # Unconditional: a failed track must not leave its part-encoded
+            # rungs behind. 32 workers x 22 MB is trivial on disk, but a run of
+            # 82k tracks that never swept scratch would accumulate the lot.
+            if stage_track_dir:
+                shutil.rmtree(stage_track_dir, ignore_errors=True)
 
     @staticmethod
     def start():
         index, count = shard_config()
+
+        if STAGE_DIR:
+            os.makedirs(STAGE_DIR, exist_ok=True)
+            print(f"Staging encodes in {STAGE_DIR}, publishing each track on completion")
 
         journal_writer = JournalWriter(
             shard_path(hls_journal_general_output, index, count),
