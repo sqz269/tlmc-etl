@@ -91,9 +91,16 @@ def main():
         proc_root = None
         try:
             src = entry[list(entry.keys())[0]]['src']
-            src_root = os.path.dirname(src)
-            src_filename_no_ext = os.path.splitext(os.path.basename(src))[0]
-            proc_root = os.path.join(src_root, src_filename_no_ext)
+            # Taken from the worklist rather than re-derived from the source
+            # name. dst_root is `<base>/hls/<rung>`, so its grandparent is the
+            # base the encode actually used. Re-deriving it here meant two
+            # places had to agree on how a source path becomes an output path,
+            # and they stopped agreeing as soon as hls_base_dirs had to
+            # disambiguate same-stem tracks -- the master playlist would have
+            # been written somewhere no encode ever wrote.
+            proc_root = os.path.dirname(
+                os.path.dirname(entry[list(entry.keys())[0]]['dst_root'])
+            )
 
             """
         Result sample (single_file layout -- one media entry per quality, the

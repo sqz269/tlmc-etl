@@ -147,16 +147,50 @@ def load_gain_map():
     return gains
 
 
+def hls_base_dirs(all_tracks: Dict[str, str]) -> Dict[str, str]:
+    """
+    Output directory per track, guaranteed distinct.
+
+    Output normally goes to `<album>/<track stem>/hls/<rung>/`, dropping the
+    extension. That collides whenever an album ships the same song twice in
+    different formats -- 204 pairs here, `track.flac` beside `track.mp3`, both
+    claiming `track/`. Whichever encoded last would win and two TrackIds would
+    point at one playlist, so a track would play the other's audio.
+
+    Colliding stems keep the extension, as `track [mp3]`. The extension cannot
+    simply be left on: a directory named `track.flac` would clash with the audio
+    file of that name sitting beside it. Only the affected tracks are renamed,
+    so the layout is unchanged for the other 163,879.
+    """
+    by_stem: Dict[str, list] = {}
+    for track_id, track_path in all_tracks.items():
+        parent = os.path.dirname(track_path)
+        stem = os.path.splitext(os.path.basename(track_path))[0]
+        by_stem.setdefault(os.path.join(parent, stem), []).append(track_path)
+
+    bases = {}
+    for track_id, track_path in all_tracks.items():
+        parent = os.path.dirname(track_path)
+        stem, ext = os.path.splitext(os.path.basename(track_path))
+        base = os.path.join(parent, stem)
+        # Two ways the plain stem fails. Another track in the worklist claims
+        # it, or a FILE of that name already sits on disk -- two albums carry an
+        # extensionless copy beside the .flac, and mkdir on that path fails.
+        # isfile, not exists: on a rerun the directory is our own output.
+        if len(by_stem[base]) > 1 or os.path.isfile(base):
+            base = os.path.join(parent, f"{stem} [{ext.lstrip('.').lower()}]")
+        bases[track_id] = base
+    return bases
+
+
 def generate_worklist(all_tracks: Dict[str, str]):
     gains = load_gain_map()
     missing = 0
+    bases = hls_base_dirs(all_tracks)
 
     work = {}
     for track_id, track_path in all_tracks.items():
-        file_parent = os.path.dirname(track_path)
-        file_name = os.path.basename(track_path)
-        file_name_no_ext = os.path.splitext(file_name)[0]
-        hls_target_base_dir = os.path.join(file_parent, file_name_no_ext)
+        hls_target_base_dir = bases[track_id]
 
         gain_db = gains.get(track_path)
         if gain_db is None:
