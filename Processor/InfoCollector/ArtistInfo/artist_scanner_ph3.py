@@ -69,10 +69,23 @@ def main():
                     f"[REVIEW] Failed to find {linked_lower} in existing or new standalone. Creating new id"
                 )
                 new_uuid = str(uuid.uuid4())
-                artist_aggr[linked] = {
+                # Keyed lowercase, like every other entry. artist_scanner_ph2
+                # keys on raw.lower() and id_assign_and_merge looks up
+                # album_artist.lower(), so a raw-cased key here is unreachable:
+                # 40 of them on this release. Harmless only while these circles
+                # have no releases of their own -- the moment one does, the
+                # lookup either raises or mints a second circle for it.
+                parsed = CIRCLE_INFO_EXTRACTOR.match(linked)
+                name = parsed.group(1) if parsed else linked
+                alias = parsed.group(2) if parsed else None
+                artist_aggr[linked.lower()] = {
                     "raw": linked,
-                    "name": CIRCLE_INFO_EXTRACTOR.match(linked).group(1),
-                    "alias": CIRCLE_INFO_EXTRACTOR.match(linked).group(2) or [],
+                    "name": name,
+                    # A list, matching phase 2. group(2) is a string, and
+                    # `or []` only substitutes when it is empty -- so a
+                    # collaborator written "[Name] Alias" produced a bare
+                    # string where every other entry has a list.
+                    "alias": [alias.strip()] if alias and alias.strip() else [],
                     "known_id": [new_uuid],
                     "new": True,
                 }

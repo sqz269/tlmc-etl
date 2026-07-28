@@ -1,7 +1,11 @@
 {
- "_comment": "Collaboration decomposition for TLMC v6. artist_scanner_ph2 regenerates new_artists.output.json from the directory listing and writes linked=[] for every circle, so re-running it DISCARDS this. Reapply from here afterwards.",
- "_method": "A circle name is split only when every part resolves to a circle that exists independently in the same release. Resolution tries the whole string first and only splits when it fails, so a name that legitimately contains a separator (COOL&CREATE) survives intact. Links are flattened to leaf circles: phase 3 resolves standalone entries before linked ones, so a link pointing at another collaboration mints a phantom UUID.",
+ "_comment": "Collaboration decomposition for TLMC v6. artist_scanner_ph2 regenerates new_artists.output.json from the directory listing and writes linked=[] for every circle, so re-running it DISCARDS this. Reapply 'linked' afterwards.",
+ "_method": "107 decompositions were derived mechanically: split only where every part is a circle existing independently in this release, trying the whole string before splitting so a name legitimately containing a separator survives. The remaining 139 were adjudicated individually against embedded tags, catalogue prefixes, cue/log credits and THBWiki/VGMdb; 'adjudication' records the verdict, confidence and evidence for each. Links are flattened to leaf circles: a link pointing at another collaboration mints a UUID no circle owns.",
  "linked": {
+  "[スタジオマグロフレーク×青波ゆらゆら]": [
+   "[スタジオマグロフレーク]",
+   "[青波ゆらゆら]"
+  ],
   "[ALiCE'S EMOTiON & Alstroemeria Records]": [
    "[ALiCE'S EMOTiON]",
    "[Alstroemeria Records]"
@@ -15,14 +19,30 @@
    "[Atrobool]",
    "[Ariflare]"
   ],
+  "[AIKA×Firaga]": [
+   "[AIKA]",
+   "[Firaga Records]"
+  ],
   "[幽閉サテライト×魂音泉×少女フラクタル]": [
    "[幽閉サテライト]",
    "[魂音泉]",
    "[少女フラクタル]"
   ],
+  "[AGENT 0 x nekka]": [
+   "[AGENT 0]",
+   "[nekka.]"
+  ],
   "[こなぐすり＆音召缶]": [
    "[こなぐすり]",
    "[音召缶]"
+  ],
+  "[モヒカンサンドバッグVS×&幽幻屋]": [
+   "[モヒカンサンドバッグ]",
+   "[幽幻屋]"
+  ],
+  "[MONOMIND & ROMANTIC MELLOW]": [
+   "[MONOMIND (M2ind manufactory)]",
+   "[ROMANTIC MELLOW]"
   ],
   "[Astral Sky vs. 非可逆リズム × ちょこふぁん]": [
    "[Astral Sky]",
@@ -37,9 +57,19 @@
    "[Re：SPEC]",
    "[Re：cy：cle]"
   ],
+  "[Shisuka, Frozen Starfall & Saku]": [
+   "[Shisuka]",
+   "[Frozen Starfall]",
+   "[Saku]"
+  ],
   "[k-waves LAB × オーライフジャパン]": [
    "[k-waves LAB]",
    "[オーライフジャパン]"
+  ],
+  "[Crazy Beats, 秋葉工房 & A-One]": [
+   "[Crazy Beats]",
+   "[秋葉工房]",
+   "[A-One (A1) - Eurobeat]"
   ],
   "[幽閉サテライト×少女フラクタル]": [
    "[幽閉サテライト]",
@@ -49,6 +79,22 @@
    "[森羅万象]",
    "[COOL&CREATE]"
   ],
+  "[梶迫小道具店×Lab＊]": [
+   "[梶迫小道具店]",
+   "[Lab＊]"
+  ],
+  "[秋葉工房 × A-One]": [
+   "[秋葉工房]",
+   "[A-One (A1) - Eurobeat]"
+  ],
+  "[さやかた紅茶館さん＆GenocideKitten]": [
+   "[さやかた紅茶館さん]",
+   "[GenocideKitten]"
+  ],
+  "[anos+plus×SAVE THE QUEEN]": [
+   "[anos+plus]",
+   "[SAVE THE QUEEN]"
+  ],
   "[Re零同人社×二色幽紫蝶]": [
    "[Re零同人社]",
    "[二色幽紫蝶]"
@@ -57,6 +103,14 @@
    "[Giinno Country]",
    "[Static World]",
    "[山西THO组委会]"
+  ],
+  "[STAR FACTORY＆SEVEN VOLT]": [
+   "[STAR FACTORY]",
+   "[SEVEN VOLT]"
+  ],
+  "[Alstroemeria Records & Cradle]": [
+   "[Alstroemeria Records]",
+   "[Cradle]"
   ],
   "[N-tone／Dust_Box_49]": [
    "[N-tone]",
@@ -71,6 +125,10 @@
   "[Hyperdimension! x denshūto]": [
    "[Hyperdimension!]",
    "[denshūto]"
+  ],
+  "[Pastel World×IbEthics]": [
+   "[Pastel World]",
+   "[IbEthics]"
   ],
   "[TUMENECO×はにーぽけっと×ナイフ]": [
    "[冷猫] TUMENECO",
@@ -101,9 +159,18 @@
    "[Liz Triangle] りすとら",
    "[暁Records]"
   ],
+  "[ねこまち+歩く電波塔の会]": [
+   "[ねこまち]",
+   "[歩く電波塔の会]"
+  ],
   "[chipion× TUMENECO]": [
    "[chipion]",
    "[冷猫] TUMENECO"
+  ],
+  "[midnight school, ALTERNAIT, COSMIC COMIC]": [
+   "[midnight school]",
+   "[ALTERNAIT]",
+   "[COSMIC COMIC]"
   ],
   "[魂音泉 × Alstroemeria Records]": [
    "[魂音泉]",
@@ -117,13 +184,34 @@
    "[ばーどちゅーん] BirdTune",
    "[IOSYS] イオシス"
   ],
+  "[幽閉カタルシス×仮面の騎士]": [
+   "[幽閉カタルシス]",
+   "[仮面の騎士]"
+  ],
   "[Angelicca & あたいんち]": [
    "[Angelicca]",
    "[あたいんち]"
   ],
+  "[※論理について。   ,   ペンギノン]": [
+   "[※論理について。]",
+   "[ペンギノン]"
+  ],
+  "[I DO Loud.＆現代社会の縮図＆Blau tea]": [
+   "[I DO Loud.]",
+   "[現代社会の縮図]",
+   "[Blau tea]"
+  ],
+  "[Studio FE／Aleile]": [
+   "[Studio FE]",
+   "[Aleile]"
+  ],
   "[Higan Daybreak & 求める者]": [
    "[Higan Daybreak]",
    "[求める者]"
+  ],
+  "[Aether&ECE-SMZ]": [
+   "[Aether]",
+   "[ECE-SMZ]"
   ],
   "[Pizuya's Cell x CROW'SCLAW]": [
    "[ぴずやの独房] Pizuya's Cell",
@@ -137,13 +225,41 @@
    "[Studio “Syrup Comfiture”] Syrufit／Poplica＊",
    "[ぴずやの独房] Pizuya's Cell"
   ],
+  "[Spoo and Nick × 少年モラトリアム]": [
+   "[Spoo and Nick]",
+   "[少年モラトリアム]"
+  ],
+  "[Mods Crisis∞ × Register6]": [
+   "[Mods Crisis ∞]",
+   "[Register6]"
+  ],
   "[Piece of Rain × Analyze -]": [
    "[Piece of Rain]",
    "[Analyze -]"
   ],
+  "[UMM＆SOLEIL]": [
+   "[UMM]",
+   "[SOLEIL]"
+  ],
+  "[As／Hi Soundworks x 東部開拓地]": [
+   "[As／Hi Soundworks (As／Hi)]",
+   "[東部開拓地]"
+  ],
+  "[As／Hi Soundworks × Unity-Gain]": [
+   "[As／Hi Soundworks (As／Hi)]",
+   "[Unity-Gain]"
+  ],
+  "[Stersion & Misty]": [
+   "[Stersion]",
+   "[Misty]"
+  ],
   "[Alstroemeria Records × DiGiTAL WiNG]": [
    "[Alstroemeria Records]",
    "[DiGiTAL WiNG]"
+  ],
+  "[Alstroemeria Records × Studio ''Syrup Comfiture'']": [
+   "[Alstroemeria Records]",
+   "[Studio “Syrup Comfiture”] Syrufit／Poplica＊"
   ],
   "[FOX RAVEL VS KINZOK ON]": [
    "[FOX RAVEL]",
@@ -166,6 +282,22 @@
    "[Music Advance]",
    "[Applice]"
   ],
+  "[R.I.N. ft. ガネメ]": [
+   "[Reason Is Nowhere]",
+   "[ガネメ]"
+  ],
+  "[Anglued×研鑽堂]": [
+   "[あんぐる～ど]",
+   "[研鑽堂]"
+  ],
+  "[黒天羊舎×E-MP]": [
+   "[黒天羊舎]",
+   "[E-MP]"
+  ],
+  "[Sharp Eight & Eve Hates Me]": [
+   "[Sharp Eight]",
+   "[Eve Hates Me]"
+  ],
   "[TUMENECO × はにーぽけっと]": [
    "[冷猫] TUMENECO",
    "[はにーぽけっと]"
@@ -174,17 +306,61 @@
    "[Draw the Emotional]",
    "[Foreground Eclipse]"
   ],
+  "[Amateras Records × Melonbooks]": [
+   "[Amateras Records]",
+   "[Melonbooks Records]"
+  ],
+  "[octet＊×Aether]": [
+   "[octet＊]",
+   "[Aether]"
+  ],
+  "[COOL&CREATE & チョー314]": [
+   "[COOL&CREATE]",
+   "[チョー314]"
+  ],
   "[Pizuya's Cell × MyonMyon]": [
    "[ぴずやの独房] Pizuya's Cell",
    "[MyonMyon]"
+  ],
+  "[CUBETYPE feat. AVSS]": [
+   "[CUBETYPE]",
+   "[AVSS]"
+  ],
+  "[荒御霊 x As／Hi Soundworks]": [
+   "[荒御霊]",
+   "[As／Hi Soundworks (As／Hi)]"
+  ],
+  "[TUMENECO × はにーぽけっと による]": [
+   "[冷猫] TUMENECO",
+   "[はにーぽけっと]"
   ],
   "[TUMENECO／GET IN THE RING]": [
    "[冷猫] TUMENECO",
    "[GET IN THE RING]"
   ],
+  "[コココソフト×趣味工房にんじんわいん]": [
+   "[コココソフト]",
+   "[趣味工房にんじんわいん] Hobby atelier carrot wine"
+  ],
+  "[俺++×音召缶]": [
+   "[俺++(Includeore)]",
+   "[音召缶]"
+  ],
   "[Forest306 & Attrielectrock]": [
    "[Forest306]",
    "[Attrielectrock]"
+  ],
+  "[あんぐる～ど×ゲィりあんズ ]": [
+   "[あんぐる～ど]",
+   "[ゲィりあんズ]"
+  ],
+  "[asami & Hasenpfeffer]": [
+   "[asami]",
+   "[Hasenpfeffer]"
+  ],
+  "[Edel SOUNDS＆月ノ鍵]": [
+   "[EdelSounds]",
+   "[月ノ鍵]"
   ],
   "[Amateras Records × M.H.S]": [
    "[Amateras Records]",
@@ -193,6 +369,19 @@
   "[豚乙女×石鹸屋]": [
    "[豚乙女]",
    "[石鹸屋]"
+  ],
+  "[As／Hi　Soundworks＆荒御霊]": [
+   "[As／Hi Soundworks (As／Hi)]",
+   "[荒御霊]"
+  ],
+  "[ガネメ × 北斗藍]": [
+   "[ガネメ]",
+   "[北斗藍]"
+  ],
+  "[Hasenpfeffer×asami×朽チ縄]": [
+   "[Hasenpfeffer]",
+   "[asami]",
+   "[朽チ縄]"
   ],
   "[うま & 吊るし処]": [
    "[うま]",
@@ -222,6 +411,10 @@
    "[街角麻婆豆]",
    "[Aleile]"
   ],
+  "[Silence Records × NIZI-RINGO]": [
+   "[Silence Records]",
+   "[NiZi RiNGO]"
+  ],
   "[bunny rhyTHm×Static World]": [
    "[bunny rhyTHm]",
    "[Static World]"
@@ -238,9 +431,18 @@
    "[bunny rhyTHm]",
    "[二色幽紫蝶]"
   ],
+  "[非可逆リズム×ENVIRONMENTAL DEVELOPMENT]": [
+   "[非可逆リズム]",
+   "[Environmental Development]"
+  ],
   "[鋲の人＆Reiche]": [
    "[鋲の人]",
    "[Reiche]"
+  ],
+  "[イノライ×少女理論観測所×AbsoRute Zero]": [
+   "[イノライ]",
+   "[少女理論観測所]",
+   "[AbsoЯute Zero]"
   ],
   "[Alstroemeria Records × Amateras Records]": [
    "[Alstroemeria Records]",
@@ -250,9 +452,25 @@
    "[K2E†Cradle]",
    "[高梨工房]"
   ],
+  "[SHM+MHS]": [
+   "[セブンスヘブンMAXION]",
+   "[M.H.S]"
+  ],
   "[Forest306+Unity-Gain]": [
    "[Forest306]",
    "[Unity-Gain]"
+  ],
+  "[Bitter Quartz Vs mono music]": [
+   "[Bitter Quartz]",
+   "[mono music]"
+  ],
+  "[夕焼けコンテナ。 & 水車小屋]": [
+   "[夕焼けコンテナ。]",
+   "[水車小屋]"
+  ],
+  "[DiGiTAL WiNG & THE OTHER FLOWER - Eurobeat]": [
+   "[DiGiTAL WiNG]",
+   "[THE OTHER FLOWER]"
   ],
   "[Milkclip+Grapefruit Jam]": [
    "[Milkclip]",
@@ -269,6 +487,11 @@
   "[ORANGE★JAM × FELT]": [
    "[ORANGE★JAM]",
    "[FELT]"
+  ],
+  "[いえろ～ぜぶら ｘ 有限会社るざりん ｘ False&Trues]": [
+   "[いえろ～ぜぶら] Yellow Zebra",
+   "[有限会社るざりん]",
+   "[FALSE&TRUES]"
   ],
   "[DiGiTAL WiNG+Halozy]": [
    "[DiGiTAL WiNG]",
@@ -287,6 +510,10 @@
    "[発熱巫女～ず]",
    "[Like a rabbit]"
   ],
+  "[ProjectMTG／時遊戯画]": [
+   "[ProjectMTG]",
+   "[時遊戯画]"
+  ],
   "[IRON ATTACK!×豚乙女]": [
    "[IRON ATTACK!]",
    "[豚乙女]"
@@ -299,9 +526,25 @@
    "[Casket]",
    "[荒御霊]"
   ],
+  "[灿华幻梦 × 墨染燐桦]": [
+   "[灿华幻梦]",
+   "[墨染燐桦]"
+  ],
   "[CielArc×OMOCHI SOUND FACTORY]": [
    "[CielArc]",
    "[OMOCHI SOUND FACTORY]"
+  ],
+  "[2nd Flush × 音乃葉]": [
+   "[2nd Flush]",
+   "[音乃葉]"
+  ],
+  "[AlphaVersion Records×Qualial]": [
+   "[AlphaVersion Records]",
+   "[Qualial]"
+  ],
+  "[Atelier Oguu & PASTEL JAM]": [
+   "[Atelier Oguu]",
+   "[PASTEL JAM]"
   ],
   "[ALiCE'S EMOTiON & Cis-Trance]": [
    "[ALiCE'S EMOTiON]",
@@ -323,6 +566,14 @@
    "[Studio “Syrup Comfiture”] Syrufit／Poplica＊",
    "[Cytokine]"
   ],
+  "[As／Hi Soundworks × 梶迫小道具店]": [
+   "[As／Hi Soundworks (As／Hi)]",
+   "[梶迫小道具店]"
+  ],
+  "[VAGUEDGE DIES FOR DIES IRAE vs. Heterodyne.]": [
+   "[VAGUEDGE]",
+   "[Heterodyne.]"
+  ],
   "[狐夢想屋×ゼッケン屋]": [
    "[狐夢想屋]",
    "[ゼッケン屋]"
@@ -331,13 +582,47 @@
    "[疯帽子茶会]",
    "[Structure Sound]"
   ],
+  "[西明石俗物園×東生駒珍物園]": [
+   "[西明石俗物園]",
+   "[東生駒珍物園]"
+  ],
+  "[Aqua Style／ひえろぐらふ]": [
+   "[Aqua Style]",
+   "[ひえろぐらふ]"
+  ],
+  "[Liz Triangle×MiddleIsland]": [
+   "[Liz Triangle] りすとら",
+   "[MiddleIsland]"
+  ],
+  "[上海アリス幻樂団 & 黄昏フロンティア] ZUN & Twilight frontier": [
+   "[上海アリス幻樂団] ZUN",
+   "[黄昏フロンティア]"
+  ],
+  "[ノーストリリア & 8686m & PsychoPhysics]": [
+   "[ノーストリリア]",
+   "[8686m]",
+   "[PsychoPhysics]"
+  ],
   "[ぶるっくりん☆すてーしょん& さくらゆっけ]": [
    "[ぶるっくりん☆すてーしょん]",
    "[さくらゆっけ]"
   ],
+  "[幽閉サテライト×神楽めあ×少女フラクタル]": [
+   "[幽閉サテライト]",
+   "[神楽めあ]",
+   "[少女フラクタル]"
+  ],
   "[2.8mile×Krik／Krak]": [
    "[2.8mile]",
    "[Krik／Krak]"
+  ],
+  "[CHAOS MIXER x Thrive at Thrice]": [
+   "[CHAOS MIXER]",
+   "[Thrive at Thrice]"
+  ],
+  "[Pizuya's Cell ✕ BLOOD STAIN CHILD]": [
+   "[ぴずやの独房] Pizuya's Cell",
+   "[BLOOD STAIN CHILD]"
   ],
   "[黒板クリーナー×夕焼けコンテナ。]": [
    "[黒板クリーナー]",
@@ -348,21 +633,47 @@
    "[みかん箱] Mikan box",
    "[Foxtail-Grass Studio]"
   ],
+  "[ぴずやの独房 ✕ BLOOD STAIN CHILD]": [
+   "[ぴずやの独房] Pizuya's Cell",
+   "[BLOOD STAIN CHILD]"
+  ],
   "[COOL&CREATE×DiGiTAL WiNG]": [
    "[COOL&CREATE]",
    "[DiGiTAL WiNG]"
+  ],
+  "[かっくん×ぶるっくりん☆すてーしょん×groovin' bullets]": [
+   "[かっくん]",
+   "[ぶるっくりん☆すてーしょん]",
+   "[groovin' bullets]"
   ],
   "[魂音泉 x Alstroemeria Records]": [
    "[魂音泉]",
    "[Alstroemeria Records]"
   ],
+  "[J＆B／すたじおたわし／A-HEAD]": [
+   "[J&B]",
+   "[すたじおたわし]",
+   "[A-HEAD]"
+  ],
+  "[Next Reflection x NIZI-RINGO]": [
+   "[Next Reflection]",
+   "[NiZi RiNGO]"
+  ],
   "[荒御霊／音召缶]": [
    "[荒御霊]",
    "[音召缶]"
   ],
+  "[COOL＆CREATE／5884組]": [
+   "[COOL&CREATE]",
+   "[5884組]"
+  ],
   "[COOL&CREATE vs IOSYS]": [
    "[COOL&CREATE]",
    "[IOSYS] イオシス"
+  ],
+  "[海老桜咲く×粥占偽神事]": [
+   "[姥桜咲く]",
+   "[粥占偽神事]"
   ],
   "[はにーぽけっと×ちょこふぁん]": [
    "[はにーぽけっと]",
@@ -385,6 +696,10 @@
    "[Aether]",
    "[PHOENIX Project]"
   ],
+  "[Crimson Moon vs Pays feerique]": [
+   "[Crimson Moon]",
+   "[Pays feerique]"
+  ],
   "[Forest306＆Sing, R. Sing!]": [
    "[Forest306]",
    "[Sing, R. Sing!]"
@@ -401,25 +716,55 @@
    "[荒御霊]",
    "[梶迫小道具店]"
   ],
+  "[姫騎士オフライン x SOUTH OF HEAVEN]": [
+   "[姫騎士オフライン]",
+   "[SOUTH OF HEAVEN]"
+  ],
   "[群雨アンブレイラ×dat file records]": [
    "[群雨アンブレイラ]",
    "[dat file records]"
+  ],
+  "[はちみつくまさん／ひえろぐらふ] hachikuma-hierograph": [
+   "[はちみつくまさん]",
+   "[ひえろぐらふ]"
   ],
   "[ちょこふぁん×森羅万象]": [
    "[ちょこふぁん]",
    "[森羅万象]"
   ],
+  "[LOVEマシーン×にくや]": [
+   "[LOVEマシーン]",
+   "[にくや]"
+  ],
   "[音召缶×こなぐすり]": [
    "[音召缶]",
    "[こなぐすり]"
+  ],
+  "[TUMENECO & RED FOREST]": [
+   "[冷猫] TUMENECO",
+   "[RED FOREST METAL ORCHESTRA]"
+  ],
+  "[凍幻舎×夢想夏月郷]": [
+   "[凍幻舎]",
+   "[夢想夏月郷]"
   ],
   "[Crest&Applice]": [
    "[CREST]",
    "[Applice]"
   ],
+  "[A-One×発熱巫女～ず×君の美術館×Unlucky Morpheus]": [
+   "[A-One (A1) - Eurobeat]",
+   "[発熱巫女～ず]",
+   "[君の美術館]",
+   "[Unlucky Morpheus]"
+  ],
   "[Unlucky Morpheus×UNDEAD CORPORATION]": [
    "[Unlucky Morpheus]",
    "[UNDEAD CORPORATION]"
+  ],
+  "[はにーぽけっと × A-One]": [
+   "[はにーぽけっと]",
+   "[A-One (A1) - Eurobeat]"
   ],
   "[Unprepared Orchestra×インスタントフィルハーモニー]": [
    "[Unprepared Orchestra]",
@@ -429,160 +774,792 @@
    "[Eastern Scrapping Machine Orchestra]",
    "[FALLONDEAFEARS] THI"
   ],
+  "[奏琉堂＆D.S.K Recordz]": [
+   "[奏琉堂]",
+   "[D.S.K Recordz]"
+  ],
   "[FELT×＜echo＞PROJECT]": [
    "[FELT]",
    "[＜echo＞PROJECT]"
+  ],
+  "[荒御霊×MONOMIND]": [
+   "[荒御霊]",
+   "[MONOMIND (M2ind manufactory)]"
   ],
   "[Astral Sky vs. 非可逆リズム]": [
    "[Astral Sky]",
    "[非可逆リズム]"
   ],
+  "[UPFG x 神乃木制作所]": [
+   "[UPFG]",
+   "[神乃木製作所]"
+  ],
+  "[COOL&CREATE & 狐夢想屋]": [
+   "[COOL&CREATE]",
+   "[狐夢想屋]"
+  ],
   "[イノライ×少女理論観測所×AbsoЯute Zero]": [
    "[イノライ]",
    "[少女理論観測所]",
    "[AbsoЯute Zero]"
+  ],
+  "[EastNewSound&A-One]": [
+   "[EastNewSound]",
+   "[A-One (A1) - Eurobeat]"
+  ],
+  "[FelesVlinder & schwarzwald]": [
+   "[FelesVlinder]",
+   "[schwarzwald]"
   ]
  },
  "unresolved_left_standalone": [
   "[+TEK]",
   "[2SP+C'K]",
-  "[2nd Flush × 音乃葉]",
   "[9bit Log!Q+]",
-  "[A-One×発熱巫女～ず×君の美術館×Unlucky Morpheus]",
-  "[AGENT 0 x nekka]",
-  "[AIKA×Firaga]",
-  "[Aether&ECE-SMZ]",
-  "[AlphaVersion Records×Qualial]",
-  "[Alstroemeria Records & Cradle]",
-  "[Alstroemeria Records × Studio ''Syrup Comfiture'']",
-  "[Amateras Records × Melonbooks]",
-  "[Anglued×研鑽堂]",
-  "[Aqua Style／ひえろぐらふ]",
   "[Arts＆Sounds：Utopia]",
   "[As／Hi Soundworks (As／Hi)]",
-  "[As／Hi Soundworks x 東部開拓地]",
-  "[As／Hi Soundworks × Unity-Gain]",
-  "[As／Hi Soundworks × 梶迫小道具店]",
-  "[As／Hi　Soundworks＆荒御霊]",
-  "[Atelier Oguu & PASTEL JAM]",
   "[Azure&Sands]",
-  "[Bitter Quartz Vs mono music]",
-  "[CHAOS MIXER x Thrive at Thrice]",
   "[CLOSED／UNDERGROUND]",
   "[CN2&TEAR＊]",
-  "[COOL&CREATE & チョー314]",
-  "[COOL&CREATE & 狐夢想屋]",
   "[COOL&CREATE]",
-  "[COOL＆CREATE／5884組]",
-  "[CUBETYPE feat. AVSS]",
   "[Candy & Jam]",
   "[Color&Color+]",
   "[Consonances & Dissonances]",
-  "[Crazy Beats, 秋葉工房 & A-One]",
-  "[Crimson Moon vs Pays feerique]",
   "[Dear,friends]",
-  "[DiGiTAL WiNG & THE OTHER FLOWER - Eurobeat]",
   "[E.B.S. 0／1]",
-  "[EastNewSound&A-One]",
-  "[Edel SOUNDS＆月ノ鍵]",
   "[Emotional&Reason]",
   "[FALSE&TRUES]",
   "[FactoryNoise＆AG]",
-  "[FelesVlinder & schwarzwald]",
   "[HaCT&More]",
-  "[Hasenpfeffer×asami×朽チ縄]",
-  "[I DO Loud.＆現代社会の縮図＆Blau tea]",
   "[I&k]",
   "[Iemitsu.／A]",
   "[J&B]",
-  "[J＆B／すたじおたわし／A-HEAD]",
   "[Krik／Krak]",
   "[LEAP&LOOP]",
-  "[LOVEマシーン×にくや]",
-  "[Liz Triangle×MiddleIsland]",
   "[Lunatic×Bullets!]",
-  "[MONOMIND & ROMANTIC MELLOW]",
   "[Melted Yin & Yang]",
-  "[Mods Crisis∞ × Register6]",
   "[N+]",
   "[Neko & 雅]",
-  "[Next Reflection x NIZI-RINGO]",
-  "[Pastel World×IbEthics]",
-  "[Pizuya's Cell ✕ BLOOD STAIN CHILD]",
   "[Planet+]",
-  "[ProjectMTG／時遊戯画]",
-  "[R.I.N. ft. ガネメ]",
   "[Ridil&ATMOSPHERIC]",
   "[R／K Project]",
   "[S.K'／Sound]",
-  "[SHM+MHS]",
-  "[STAR FACTORY＆SEVEN VOLT]",
   "[STEP×STEP]",
   "[Scarlet&Silver]",
-  "[Sharp Eight & Eve Hates Me]",
-  "[Shisuka, Frozen Starfall & Saku]",
-  "[Silence Records × NIZI-RINGO]",
   "[Sing, R. Sing!]",
   "[Sound.／Ecriture]",
   "[SoundTeam,LORB]",
-  "[Spoo and Nick × 少年モラトリアム]",
-  "[Stersion & Misty]",
-  "[Studio FE／Aleile]",
   "[SuZuKi4&Ki4-Fu3]",
   "[Suspicion & Fear]",
   "[S／N Ravens]",
-  "[TUMENECO & RED FOREST]",
-  "[TUMENECO × はにーぽけっと による]",
   "[Travel cat + girl]",
-  "[UMM＆SOLEIL]",
-  "[UPFG x 神乃木制作所]",
-  "[VAGUEDGE DIES FOR DIES IRAE vs. Heterodyne.]",
   "[Xceon vs Starving Trancer]",
-  "[anos+plus×SAVE THE QUEEN]",
-  "[asami & Hasenpfeffer]",
   "[flap+frog]",
-  "[midnight school, ALTERNAIT, COSMIC COMIC]",
-  "[octet＊×Aether]",
   "[signum／ii]",
-  "[※論理について。   ,   ペンギノン]",
-  "[あんぐる～ど×ゲィりあんズ ]",
-  "[いえろ～ぜぶら ｘ 有限会社るざりん ｘ False&Trues]",
-  "[かっくん×ぶるっくりん☆すてーしょん×groovin' bullets]",
-  "[さやかた紅茶館さん＆GenocideKitten]",
-  "[ねこまち+歩く電波塔の会]",
-  "[はちみつくまさん／ひえろぐらふ] hachikuma-hierograph",
-  "[はにーぽけっと × A-One]",
-  "[ぴずやの独房 ✕ BLOOD STAIN CHILD]",
   "[まいぺーす×ぷろぐれす]",
-  "[イノライ×少女理論観測所×AbsoRute Zero]",
-  "[ガネメ × 北斗藍]",
-  "[コココソフト×趣味工房にんじんわいん]",
-  "[スタジオマグロフレーク×青波ゆらゆら]",
-  "[ノーストリリア & 8686m & PsychoPhysics]",
-  "[モヒカンサンドバッグVS×&幽幻屋]",
-  "[上海アリス幻樂団 & 黄昏フロンティア] ZUN & Twilight frontier",
   "[俺++(Includeore)]",
-  "[俺++×音召缶]",
-  "[凍幻舎×夢想夏月郷]",
   "[堕武者+ultraviolence+]",
-  "[夕焼けコンテナ。 & 水車小屋]",
-  "[奏琉堂＆D.S.K Recordz]",
-  "[姫騎士オフライン x SOUTH OF HEAVEN]",
   "[岡垣正志＆フレンズ]",
   "[岸田教団&THE明星ロケッツ]",
-  "[幽閉カタルシス×仮面の騎士]",
-  "[幽閉サテライト×神楽めあ×少女フラクタル]",
   "[想謳×結律 心庵 ]",
-  "[梶迫小道具店×Lab＊]",
-  "[海老桜咲く×粥占偽神事]",
-  "[灿华幻梦 × 墨染燐桦]",
-  "[燃えるゴミ燃えないゴミ／金沢合同]",
-  "[秋葉工房 × A-One]",
-  "[荒御霊 x As／Hi Soundworks]",
-  "[荒御霊×MONOMIND]",
-  "[西明石俗物園×東生駒珍物園]",
-  "[非可逆リズム×ENVIRONMENTAL DEVELOPMENT]",
-  "[黒天羊舎×E-MP]"
+  "[燃えるゴミ燃えないゴミ／金沢合同]"
  ],
- "_generated_from": "artist_scanner.discovery.new_artists.output.json as applied. Generate this file from the applied state, never from an intermediate: the first version of it was written from a pre-flattening working file and recorded a link pointing at another collaboration, which is exactly what the flattening removed."
+ "_generated_from": "artist_scanner.discovery.new_artists.output.json as applied. Generate this file from the applied state, never from an intermediate: the first version of it was written from a pre-flattening working file and recorded a link pointing at another collaboration, which is exactly what the flattening removed.",
+ "adjudication": {
+  "[スタジオマグロフレーク×青波ゆらゆら]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives 求鳴クロニクル 制作方 = スタジオマグロフレーク，青波ゆらゆら with staff mapping takenoko = スタジオマグロフレーク and かじ = 青波ゆらゆら (https://thwiki.cc/求鳴クロニクル); 青波ゆらゆら is a circle founded 2010-02, 主催 かじ (https://thwiki.cc/青波ゆらゆら). The six tracks alternate strictly between those two artists and [スタジオマグロフレーク] exists standalone."
+  },
+  "[AIKA×Firaga]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "ORGANIZATION tag on all 10 tracks is 'Firaga Records' while every track artist is AIKA; TouhouDB credits the album to two entities, AIKA (Producer/Arranger) and Firaga Records (Circle/Publisher) — https://touhoudb.com/Al/28064, https://firagarecords.bandcamp.com/music."
+  },
+  "[AGENT 0 x nekka]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both members exist standalone and the identical collaboration [AGENT 0 x nekka.] was already decomposed to [AGENT 0]+[nekka.] in Docs/v6-run-record/circle_collaborations.json; this dir is the same pairing without the trailing period."
+  },
+  "[モヒカンサンドバッグVS×&幽幻屋]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives XXXXX EX Stage R-21 制作方 = モヒカンサンドバッグ，幽幻屋, 类型 = 合作, with staff 昼/堕悪祭怪 = モヒカンサンドバッグ and silina/su-gaku = 幽幻屋; the circle page is 社团名 = モヒカンサンドバッグ with no 'VS' in the name (https://thwiki.cc/XXXXX_EX_Stage_R-21). The original release title was 'モヒカンサンドバッグ VS 幽幻屋', so VS is the separator. Both circles exist standalone and 堕悪祭怪 has 144 tracks in [モヒカンサンドバッグ]."
+  },
+  "[梶迫小道具店×Lab＊]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki's page for the album 四季再花 lists 制作方 = 梶迫小道具店，Lab* and carries two circle categories (分类:Lab＊ and 分类:梶迫小道具店); Lab＊ has its own circle page (主催 白兎) — https://thwiki.cc/四季再花, https://thwiki.cc/Lab＊."
+  },
+  "[秋葉工房 × A-One]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Every track carries CIRCLE=秋葉工房 × A-One with album_artist=Various Artists; A-One exists standalone as [A-One (A1) - Eurobeat] (its dir holds Toho Eurobeat releases) and 秋葉工房 also appears in [Crazy Beats, 秋葉工房 & A-One]."
+  },
+  "[anos+plus×SAVE THE QUEEN]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Catalogue ANSTQ-0001 concatenates ANos and STQ; track artists 式部 and SaiT both also appear in the standalone [SAVE THE QUEEN] dir."
+  },
+  "[Pastel World×IbEthics]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives 耀 -Astronomy- 制作方 = IbEthics，Pastel World, 类型 = 合作, 编号 PICK-0001, and IbEthics has its own circle page (主催 Gum34, ibethics.com) listing both discs — https://thwiki.cc/IbEthics. The EAC log is titled 'Pastel World & IbEthics - Hifuu Club Arrangement Compilation Album vol. 1' and [Pastel World] exists standalone."
+  },
+  "[幽閉カタルシス×仮面の騎士]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "幽閉サテライト's official site has a page 「松田悟志創作サークル 仮面の騎士」 describing 仮面の騎士 as a circle founded 2022 by actor 松田悟志 together with 幽閉カタルシス's representative, and BOOTH lists the releases as 「幽閉カタルシス×仮面の騎士」 — https://www.yuuhei-satellite.jp/group/松田悟志創作サークル-仮面の騎士, https://booth.pm/ja/items/5275698. 松田悟志 sings the 仮面の騎士 side; [幽閉カタルシス] exists standalone."
+  },
+  "[Studio FE／Aleile]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives イヤシノオト 制作方 = Studio FE，Aleile with staff 'Design : 兎弐参 （Studio FE）' and 'Recording/Mastering : Ciela （Aleile）' (https://thwiki.cc/イヤシノオト); Studio FE's own site declares 「同人サークルStudio FEのページ」 (http://fe.crap.jp/, archived). [Aleile] exists standalone and catalogue FEAL-0001 concatenates FE and AL."
+  },
+  "[Spoo and Nick × 少年モラトリアム]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Touhou Wiki's Spoo and Nick page describes 理想郷 as 'a collaborative album with 少年モラトリアム' (https://en.touhouwiki.net/wiki/Spoo_and_Nick) and THBWiki has 少年モラトリアム as a circle, 主催 猫織 (https://thwiki.cc/少年モラトリアム). Track artists split between myu- (19 tracks in standalone [Spoo and Nick]) and 猫織."
+  },
+  "[Mods Crisis∞ × Register6]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both halves exist standalone in all_circles.json as [Mods Crisis ∞] and [Register6]; only the space before ∞ defeated the auto-rule."
+  },
+  "[Iemitsu.／A]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki's circle page for Iemitsu. lists 曾用名 = Sound Iemitsu.，Iemitsu./A and states the circle released CDs under both those names before 2008 and under 'Iemitsu.' afterwards — https://thwiki.cc/Iemitsu.. The five albums bearing the name are IA-STYLE／Toho, IA-STYLE／Toho-J, SWRS, IA-STYLE／Toho-J／Fantasmix, IA-STYLE／B1 (IA = Iemitsu A), all on the SICD- catalogue, and no circle named 'A' exists anywhere."
+  },
+  "[As／Hi Soundworks x 東部開拓地]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "The ／ belongs to the circle name As／Hi Soundworks, which exists standalone as [As／Hi Soundworks (As／Hi)] with 46 albums; [東部開拓地] also exists standalone."
+  },
+  "[As／Hi Soundworks × Unity-Gain]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Same As／Hi Soundworks standalone circle; [Unity-Gain] exists standalone and also appears in [Forest306+Unity-Gain]."
+  },
+  "[Alstroemeria Records × Studio ''Syrup Comfiture'']": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both exist standalone; the auto-rule only failed on the quote characters ('' vs “”). Studio “Syrup Comfiture” is already a linked member of [Studio “Syrup Comfiture” x Pizuya's Cell] in the v6 run record."
+  },
+  "[signum／ii]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "en.touhouwiki.net: \"signum/ii (read as halfsignum) is cittan*'s second project after 'Sprite Recordings'\" (https://en.touhouwiki.net/wiki/Signum/ii); the official site and Twitter are both 'halfsignum'. Eight albums on one SGNM- catalogue with album_artist 'signum/ii'."
+  },
+  "[まいぺーす×ぷろぐれす]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "The circle's own X bio (@Mypace_Progress) reads 「2025/10/19… 活動開始予定のサークル「まいぺーす×ぷろぐれす」です！！ 代表 @Sugamaro_」 — one circle, one representative; THBWiki gives 制作方 = まいぺーす×ぷろぐれす as a single undelimited value with one circle category, and 秋例大祭12 registered it as a single booth. The × merely echoes the album title Mypace×Progress."
+  },
+  "[Krik／Krak]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "Ten albums all released under the one name (album_artist 'Krik/Krak' / 'Krik／Krak'), and the v6 run record already decomposed [2.8mile×Krik／Krak] into [2.8mile] + [Krik／Krak], treating Krik／Krak as one indivisible circle."
+  },
+  "[S.K'／Sound]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "Solo circle of すーさんK’, whose Twitter bio is literally 「すーさんK'@S.K'/Sound」 (https://x.com/konpakukishido) and whose BOOTH shop is skdashsound.booth.pm; TouhouDB records the reading as ｴｽｹ-ﾀﾞｯｼｭｻｳﾝﾄﾞ (S.K'-dash Sound), one name. All 38 tracks in the dir are by すーさんK’ on one SKDS- catalogue."
+  },
+  "[Anglued×研鑽堂]": {
+   "verdict": "COLLAB",
+   "confidence": "medium",
+   "evidence": "The EAC log inside the album is named 'あんぐる～ど - 幻想Paradise V.log' and every track is by あぐら, producer of the standalone circle [あんぐる～ど] — Anglued is the romanisation of あんぐる～ど and both dirs hold the same 幻想Paradise series. 研鑽堂 is co-credited in album_artist but contributes no credited track."
+  },
+  "[黒天羊舎×E-MP]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Track artist spikin appears in the standalone [E-MP] dir; 黒天羊舎 is itself used as a per-track artist on this album, and [E-MP] exists standalone."
+  },
+  "[Amateras Records × Melonbooks]": {
+   "verdict": "COLLAB",
+   "confidence": "medium",
+   "evidence": "THBWiki records this disc as 制作方 = Amateras Records, 发行方 = Melonbooks Records, 类型 = Omake (https://thwiki.cc/Amateras_Records_Melonbooks_Limited_Disc) — Melonbooks is the retailer/publisher, not a co-producing circle, and the same album (AMRS-0019) is duplicated inside the standalone [Amateras Records] dir with every track by an Amateras artist. Split anyway because both named parties are real entities that exist in this release ([Melonbooks Records] is a standalone circle), whereas leaving it whole would mint a fictitious artist 'Amateras Records × Melonbooks'. Downstream, the music should be attributed to Amateras Records."
+  },
+  "[octet＊×Aether]": {
+   "verdict": "COLLAB",
+   "confidence": "medium",
+   "evidence": "octet* is a real circle owning the OSLA-#### catalogue used here (VGMdb album 9943 lists Organizations: octet*, catalogue OSLA-0004, site octet.biz), and composer Eru is Aether's 主催 (https://thwiki.cc/Aether); [Aether] exists standalone and recurs in several other collaboration dirs. Medium because VGMdb names only octet* as the organisation — the Aether half rests on the album_artist tag 'octet＊ x Aether' plus Eru's 5 tracks here."
+  },
+  "[荒御霊 x As／Hi Soundworks]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both exist standalone; every track is credited '和泉幸奇;柊秀雪' and 柊秀雪 has 285 tracks under [As／Hi Soundworks (As／Hi)]. 荒御霊 is already a linked member of [荒御霊／音召缶] and [荒御霊 × 梶迫小道具店] in the v6 run record."
+  },
+  "[TUMENECO × はにーぽけっと による]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "album_artist is exactly 'TUMENECO × はにーぽけっと' (the trailing 'による' is a directory-name artefact); the identical pairing [TUMENECO × はにーぽけっと] is already decomposed to these two members in the v6 run record."
+  },
+  "[Lunatic×Bullets!]": {
+   "verdict": "SINGLE",
+   "confidence": "medium",
+   "evidence": "THBWiki gives 制作方 = Lunatic×Bullets! as a single undelimited value with exactly one circle category holding two albums, the second titled 'Lunatic Bullet' (the circle name minus the ×) — https://thwiki.cc/東方弾丸狂, https://thwiki.cc/Lunatic_Bullet. All three tracks are by らぎ alone, and neither 'Lunatic' nor 'Bullets!' exists as a circle anywhere in this release."
+  },
+  "[コココソフト×趣味工房にんじんわいん]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "The album is the OST of the game メイドさんスレイヤー — コココソフト is the game circle and the music circle exists standalone as [趣味工房にんじんわいん] Hobby atelier carrot wine."
+  },
+  "[俺++×音召缶]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "俺++ exists standalone as [俺++(Includeore)] and [音召缶] exists standalone (already a linked member of [荒御霊／音召缶], [音召缶×こなぐすり] and [こなぐすり＆音召缶])."
+  },
+  "[あんぐる～ど×ゲィりあんズ ]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Tracks alternate between あぐら (7 tracks in standalone [あんぐる～ど]) and Tink; [あんぐる～ど] exists standalone."
+  },
+  "[As／Hi　Soundworks＆荒御霊]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both circles exist standalone; catalogue ARAM-0903 uses 荒御霊's ARA- prefix while album_artist reads 'As/Hi Soundworks'."
+  },
+  "[ガネメ × 北斗藍]": {
+   "verdict": "COLLAB",
+   "confidence": "medium",
+   "evidence": "[ガネメ] exists standalone; 北斗藍 is credited as a per-track ARTIST in four different circle dirs ([ガネメ], [dat file records], [電解アンサー], [Heartful Zwei System]) and shares the joint credit 'ガネメ，北斗藍' on GACD-0020. THBWiki gives TAG FORCE 制作方 = ガネメ only and its page for 北斗藍/hokutoran shows 无所属社团 (no affiliated circle), 职位 编曲 — https://thwiki.cc/TAG%20FORCE, https://thwiki.cc/hokutoran. Split anyway because both are real, separately-credited parties (北斗藍 is an individual arranger, not a circle); keeping the string whole would mint a fictitious artist."
+  },
+  "[Hasenpfeffer×asami×朽チ縄]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "[Hasenpfeffer] and [朽チ縄] exist standalone; asami is co-credited at directory level elsewhere too ([asami & Hasenpfeffer]) and all three names appear as per-track artists on this split."
+  },
+  "[Silence Records × NIZI-RINGO]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "NIZI-RINGO is the same entity as the standalone circle [NiZi RiNGO] (260 tag hits in that dir); Silence Records has no standalone dir and is bracket-wrapped."
+  },
+  "[非可逆リズム×ENVIRONMENTAL DEVELOPMENT]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives the album 制作方 = 非可逆リズム，Environmental Development, 类型 = 全长，合作, staff モリモリあつし = 非可逆リズム and さうざう = Environmental Development; Environmental Development is a one-man circle, 主催 さうざう (https://thwiki.cc/Environmental_Development). [非可逆リズム] exists standalone. Member written in the circle's canonical mixed case rather than the directory's all-caps."
+  },
+  "[イノライ×少女理論観測所×AbsoRute Zero]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Documented verbatim in Docs/STEPS.md §5 example 2, and the AbsoЯute-spelled twin [イノライ×少女理論観測所×AbsoЯute Zero] is already decomposed to these three in the v6 run record."
+  },
+  "[Bitter Quartz Vs mono music]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "[Bitter Quartz] exists standalone and catalogue BIMO-001 concatenates BItter and MOno; the eight tracks split between Volvic and Amethys."
+  },
+  "[STEP×STEP]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "Five albums with album_artist 'STEP×STEP' / fullwidth 'ＳＴＥＰ×ＳＴＥＰ', and on STEPSTEP-01 the per-track ARTIST is also 'ＳＴＥＰ×ＳＴＥＰ' — the × is inside the circle's own name. No circle named 'STEP' exists in the release."
+  },
+  "[ProjectMTG／時遊戯画]": {
+   "verdict": "COLLAB",
+   "confidence": "medium",
+   "evidence": "[時遊戯画] exists standalone with five albums on a JGCD- catalogue all named ○○曲集 (幻懐式曲集, 忘憂捧曲集, 時悠響曲集, 鎮魂祈曲集, 歳年嬉曲集) — the same series naming as this release, 想月綺曲集, which places the music side with 時遊戯画. Project M_T_G is separately credited as the release artist for 想月綺曲集～東方想月綺 Original Soundtrack～ (e.g. https://www.youtube.com/watch?v=cOP67hp9svA), and album_artist here is 'ProjectM_T_G／時遊戯画' — game project plus music circle. Medium: no wiki page states the split outright, and I found no source that merges them either."
+  },
+  "[灿华幻梦 × 墨染燐桦]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives OVERPROTECTION 制作方 = 灿华幻梦，墨染燐桦 and 类型 = 全长，合作 (collaboration) — https://thwiki.cc/OVERPROTECTION; 墨染燐桦 is a separately registered label on DIZZYLAB (https://www.dizzylab.net/l/墨染燐桦/). Tracks alternate strictly between SEPHID (灿华幻梦's 音乐 member) and system [Σ], with one joint track 'S&S Munitions'; catalogue CHHM-0001 concatenates the two circles' initials."
+  },
+  "[2nd Flush × 音乃葉]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives Caprice 制作方 = 2nd Flush，音乃葉 with staff mapping 秋ノ = 2nd Flush and cheebow = 音乃葉; 音乃葉 is a circle, 主催 cheebow (https://thwiki.cc/音乃葉). [2nd Flush] exists standalone and 秋ノ has 13 tracks there."
+  },
+  "[AlphaVersion Records×Qualial]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "The BOOTH listing for graphics states 「AlphaVersion Records / Qualialの合同コンピレーション」 (a joint compilation of the two) — https://booth.pm/ja/items/687572. Qualial is a real circle with its own QLCD- catalogue (organiser Yamaken, https://soundcloud.com/qualial); [AlphaVersion Records] exists standalone and catalogue AQCD-001 concatenates A and Q."
+  },
+  "[Xceon vs Starving Trancer]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "Xceon and Starving Trancer are two aliases of the SAME person: THBWiki's page for Iceon gives 真名 = 瀬尾祐介 and 别名 = Xceon，Starving Trancer, listing both websites on one entry — https://thwiki.cc/Iceon. DIVERSE DIRECT registers the releasing circle as 'CIRCLE: Xceon / Starving Trancer' (https://www.diverse.direct/category/xceon-starving-trancer/), which is exactly the album_artist tag here; 'vs' is a self-versus alias pairing. 'REMIXED BY A-One' is title branding — only one of the three remixers (ELEMENTAS) is A-One."
+  },
+  "[燃えるゴミ燃えないゴミ／金沢合同]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "金沢合同 is not a circle. The project's own site (kanazawagogo.dojin.com, its registered URL in the archived るなフェス circle list) states 「金沢合同企画は、当初金沢に遊びに行こうという雑談から始まった企画です。…「燃えるごみ 燃えないごみ」はその話の中で決まったサークル名です」 — 金沢合同(企画) is the name of the joint undertaking and 燃えるゴミ燃えないゴミ is the circle name adopted for it, i.e. one entity under two labels. The 19 tracks are mostly 燃えるゴミ燃えないゴミ radio-skit material with guest songs by 狐夢想, myu314 and 石鹸屋 — individual participants in the project, not co-billed circles."
+  },
+  "[As／Hi Soundworks × 梶迫小道具店]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both exist standalone; 柊秀雪 and Atori credits span both sides, and [荒御霊 × 梶迫小道具店] and [NO TITLE x 梶迫小道具店] were already decomposed with [梶迫小道具店] as a member."
+  },
+  "[VAGUEDGE DIES FOR DIES IRAE vs. Heterodyne.]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki's circle page reads 社团名 = VAGUEDGE（VAGUEDGE DIES FOR DIES IRAE）, 主催 Hull — the long string is VAGUEDGE's own alternate name, so 'vs.' is the separator. The album page gives 制作方 = VAGUEDGE，Heterodyne., 类型 = EP，合作, 编号 VDFD-0003, 备注 「以VAGUEDGE DIES FOR DIES IRAE vs. Heterodyne.名义発布」, with Heterodyne. a circle 主催 Hellnear — https://thwiki.cc/VAGUEDGE, https://thwiki.cc/DEATHMARCH_OF_JIANGSHI'S_PARADISE. Corroborated locally: the VDFD-001/002 releases sit inside the standalone [VAGUEDGE] dir with tracks credited to the artist 'VDFD'."
+  },
+  "[西明石俗物園×東生駒珍物園]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives 属夜鎮陽 制作方 = 東生駒珍物園，西明石俗物園 with all five tracks arranged by にぬきボム (東生駒珍物園, formerly にぬきボ村) and Illustration by fu kka (西明石俗物園); 西明石俗物園's own page says 「该作品是与 東生駒珍物園 合作创作的」 — https://thwiki.cc/属夜鎮陽, https://thwiki.cc/西明石俗物園."
+  },
+  "[Aqua Style／ひえろぐらふ]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "ひえろぐらふ is a separate music-production circle, not part of Aqua Style. Its own サークル概要 states 「ひえろぐらふは音楽製作サークルです。現在は「はちみつくまさん」「AQUASTYLE」の両サークルを中心に楽曲を提供しています」 and 「このサークルは「にょ。」と「棟方」の２人サークルです」 — https://web.archive.org/web/20110726030626id_/http://hierograph.net/info.html. TouhouDB models AQUA STYLE (id 5987, Circle, run by JYUNYA) and ひえろぐらふ (id 10681) as distinct artists and credits most AQUA STYLE albums as 'にょ。, AQUA STYLE'. Locally the dir mixes album_artist values AQUA STYLE / AQUASTYLE with 'ひえろぐらふ / Aqua Style' and bare 'ひえろぐらふ'. Note [Aqua Style-ひえろぐらふ] is a duplicate of this directory under a different separator."
+  },
+  "[Liz Triangle×MiddleIsland]": {
+   "verdict": "COLLAB",
+   "confidence": "medium",
+   "evidence": "MiddleIsland is a genuine circle: THBWiki lists it as a 同人音乐社团 founded 2003, 主催 中島岬, site middleisland.net (https://thwiki.cc/MiddleIsland), and TouhouDB registers it with artistType Circle. Track artist 'Misaki Nakajima' on this disc is that person, and he is credited as 「中島岬 MiddleIsland」 on other Liz Triangle albums. Liz Triangle exists standalone as [Liz Triangle] りすとら. Medium because neither wiki lists this preview disc, so the joint billing rests on the disc's own title text plus the member split."
+  },
+  "[幽閉サテライト×神楽めあ×少女フラクタル]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "The ALBUM tag reads '神楽めあ&幽閉少女コラボ vol.2' — explicitly a collaboration. [幽閉サテライト] and [少女フラクタル] exist standalone and were already linked together in [幽閉サテライト×少女フラクタル]; 神楽めあ is separately credited as a track artist inside [C-CLAYS]."
+  },
+  "[想謳×結律 心庵 ]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "The circle's own site header reads 「ヒメキ(媛貴)の個人サークル「想謳×律結 心庵」公式HP」 — a one-person circle whose whole name contains the × — with footer Copyright©想謳×律結 心庵 (http://katharusis.nobody.jp/); third parties use the full string as one artist name. The embedded album_artist tag '想謳×律結　心庵' matches, and the directory has 律結 transposed to 結律. Neither 想謳 nor 律結 exists as an independent entity."
+  },
+  "[CHAOS MIXER x Thrive at Thrice]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "album_artist is 'Thrive at Thrice/CHAOS MIXER' — the order is reversed relative to the directory, proving these are two names rather than one string; [CHAOS MIXER] exists standalone."
+  },
+  "[Pizuya's Cell ✕ BLOOD STAIN CHILD]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Pizuya's Cell exists standalone as [ぴずやの独房] Pizuya's Cell and is already a linked member of three other collaborations in the v6 run record; BLOOD STAIN CHILD is the Japanese metal band jointly named in album_artist."
+  },
+  "[ぴずやの独房 ✕ BLOOD STAIN CHILD]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Same release as the Pizuya's-Cell-spelled twin — both dirs hold PCBSC-0001 共鳴領域, 4 tracks, with the identical album_artist tag \"Pizuya's Cell ✕ BLOOD STAIN CHILD\"."
+  },
+  "[かっくん×ぶるっくりん☆すてーしょん×groovin' bullets]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "[ぶるっくりん☆すてーしょん] exists standalone; the three tracks are credited one each to かっくん, ぶるっくりん and ｓｉｇ*, matching the three named parties."
+  },
+  "[J＆B／すたじおたわし／A-HEAD]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "All three exist standalone and the comma-spelled twin [J&B,すたじおたわし,A-HEAD] was already decomposed to exactly these three in the v6 run record; only the fullwidth ＆ and ／ defeated the auto-rule here."
+  },
+  "[Next Reflection x NIZI-RINGO]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "album_artist is 'NextReflection & NiZi-RiNGO' — an explicit two-party credit; NIZI-RINGO matches the standalone circle [NiZi RiNGO]."
+  },
+  "[COOL＆CREATE／5884組]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Documented verbatim in Docs/STEPS.md §5 example 3; [COOL&CREATE] exists standalone and 5884組 is the bracket-wrapped collaboration-only member."
+  },
+  "[海老桜咲く×粥占偽神事]": {
+   "verdict": "COLLAB",
+   "confidence": "medium",
+   "evidence": "THBWiki gives 陸離日和 制作方 = 海老桜咲く，粥占偽神事, 类型 = 全长，合作, with staff 七草多粥 = 粥占偽神事 and sgg = 海老桜咲く — https://thwiki.cc/陸離日和; the ten tracks alternate strictly between those two artists. THBWiki also records 海老桜咲く as an 又称 (alternative form) of 姥桜咲く, sgg's personal circle (renamed Red Bullet Sequence in 2010), so the left member is mapped to the standalone dir [姥桜咲く]; note [Red Bullet Sequence] also exists separately in this release, which is a pre-existing duplicate-circle issue rather than a collaboration one."
+  },
+  "[S／N Ravens]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "One circle: TouhouDB has a single Circle entity 'S/N Ravens' (twitter.com/SNRavens) with そるてぃらぷた and MTD credited as producers on its albums rather than as separate circles, and the BOOTH shop is 'S/N Ravens (そるてぃらぷた)'. Seven albums on one SNR- catalogue, album_artist 'S/N Ravens'."
+  },
+  "[Crimson Moon vs Pays feerique]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "[Crimson Moon] exists standalone; catalogue CMPF-0000 concatenates CM and PF."
+  },
+  "[姫騎士オフライン x SOUTH OF HEAVEN]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "album_artist and PERFORMER tags read '姫騎士オフライン＆SOUTH OF HEAVEN' on 21 tracks; [SOUTH OF HEAVEN] exists standalone and its SOH- catalogue numbers the whole directory."
+  },
+  "[CLOSED／UNDERGROUND]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "CLOSED/UNDERGROUND is 片霧烈火's own circle, one name: ja.wikipedia states 「主宰している同人サークルは『CLOSED/UNDERGROUND』といい、略称は『黒餡』としている」 (https://ja.wikipedia.org/wiki/片霧烈火) and her official site is titled 'CLOSED/UNDERGROUND – REKKA KATAKIRI OFFICIAL WEBSITE' (https://www.rekka.jp/). The MIN- catalogue is the circle's own series — her SoundCloud upload is 「MIN0023「FLYING ARTILLERIST - get ready, already.」クロスフェードサンプル」 posted as '片霧烈火 - CLOSED/UNDERGROUND'."
+  },
+  "[はちみつくまさん／ひえろぐらふ] hachikuma-hierograph": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Same pair of distinct circles: はちみつくまさん is a 3-person doujin software circle (https://www.hachikuma.net/) that credits ひえろぐらふ as an external music supplier on individual products (e.g. 東方侵略軍: 「制作メンバー 曲：ひえろぐらふ」, while other albums list iemitsu.PRODUCTIONS or ReSoundWave instead), and the two register at Comiket as separate adjacent circles (「東ネ-15ab はちみつくまさん＋ひえろぐらふ」). Locally the dir carries album_artist=はちみつくまさん on 615 tracks and album_artist=ひえろぐらふ on 59 — two distinct album-level credits in one folder. The 9 tracks tagged 'ひえはち' are the merged shorthand for the pairing."
+  },
+  "[R／K Project]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "The circle's own About page says 「ロックサウンドを追い求める同人音楽サークル『R/K Project』です」 and lists one roster — Raiki (サークル首謀者), Keeth, hiroshi, ゆかち (http://r44kproject.web.fc2.com/about.html). The name is the Raiki+Keeth initials but it is a single circle; the disc's own per-track artists are 'R／K Project', 'Raiki', 'keeth', 'Raiki/keeth'."
+  },
+  "[LOVEマシーン×にくや]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "[LOVEマシーン] exists standalone; catalogue NKCD-0001 is the にくや prefix and the tracks are by different artists (みずきともえ, orange)."
+  },
+  "[凍幻舎×夢想夏月郷]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "[夢想夏月郷] exists standalone; tracks split between 凍野 (matching 凍幻舎) and 匙星, and both artists also guest in the standalone 夢想夏月郷 dir."
+  },
+  "[Sound.／Ecriture]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "Read as one word, サウンドエクリチュール. The circle's own site says 「サウンドエクリチュールは2007年1月にYoSi*としんさくによって立ち上げられた同人音楽サークルです」 (http://sound-ecriture.com/, archived), album booklets read Arranged by \"Sound./Ecriture\", and SECD-0001…0006 is one continuous catalogue series. No circle named 'Sound.' or 'Ecriture' exists in the release."
+  },
+  "[As／Hi Soundworks (As／Hi)]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "46 albums whose album_artist tags are all variants of one circle — 'As/Hi Soundworks', 'As／Hi Soundworks', 'As/Hi', 'As/Hi Piano', 'As/Hi ROCK', 'As-Hi Soundworks' — with 柊秀雪 on 285 tracks. The ／ is internal to the name and the parenthesis is the alias; this is the standalone entry the five As／Hi collaborations link to."
+  },
+  "[A-One×発熱巫女～ず×君の美術館×Unlucky Morpheus]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Three of the four exist standalone ([発熱巫女～ず], [君の美術館], [Unlucky Morpheus]) and A-One exists as [A-One (A1) - Eurobeat]; LUNATIC TOHO is a four-circle joint disc."
+  },
+  "[E.B.S. 0／1]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "One circle page on en.touhouwiki.net, 'E.B.S.0/1', homepage zeroslash.blog62.fc2.com — the domain spells the 0/1 out (https://en.touhouwiki.net/wiki/E.B.S.0/1). The blog is authored by phi, the sole track artist here, and announces both Frontal Frontier and Active Violet."
+  },
+  "[はにーぽけっと × A-One]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "[はにーぽけっと] exists standalone and is already a linked member of four other collaborations; the release carries A-One's own AONE-0012 catalogue number."
+  },
+  "[荒御霊×MONOMIND]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both exist standalone ([荒御霊]; [MONOMIND (M2ind manufactory)], which also appears in [MONOMIND & ROMANTIC MELLOW]); tracks split between 和泉幸奇 (荒御霊) and haLRu."
+  },
+  "[UPFG x 神乃木制作所]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "album_artist reads 'UPFG x 神乃木製作所' with 製, matching the standalone circle [神乃木製作所] (7 albums); the release is an explicit 合同企画 (joint project) compilation."
+  },
+  "[LEAP&LOOP]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki has a single circle page for LEAP&LOOP (members 受精卵, 麻疹, 雷神, 琥珀, site leapandloop.web.fc2.com); neither \"LEAP\" nor \"LOOP\" exists as a circle."
+  },
+  "[MONOMIND & ROMANTIC MELLOW]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives 制作方 = MONOMIND，ロマンチックメロウ for きみをよぶこえ and maps haLRu to MONOMIND; ロマンチックメロウ (主催 みなみきずな) is a real, separate — mainly doujinshi — circle; catalogue MMRM-0001 = MONOMIND (own prefix MMPD-) + RomanticMellow."
+  },
+  "[堕武者+ultraviolence+]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "TouhouDB artist 4279 is the circle 堕武者グラインド with registered alternate names \"堕武者+ultraviolence+\" and \"Ochimusya+ultraviolence+\"; locally the folder is one continuous 2007–2025 discography whose album_artist alternates between the two names, including a 堕武者20周年記念作品."
+  },
+  "[さやかた紅茶館さん＆GenocideKitten]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "The レミ咲合同企画 site (archived 2007-11-03) lists two separate 東方紅楼夢3 booths — 紅-21,22 さやかた紅茶館 and 紅-23,24 GenocideKitten — sharing a 2サークル合同スペース; the cue sheet shows 11 further guest circles, so both named parties are co-organisers of a 合同 compilation."
+  },
+  "[STAR FACTORY＆SEVEN VOLT]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "東方ダンジョンダイブ was jointly developed by 株式会社スターファクトリー and 株式会社セブンボルト (two separate companies, credit line \"ⓒSTAR FACTORY, Inc. / SEVEN VOLT\"); the embedded album_artist is literally \"STAR FACTORY/SEVEN VOLT\" and every track is by an outside circle."
+  },
+  "[Alstroemeria Records & Cradle]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Cradle is a separate doujin circle (主催 深崎暮人, site cradle.cc) that supplied the artbook half of the CD+book release stem of radiant; catalogue ACCD-0001 = Alstroemeria (own prefix ARCD-) + Cradle."
+  },
+  "[ねこまち+歩く電波塔の会]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "TouhouDB registers ねこまち and 歩く電波塔の会 (きくお’s circle) as two independent Circle entries on this album; きくお is credited as producer and has two of the ten tracks."
+  },
+  "[HaCT&More]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki 社团 page: circle \"HaCT&More\", founded 2024, 主催 and sole member Tan5020, official site hactandmore.booth.pm; \"&More\" is part of the brand. All 17 local tracks are by Tan5020."
+  },
+  "[Melted Yin & Yang]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki 社团 page lists it as one circle (founded 2018) with exactly this one album; own domain meltedyinyang.com / Bandcamp / BOOTH / @MeltedYin_Yang. The 16 track artists are contributors to a various-artists compilation, not co-circles."
+  },
+  "[I DO Loud.＆現代社会の縮図＆Blau tea]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "TouhouDB lists all three as distinct Circle entries with their own sites and rosters, and the Seeds Of The New Stream tracklist splits cleanly along those three rosters; 東方編曲録 renders the credit as I DO Loud.×現代社会の縮図×Blau tea."
+  },
+  "[Aether&ECE-SMZ]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Aether is a circle (members Eru and Ke — hence album_artist flipping between \"Aether & ECE-SMZ\" and \"Eru & ECE-SMZ\"); ECE-SMZ is a separate producer with his own site; catalogue AEEC = AEther + ECE (Aether’s own prefix is AETR-). (Both discs are Etrian Odyssey, not Touhou, arranges.)"
+  },
+  "[Arts＆Sounds：Utopia]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki 社团 page: 社团名 \"Arts&Sounds:Utopia\", 主催 and sole member ハウザー, site utopia2112.com; REVENGE OF IDE sits in its own album list and all six local tracks are by ハウザー."
+  },
+  "[J&B]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki circle page: founded 2007, 主催 mcn, members うぇり/藍/たわし, site m-jb.com. Twelve local albums share the JBCD- catalogue, and the sibling folder [J&B,すたじおたわし,A-HEAD] treats \"J&B\" as one indivisible party in a three-circle collab."
+  },
+  "[UMM＆SOLEIL]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki’s 夜鳥撰集「A」 page gives 制作方 = Ultra Magic Mushroom，SOLEIL and tags 类型 = 合作, mapping みぎはら to Ultra Magic Mushroom (=UMM) and ML-key / √ to SOLEIL."
+  },
+  "[FALSE&TRUES]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki circle page: active 2009–2013, 主催 藤宮ゆき (the \"YUKI\" in the tags), site false2trues.com — a 分支社团 of いえろ～ぜぶら but one circle in its own right; four local albums share the FTCD- catalogue."
+  },
+  "[Stersion & Misty]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki’s Bres page gives 制作方 = Stersion，Misty and maps ikebo → Stersion (IKEB- is his catalogue prefix) and 美里/Misty → Misty; the six tracks split 3/3 between the two vocalists."
+  },
+  "[Color&Color+]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki / en.touhouwiki circle pages: founded 2012, sole member Pastel, site colorcolor.sakura.ne.jp/plus/, Twitter @colorcolorp; no separate \"Color&Color\" circle exists. Both local albums carry album_artist Color＆Color＋."
+  },
+  "[9bit Log!Q+]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki circle page: founded 2012, 主催 StackStorm, members イノコー (NellyMono) and ボンさん, site 9bitlogiq.web.fc2.com; eleven local albums share the 9QCD- catalogue."
+  },
+  "[CN2&TEAR＊]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki circle page for CN2&TEAR＊ (主催 蛍灯翔, member ヒスイリカ); one shared web presence, a BOOTH shop named \"CN2＆TEAR*SHOP\", catalogue prefix CN2T-, and a best-of \"decade：CN2&TEAR*BEST01\". No circle called \"TEAR＊\" exists. The sibling folder [CN2&TEAR＊×M-style] treats the whole string as one party."
+  },
+  "[R.I.N. ft. ガネメ]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki tags destrUctioN ＜=＞ resurrectiON 类型 = 合作 with 制作方 = Reason Is Nowhere，ガネメ, mapping A.S-Leaf/H.J.Nue → Reason Is Nowhere (own catalogue prefix RIN-) and ガネメ → ガネメ, which is a ~40-album circle with a standalone entry in this release."
+  },
+  "[岡垣正志＆フレンズ]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "TouhouDB artist 13979 is a single Circle \"Masashi Okagaki & Friends\" with alt names 岡垣正志＆フレンズ / Aphrodite / Aphrodite Symphonics / Jill’s Project; kapparecords hosts the whole SCARLET FANTASIA series under /MasashiOkagakiAndFriends/. \"フレンズ\" is literally \"& Friends\" (rotating guest musicians) — locally 22 of the 30 albums are tagged album_artist \"Aphrodite Symphonics\"."
+  },
+  "[Ridil&ATMOSPHERIC]": {
+   "verdict": "UNCERTAIN",
+   "confidence": "low",
+   "evidence": "Rich evidence pointing both ways; not resolved. FOR one entity: the release’s own Readme.txt says 「この商品の内容はRidilがATMOSPHERIC名義にて…発売の…と同様です」 (ATMOSPHERIC is a 名義 of Ridil), plus 「Presented by Ridil」 and 「Copyright(c) 2014-2018 Ridil」; THBWiki gives both the same 主催 (ニシム監督) and the same official site ridil.jp; TouhouDB calls ATMOSPHERIC \"Personal circle of ニシム監督\"; the disc is sold on Ridil’s own BOOTH. AGAINST: THBWiki’s album page still lists 制作方 = ATMOSPHERIC，Ridil, TouhouDB carries a separate circle record for ATMOSPHERIC, and it has its own catalogue prefix (APCD- vs Ridil’s RDCD-) for the two releases co-arranged with わたわた. Left unsplit (members []) because splitting would mint a second circle for one person; flagged for human review."
+  },
+  "[Sharp Eight & Eve Hates Me]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki tags Desire S-T 类型 = 合作 with 制作方 = Sharp Eight，Eve Hates Me, mapping FLYER → Sharp Eight (SECD- prefix, all-FLYER discography here) and Kefy → Eve Hates Me; catalogue SEME = Sharp Eight + Eve hates Me."
+  },
+  "[COOL&CREATE & チョー314]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both parties have standalone entries in this release; embedded album_artist is \"COOL&CREATE チョー314\" and catalogue CCZM-0001 = CCCD- (COOL&CREATE) + ZMCD- (チョー314). The automatic rule failed only because splitting on \"&\" also cuts COOL&CREATE in half."
+  },
+  "[CUBETYPE feat. AVSS]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki tags 紅舞闘夜宴 类型 = 合作 with 制作方 = CUBETYPE，AVSS and credits \"Producer & Illustrator : CUBETYPE / Director & Jacket Works : Da/Le (AVSS)\"; AVSS is a separate club-music label with its own site and catalogue."
+  },
+  "[asami & Hasenpfeffer]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki tags 夢は見ない 类型 = EP，合作 with 制作方 = Hasenpfeffer，asami and the official page is literally named splitusagiumi.html — a split release. Hasenpfeffer is a band (主催 Vespa) with a standalone entry; asami has its own THBWiki 社団 page (主催 den1020) and a solo discography. The pair also share a second split, A Split Petal."
+  },
+  "[Edel SOUNDS＆月ノ鍵]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "花鳥風月 is a 絵・音・コス合同企画 between the music circle EdelSounds and the illustration circle 月ノ鍵 (joint site edel-key.tumblr.com); the six tracks are each credited \"person / circle\" to six further guest circles, so neither named party is the per-track artist."
+  },
+  "[COOL&CREATE]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "Long-running single circle (ビートまりお/あまね), 67 local albums on the CCCD-/ZCCD- catalogues. Confirmed as one circle by the task brief and by the sibling collab folders that append a second party to the whole string."
+  },
+  "[2SP+C'K]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki has a dedicated circle page 2SP＋C'K (同人音乐社团, disbanded 2009) with one roster — DAQUA / ぬぼ～ん / KATACHI — and four albums under that single name; the album page is tagged 类型 = 全长, not 合作. No separate \"2SP\" or \"C'K\" circle exists."
+  },
+  "[N+]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki / en.touhouwiki / TouhouDB all carry one circle N+ (site enuplus.wixsite.com), formed 2016 by ex-Sally members: 主催 NSY (arranger) with 茶太 and シュリケン as members — so the \"feat.Chata\" styling names an actual member. The cue’s disc-level PERFORMER is \"N+\" and the per-track performers 茶太 / NSY are those people."
+  },
+  "[SHM+MHS]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Catalogue SHMHS-001 = SHM- (セブンスヘブンMAXION’s exclusive prefix in this library) + MHS- (M.H.S, 溝口ホール工房); M.H.S’s own discography contains a release literally titled \"C85 セブンスヘブンMAXION(SHM) ＆ 溝口ホール工房(MHS) 会場特典DISK\". Both have standalone entries; the rule failed because \"SHM\"/\"MHS\" are abbreviations."
+  },
+  "[夕焼けコンテナ。 & 水車小屋]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Catalogue YCWM-0001 = YCCD- (夕焼けコンテナ。) + WaterMill; the six tracks split 4/2 between 村瀬悠太 (夕焼けコンテナ。) and Gauche (水車小屋), and 水車小屋/Watermill is an independently documented circle."
+  },
+  "[DiGiTAL WiNG & THE OTHER FLOWER - Eurobeat]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both circles have standalone entries in this release; the automatic rule failed only because of the trailing TLMC genre marker \" - Eurobeat\" (the same marker appears on [A-One (A1) - Eurobeat])."
+  },
+  "[いえろ～ぜぶら ｘ 有限会社るざりん ｘ False&Trues]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Embedded album_artist is \"有限会社るざりんｘいえろ～ぜぶらｘFalse&Trues\"; all three have standalone entries. The rule failed only because splitting on \"&\" also cuts FALSE&TRUES in half."
+  },
+  "[俺++(Includeore)]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki circle page: founded 2010, 主催 Dee! (RAVE MASTER D!), site includeore.net; \"(Includeore)\" is the reading of \"俺++\". Eleven local albums share the ORECD- catalogue and the sibling folder [俺++×音召缶] treats 俺++ as one party."
+  },
+  "[Candy & Jam]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki gives 求聞和歌拾遺 制作方 = \"Candy & Jam\" as a single producer and TouhouDB has one Circle entry (id 18386) whose members are ジャム and 大飴 — the name is the two members’ handles (大飴 ≈ \"candy\"). ほたりん is a one-track guest."
+  },
+  "[Azure&Sands]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki / en.touhouwiki / VGMdb all list one circle founded 2005 with sole member 鯛の小骨; fourteen local albums share the ASCD- catalogue."
+  },
+  "[Atelier Oguu & PASTEL JAM]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives 幻想響楽祭 制作方 = Atelier Oguu，PASTEL JAM with both circles’ blogs as 官网页面 and the credit \"Illust : NAGI （PASTEL JAM）\"; PASTEL JAM (主催 かんなぎかすみ) has its own circle page. Note the folder also holds two Atelier-Oguu-only albums."
+  },
+  "[Travel cat + girl]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki states Travel cat and Travel girl are 同一社团 — \"Travel girl\" for CDs, \"Travel cat\" for doujinshi, and \"Travel cat + girl\" is the name used at events (主催 謳城昴). One entity under three names, not two circles."
+  },
+  "[Planet+]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki / en.touhouwiki circle page with sole member プラスもなか, site planet-plus.squares.net; catalogue PLUS-001."
+  },
+  "[上海アリス幻樂団 & 黄昏フロンティア] ZUN & Twilight frontier": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "The fighting-game OSTs are ZUN’s 上海アリス幻樂団 co-credited with the separate developer 黄昏フロンティア (Twilight Frontier); track composers split between ZUN and あきやまうに (Twilight Frontier), and 上海アリス幻樂団 has a standalone entry."
+  },
+  "[ノーストリリア & 8686m & PsychoPhysics]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives 制作方 = ノーストリリア，8686m，PsychoPhysics; locally the seven tracks map one-to-one onto the three rosters (もな/ひろ太 → ノーストリリア, ふじこ → 8686m, あとむ → PsychoPhysics, 主催 マツケン). Two of the three have standalone entries."
+  },
+  "[Suspicion & Fear]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki circle page: founded 2014, 主催 セバスチャーーーーン, 17 albums under the one name, site suspicionandfaer.blog.fc2.com; nine local albums share the SMSF- catalogue and one artist tag."
+  },
+  "[Consonances & Dissonances]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "A single international arrange collective with one Bandcamp/Twitter/YouTube identity; six local albums all carry album_artist \"Consonances & Dissonances\" over ~160 tracks by rotating contributors."
+  },
+  "[岸田教団&THE明星ロケッツ]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "One band/circle: founded 2004 as Studio K2, renamed 岸田教団, and from 2007 releasing as 岸田教団&THE明星ロケッツ (the backing-band name, taken from the Studio K2 album 明星ロケット). TouhouDB has a single Circle entry (157). Locally all 30 albums share the K2- catalogue, with early ones tagged 岸田教団 or studioK2."
+  },
+  "[Neko & 雅]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki has a dedicated 社团 page titled \"Neko & 雅\" (site mochinosisomaki.web.fc2.com) whose 主催/members are Neko and 雅 disambiguated *as members of that circle*; the 夢幻軌道 page is 制作方 = Neko & 雅, 类型 = 全长 (not 合作), and every local track artist is the string \"Neko & 雅\"."
+  },
+  "[Scarlet&Silver]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki 社团 page: 主催 BELL, members BELL and みぃ, own domain scarletandsilver.himegimi.jp; both its albums are credited to the circle as a whole."
+  },
+  "[flap+frog]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki / en.touhouwiki circle page: founded 2007, sole member イワクラコマキ, site flapfrog.yotsumeyui.com; 35 local albums share the FFRC- catalogue."
+  },
+  "[I&k]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "The circle’s archived site opens 「ここはI&kのホームページです」; it is a two-person circle formed by I and k. On いいいい the cue’s disc-level PERFORMER is \"I&k\" and the per-track performers I/K/M/karnha are people (karnha an explicit guest from the circle El Dorado)."
+  },
+  "[TUMENECO & RED FOREST]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Embedded album_artist is the unabbreviated \"TUMENECO & RED FOREST METAL ORCHESTRA\"; both circles have standalone entries. This is the worked example in Docs/STEPS.md §5."
+  },
+  "[SuZuKi4&Ki4-Fu3]": {
+   "verdict": "SINGLE",
+   "confidence": "medium",
+   "evidence": "Three independent sources merge the two names into one entity: THBWiki states \"Ki4-Fu3 or known as SuZuKi4 is a group of 2 people, 「きよ」 and 「ふみ」\" (Ki4=きよ, Fu3=ふみ) with 別名 SuZuKi4 / SZKY — hence catalogue SZKY-0001 = SuZuKiyo; TouhouDB keeps a single artist entry aliasing Ki4-Fu3 / SuZuKi4 / すずきよ / ふみ; VGMdb lists a single organization string \"SuZuKi4/Ki4-Fu3\". Contrary local signal: the disc carries no album_artist tag and its cue alternates per-track PERFORMER between the two names — most plausibly solo (SuZuKi4) versus duo (Ki4-Fu3) tracks by the same people. Hence medium, not high."
+  },
+  "[FactoryNoise＆AG]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "One company/label — ファクトリー・ノイズ&AG, founded 2004, spun off from NoBrandSounds; ja.wikipedia, THBWiki and MusicBrainz all treat it as a single entity (主催 長崎繁 and 淺川秋). The four local albums share the FNAG- catalogue and the many track artists are guest arrangers."
+  },
+  "[奏琉堂＆D.S.K Recordz]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "奏琉堂’s own blog announcement reads 「サークル：奏琉堂＆D.S.K Recordz」 for ヴォイマツ東方EP; the cue splits tracks between ヴォイド (奏琉堂) and Akamatz (D.S.K Recordz) and the title is a portmanteau of the two names. D.S.K Recordz has a standalone entry."
+  },
+  "[Emotional&Reason]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "THBWiki circle page: founded 2013, sole member 奈央, tumblr emortional-reason.tumblr.com; both local albums carry album_artist Emotional&Reason and one uses it as the track artist too."
+  },
+  "[COOL&CREATE & 狐夢想屋]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Both have standalone entries; embedded album_artist is \"COOL&CREATE/狐夢想屋\" and catalogue KMCC-0001 = KMCD- (狐夢想屋) + CCCD- (COOL&CREATE). The rule failed only because splitting on \"&\" cuts COOL&CREATE in half."
+  },
+  "[EastNewSound&A-One]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "Embedded album_artist is semicolon-separated \"EastNewSound; A-One\" for this TGS 2013 live sampler; both circles have standalone entries (A-One’s carries the TLMC \" - Eurobeat\" genre marker, which is why the automatic rule missed it)."
+  },
+  "[FelesVlinder & schwarzwald]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "THBWiki gives 制作方 = FelesVlinder，schwarzwald with credits \"Artwork : ト南 （FelesVlinder）\" / \"Music : corvus （schwarzwald）\"; corvus also appears on schwarzwald’s own SCHW-0008.5, and schwarzwald has a standalone entry."
+  },
+  "[+TEK]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "20 of the 22 albums in the directory carry album_artist=+TEK AND artist=+TEK; the leading '+' is part of the artist name. Bandcamp plustek.bandcamp.com/album/highly-responsive-to-fm; en.touhouwiki.net/wiki/Highly_Responsive_to_FM credits +TEK; rateyourmusic.com/artist/_tek. The 2 ANIM.USIC-tagged albums in this folder belong to a separate label +TEK is a member of and are mis-foldered here."
+  },
+  "[Shisuka, Frozen Starfall & Saku]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "album_artist='Shisuka, Frozen Starfall & Saku' but per-track artist tags list 'Shisuka' and 'Saku' separately. [Frozen Starfall] exists as its own circle directory in this release. shisuka.bandcamp.com/album/ipse-dixit and en.touhouwiki.net/wiki/Ipse_dixit: Shisuka = arrangement/lyrics, Saku = vocals, Frozen Starfall = remix/co-production. Shisuka and Saku are individuals rather than circles."
+  },
+  "[Crazy Beats, 秋葉工房 & A-One]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "album_artist='Crazy Beats;秋葉工房;A-One' - already semicolon-delimited into three in the file's own tag. [Crazy Beats], [A-One (A1) - Eurobeat] and [秋葉工房 × A-One] all exist as separate directories. eurobeat.fandom.com/wiki/Akiba_Koubou states the SUPER EURO SMASH series was collaborated with A-One Records and CrazyBeats; crazy-beats.jp/cbit006/ is CrazyBeats' own page for SUPER CRAZY EURO -THE BEST OF SES-."
+  },
+  "[midnight school, ALTERNAIT, COSMIC COMIC]": {
+   "verdict": "COLLAB",
+   "confidence": "medium-high",
+   "evidence": "album_artist='midnight school , ALTERNAIT , COSMIC COMIC' (spaced commas = a list). MusicBrainz label 506a367d-f8f0-46d3-95e7-a2a61766314d 'COSMIC COMIC. RIFF*RAFF and ALTERNAIT' shows COSMIC COMIC and ALTERNAIT are distinct co-releasing entities. bangumi.tv/index/16221 lists 'the 東方 set' (C78) as a midnight school / ALTERNAIT / COSMIC COMIC release. None of the three has a standalone directory in this release."
+  },
+  "[※論理について。   ,   ペンギノン]": {
+   "verdict": "COLLAB",
+   "confidence": "high",
+   "evidence": "[ペンギノン] exists standalone in this release; thwiki.cc/ペンギノン documents it as the circle of 左野ナオイ. ※論理について。 is its own entity - thwiki hosts the lyric page 歌词:花は幻想のままに（※論理について。）. 花のあはれ (2016.10.09, 東方紅楼夢12) is documented as a joint release of the two."
+  },
+  "[Dear,friends]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "The disc's .cue (/mnt/tlmc/TLMC v6/[Dear,friends]/2006.05.21 東方夜詠月～Dear,Music Another side～ [例大祭3]/) has PERFORMER \"Dear, friends\" at disc level and on every track, and its FILE lines are '(01) [Dear, friends] Opening-.flac'. album_artist='Dear, friends'. The actual people are Shinya and nozomu (per-file artist credits), so the comma is internal to the circle name. No [Dear] or [friends] circle exists in the release."
+  },
+  "[SoundTeam,LORB]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "The comma is inside the circle's own name. album_artist values across its 7 albums: 'SoundTeam LORB', 'SoundTeam,LORB', 'SoundTear,LORB' (typo), 'SoundTeam,LORB ft. DDB'. Every album carries the LORB- catalog prefix and Richiter as core member. The circle's own site lorb.info/disco.html is titled 'Discography - SoundTeam,LORB'; touhou.arrangement-chronicle.com/circle/SoundTeam,LORB."
+  },
+  "[Sing, R. Sing!]": {
+   "verdict": "SINGLE",
+   "confidence": "high",
+   "evidence": "album_artist='Sing, R. Sing!' on all 5 albums, sole artist=ポール, catalog prefix SRSB-. thwiki.cc/Sing,_R._Sing! and en.touhouwiki.net/wiki/Sing,_R._Sing! document it as ポール's personal circle (formed 2001 as 'Runanse Sing!', renamed 'Sing, R. Sing!' in 2003, renamed シンクレア民族音楽工房 in 2016)."
+  }
+ }
 }
