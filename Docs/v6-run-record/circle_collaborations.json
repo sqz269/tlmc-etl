@@ -1,0 +1,586 @@
+{
+ "_comment": "Collaboration decomposition for TLMC v6. artist_scanner_ph2 regenerates new_artists.output.json from the directory listing and writes linked=[] for every circle, so re-running it DISCARDS this. Reapply from here afterwards.",
+ "_method": "A circle name is split only when every part resolves to a circle that exists independently in the same release. Resolution tries the whole string first and only splits when it fails, so a name that legitimately contains a separator (COOL&CREATE) survives intact. Links are flattened to leaf circles: phase 3 resolves standalone entries before linked ones, so a link pointing at another collaboration mints a phantom UUID.",
+ "linked": {
+  "[ALiCE'S EMOTiON & Alstroemeria Records]": [
+   "[ALiCE'S EMOTiON]",
+   "[Alstroemeria Records]"
+  ],
+  "[J&B,すたじおたわし,A-HEAD]": [
+   "[J&B]",
+   "[すたじおたわし]",
+   "[A-HEAD]"
+  ],
+  "[Atrobool × Ariflare]": [
+   "[Atrobool]",
+   "[Ariflare]"
+  ],
+  "[幽閉サテライト×魂音泉×少女フラクタル]": [
+   "[幽閉サテライト]",
+   "[魂音泉]",
+   "[少女フラクタル]"
+  ],
+  "[こなぐすり＆音召缶]": [
+   "[こなぐすり]",
+   "[音召缶]"
+  ],
+  "[Astral Sky vs. 非可逆リズム × ちょこふぁん]": [
+   "[Astral Sky vs. 非可逆リズム]",
+   "[ちょこふぁん]"
+  ],
+  "[ちょこふぁん×イノライ]": [
+   "[ちょこふぁん]",
+   "[イノライ]"
+  ],
+  "[Re：SPEC & Re：cy：cle]": [
+   "[Re：SPEC]",
+   "[Re：cy：cle]"
+  ],
+  "[k-waves LAB × オーライフジャパン]": [
+   "[k-waves LAB]",
+   "[オーライフジャパン]"
+  ],
+  "[幽閉サテライト×少女フラクタル]": [
+   "[幽閉サテライト]",
+   "[少女フラクタル]"
+  ],
+  "[森羅万象×COOL&CREATE]": [
+   "[森羅万象]",
+   "[COOL&CREATE]"
+  ],
+  "[Re零同人社×二色幽紫蝶]": [
+   "[Re零同人社]",
+   "[二色幽紫蝶]"
+  ],
+  "[Giinno Country×Static World×山西THO组委会]": [
+   "[Giinno Country]",
+   "[Static World]",
+   "[山西THO组委会]"
+  ],
+  "[N-tone／Dust_Box_49]": [
+   "[N-tone]",
+   "[Dust_Box_49]"
+  ],
+  "[Aleile＆Crest＆魂音泉＆DDBY]": [
+   "[Aleile]",
+   "[CREST]",
+   "[魂音泉]",
+   "[DDBY]"
+  ],
+  "[Hyperdimension! x denshūto]": [
+   "[Hyperdimension!]",
+   "[denshūto]"
+  ],
+  "[TUMENECO×はにーぽけっと×ナイフ]": [
+   "[冷猫] TUMENECO",
+   "[はにーぽけっと]",
+   "[ナイフ]"
+  ],
+  "[Klang-Gear+Seaside]": [
+   "[Klang-Gear]",
+   "[Seaside]"
+  ],
+  "[Minstrel&BLANKFIELD]": [
+   "[Minstrel]",
+   "[BLANKFIELD]"
+  ],
+  "[Tune-Deley×Rock Pollution]": [
+   "[Tune-Deley]",
+   "[Rock Pollution]"
+  ],
+  "[CN2&TEAR＊×M-style]": [
+   "[CN2&TEAR＊]",
+   "[M-style] M.Y.M.P"
+  ],
+  "[A.M.A × dat file records]": [
+   "[A.M.A]",
+   "[dat file records]"
+  ],
+  "[Liz Triangle×暁Records]": [
+   "[Liz Triangle] りすとら",
+   "[暁Records]"
+  ],
+  "[chipion× TUMENECO]": [
+   "[chipion]",
+   "[冷猫] TUMENECO"
+  ],
+  "[魂音泉 × Alstroemeria Records]": [
+   "[魂音泉]",
+   "[Alstroemeria Records]"
+  ],
+  "[CLOCKWORKS TRACER VS Further Ahead Of Warp]": [
+   "[CLOCKWORKS TRACER]",
+   "[Further Ahead Of Warp]"
+  ],
+  "[ばーどちゅーん×IOSYS]": [
+   "[ばーどちゅーん] BirdTune",
+   "[IOSYS] イオシス"
+  ],
+  "[Angelicca & あたいんち]": [
+   "[Angelicca]",
+   "[あたいんち]"
+  ],
+  "[Higan Daybreak & 求める者]": [
+   "[Higan Daybreak]",
+   "[求める者]"
+  ],
+  "[Pizuya's Cell x CROW'SCLAW]": [
+   "[ぴずやの独房] Pizuya's Cell",
+   "[CROW'SCLAW]"
+  ],
+  "[みかん箱×Foxtail-Grass Studio]": [
+   "[みかん箱] Mikan box",
+   "[Foxtail-Grass Studio]"
+  ],
+  "[Studio “Syrup Comfiture” x Pizuya's Cell]": [
+   "[Studio “Syrup Comfiture”] Syrufit／Poplica＊",
+   "[ぴずやの独房] Pizuya's Cell"
+  ],
+  "[Piece of Rain × Analyze -]": [
+   "[Piece of Rain]",
+   "[Analyze -]"
+  ],
+  "[Alstroemeria Records × DiGiTAL WiNG]": [
+   "[Alstroemeria Records]",
+   "[DiGiTAL WiNG]"
+  ],
+  "[FOX RAVEL VS KINZOK ON]": [
+   "[FOX RAVEL]",
+   "[キンゾクオン] KINZOK ON"
+  ],
+  "[Frozen System Records x KINZOK ON x FOX RAVEL]": [
+   "[Frozen System Records]",
+   "[キンゾクオン] KINZOK ON",
+   "[FOX RAVEL]"
+  ],
+  "[AGENT 0 x nekka.]": [
+   "[AGENT 0]",
+   "[nekka.]"
+  ],
+  "[Liz Triangle × Like a rabbit]": [
+   "[Liz Triangle] りすとら",
+   "[Like a rabbit]"
+  ],
+  "[Music Advance x Applice]": [
+   "[Music Advance]",
+   "[Applice]"
+  ],
+  "[TUMENECO × はにーぽけっと]": [
+   "[冷猫] TUMENECO",
+   "[はにーぽけっと]"
+  ],
+  "[Draw the Emotional & Foreground Eclipse]": [
+   "[Draw the Emotional]",
+   "[Foreground Eclipse]"
+  ],
+  "[Pizuya's Cell × MyonMyon]": [
+   "[ぴずやの独房] Pizuya's Cell",
+   "[MyonMyon]"
+  ],
+  "[TUMENECO／GET IN THE RING]": [
+   "[冷猫] TUMENECO",
+   "[GET IN THE RING]"
+  ],
+  "[Forest306 & Attrielectrock]": [
+   "[Forest306]",
+   "[Attrielectrock]"
+  ],
+  "[Amateras Records × M.H.S]": [
+   "[Amateras Records]",
+   "[M.H.S]"
+  ],
+  "[豚乙女×石鹸屋]": [
+   "[豚乙女]",
+   "[石鹸屋]"
+  ],
+  "[うま & 吊るし処]": [
+   "[うま]",
+   "[吊るし処]"
+  ],
+  "[Amateras Records × 556ミリメートル]": [
+   "[Amateras Records]",
+   "[556ミリメートル]"
+  ],
+  "[埼玉最終兵器＆Aether]": [
+   "[埼玉最終兵器]",
+   "[Aether]"
+  ],
+  "[スパイラル小町×瀬戸八十八夜]": [
+   "[スパイラル小町]",
+   "[瀬戸八十八夜]"
+  ],
+  "[天狗ノ舞×Kurage seek room]": [
+   "[天狗ノ舞]",
+   "[Kurage seek room]"
+  ],
+  "[pastyle x IZMIZM]": [
+   "[pastyle]",
+   "[IZMIZM]"
+  ],
+  "[街角麻婆豆 VS. Aleile]": [
+   "[街角麻婆豆]",
+   "[Aleile]"
+  ],
+  "[bunny rhyTHm×Static World]": [
+   "[bunny rhyTHm]",
+   "[Static World]"
+  ],
+  "[pastyle & Casket]": [
+   "[pastyle]",
+   "[Casket]"
+  ],
+  "[bunny rhyTHm×Crest]": [
+   "[bunny rhyTHm]",
+   "[CREST]"
+  ],
+  "[bunny rhyTHm x 二色幽紫蝶]": [
+   "[bunny rhyTHm]",
+   "[二色幽紫蝶]"
+  ],
+  "[鋲の人＆Reiche]": [
+   "[鋲の人]",
+   "[Reiche]"
+  ],
+  "[Alstroemeria Records × Amateras Records]": [
+   "[Alstroemeria Records]",
+   "[Amateras Records]"
+  ],
+  "[K2E†Cradle x 高梨工房]": [
+   "[K2E†Cradle]",
+   "[高梨工房]"
+  ],
+  "[Forest306+Unity-Gain]": [
+   "[Forest306]",
+   "[Unity-Gain]"
+  ],
+  "[Milkclip+Grapefruit Jam]": [
+   "[Milkclip]",
+   "[Grapefruit Jam]"
+  ],
+  "[Amateras Records&M.H.S]": [
+   "[Amateras Records]",
+   "[M.H.S]"
+  ],
+  "[暁Records×Liz Triangle]": [
+   "[暁Records]",
+   "[Liz Triangle] りすとら"
+  ],
+  "[ORANGE★JAM × FELT]": [
+   "[ORANGE★JAM]",
+   "[FELT]"
+  ],
+  "[DiGiTAL WiNG+Halozy]": [
+   "[DiGiTAL WiNG]",
+   "[Halozy]"
+  ],
+  "[鉄腕トカゲ探知機×味玉定食×モノクロ殺人現場写真]": [
+   "[鉄腕トカゲ探知機]",
+   "[味玉定食]",
+   "[モノクロ殺人現場写真]"
+  ],
+  "[bunny rhyTHm x Clip Sounds]": [
+   "[bunny rhyTHm]",
+   "[Clip Sounds]"
+  ],
+  "[発熱巫女～ず × Like a rabbit]": [
+   "[発熱巫女～ず]",
+   "[Like a rabbit]"
+  ],
+  "[IRON ATTACK!×豚乙女]": [
+   "[IRON ATTACK!]",
+   "[豚乙女]"
+  ],
+  "[DTXFiles.nmk&Colorful Umbrella]": [
+   "[DTXFiles.nmk]",
+   "[Colorful Umbrella]"
+  ],
+  "[Casket＆荒御霊]": [
+   "[Casket]",
+   "[荒御霊]"
+  ],
+  "[CielArc×OMOCHI SOUND FACTORY]": [
+   "[CielArc]",
+   "[OMOCHI SOUND FACTORY]"
+  ],
+  "[ALiCE'S EMOTiON & Cis-Trance]": [
+   "[ALiCE'S EMOTiON]",
+   "[Cis-Trance]"
+  ],
+  "[でぃすとーしょん×PROSCIUTTO]": [
+   "[でぃすとーしょん]",
+   "[PROSCIUTTO]"
+  ],
+  "[Astral Sky + 非可逆リズム]": [
+   "[Astral Sky]",
+   "[非可逆リズム]"
+  ],
+  "[UNKNOWN BEATS×ギャラクティック・リボルバー]": [
+   "[UNKNOWN BEATS]",
+   "[ギャラクティック・リボルバー]"
+  ],
+  "[Studio “Syrup Comfiture” & CYTOKINE]": [
+   "[Studio “Syrup Comfiture”] Syrufit／Poplica＊",
+   "[Cytokine]"
+  ],
+  "[狐夢想屋×ゼッケン屋]": [
+   "[狐夢想屋]",
+   "[ゼッケン屋]"
+  ],
+  "[疯帽子茶会 & Structure Sound]": [
+   "[疯帽子茶会]",
+   "[Structure Sound]"
+  ],
+  "[ぶるっくりん☆すてーしょん& さくらゆっけ]": [
+   "[ぶるっくりん☆すてーしょん]",
+   "[さくらゆっけ]"
+  ],
+  "[2.8mile×Krik／Krak]": [
+   "[2.8mile]",
+   "[Krik／Krak]"
+  ],
+  "[黒板クリーナー×夕焼けコンテナ。]": [
+   "[黒板クリーナー]",
+   "[夕焼けコンテナ。]"
+  ],
+  "[Forest306×みかん箱×Foxtail-Grass Studio]": [
+   "[Forest306]",
+   "[みかん箱] Mikan box",
+   "[Foxtail-Grass Studio]"
+  ],
+  "[COOL&CREATE×DiGiTAL WiNG]": [
+   "[COOL&CREATE]",
+   "[DiGiTAL WiNG]"
+  ],
+  "[魂音泉 x Alstroemeria Records]": [
+   "[魂音泉]",
+   "[Alstroemeria Records]"
+  ],
+  "[荒御霊／音召缶]": [
+   "[荒御霊]",
+   "[音召缶]"
+  ],
+  "[COOL&CREATE vs IOSYS]": [
+   "[COOL&CREATE]",
+   "[IOSYS] イオシス"
+  ],
+  "[はにーぽけっと×ちょこふぁん]": [
+   "[はにーぽけっと]",
+   "[ちょこふぁん]"
+  ],
+  "[少年ヴィヴィッド／kurage seek room／モジャン棒]": [
+   "[少年ヴィヴィッド]",
+   "[Kurage seek room]",
+   "[モジャン棒]"
+  ],
+  "[Forest306 × ジャージと愉快な仲間たち]": [
+   "[Forest306]",
+   "[ジャージと愉快な仲間たち]"
+  ],
+  "[chipion×発熱巫女～ず]": [
+   "[chipion]",
+   "[発熱巫女～ず]"
+  ],
+  "[Aether & PHOENIX Project]": [
+   "[Aether]",
+   "[PHOENIX Project]"
+  ],
+  "[Forest306＆Sing, R. Sing!]": [
+   "[Forest306]",
+   "[Sing, R. Sing!]"
+  ],
+  "[CielArc × Spoo and Nick]": [
+   "[CielArc]",
+   "[Spoo and Nick]"
+  ],
+  "[NO TITLE x 梶迫小道具店]": [
+   "[NO TITLE]",
+   "[梶迫小道具店]"
+  ],
+  "[荒御霊 × 梶迫小道具店]": [
+   "[荒御霊]",
+   "[梶迫小道具店]"
+  ],
+  "[群雨アンブレイラ×dat file records]": [
+   "[群雨アンブレイラ]",
+   "[dat file records]"
+  ],
+  "[ちょこふぁん×森羅万象]": [
+   "[ちょこふぁん]",
+   "[森羅万象]"
+  ],
+  "[音召缶×こなぐすり]": [
+   "[音召缶]",
+   "[こなぐすり]"
+  ],
+  "[Crest&Applice]": [
+   "[CREST]",
+   "[Applice]"
+  ],
+  "[Unlucky Morpheus×UNDEAD CORPORATION]": [
+   "[Unlucky Morpheus]",
+   "[UNDEAD CORPORATION]"
+  ],
+  "[Unprepared Orchestra×インスタントフィルハーモニー]": [
+   "[Unprepared Orchestra]",
+   "[インスタントフィルハーモニー] Instant Philharmonic"
+  ],
+  "[Eastern Scrapping Machine Orchestra & FALLONDEAFEARS]": [
+   "[Eastern Scrapping Machine Orchestra]",
+   "[FALLONDEAFEARS] THI"
+  ],
+  "[FELT×＜echo＞PROJECT]": [
+   "[FELT]",
+   "[＜echo＞PROJECT]"
+  ],
+  "[Astral Sky vs. 非可逆リズム]": [
+   "[Astral Sky]",
+   "[非可逆リズム]"
+  ],
+  "[イノライ×少女理論観測所×AbsoЯute Zero]": [
+   "[イノライ]",
+   "[少女理論観測所]",
+   "[AbsoЯute Zero]"
+  ]
+ },
+ "unresolved_left_standalone": [
+  "[+TEK]",
+  "[2SP+C'K]",
+  "[2nd Flush × 音乃葉]",
+  "[9bit Log!Q+]",
+  "[A-One×発熱巫女～ず×君の美術館×Unlucky Morpheus]",
+  "[AGENT 0 x nekka]",
+  "[AIKA×Firaga]",
+  "[Aether&ECE-SMZ]",
+  "[AlphaVersion Records×Qualial]",
+  "[Alstroemeria Records & Cradle]",
+  "[Alstroemeria Records × Studio ''Syrup Comfiture'']",
+  "[Amateras Records × Melonbooks]",
+  "[Anglued×研鑽堂]",
+  "[Aqua Style／ひえろぐらふ]",
+  "[Arts＆Sounds：Utopia]",
+  "[As／Hi Soundworks (As／Hi)]",
+  "[As／Hi Soundworks x 東部開拓地]",
+  "[As／Hi Soundworks × Unity-Gain]",
+  "[As／Hi Soundworks × 梶迫小道具店]",
+  "[As／Hi　Soundworks＆荒御霊]",
+  "[Atelier Oguu & PASTEL JAM]",
+  "[Azure&Sands]",
+  "[Bitter Quartz Vs mono music]",
+  "[CHAOS MIXER x Thrive at Thrice]",
+  "[CLOSED／UNDERGROUND]",
+  "[CN2&TEAR＊]",
+  "[COOL&CREATE & チョー314]",
+  "[COOL&CREATE & 狐夢想屋]",
+  "[COOL&CREATE]",
+  "[COOL＆CREATE／5884組]",
+  "[CUBETYPE feat. AVSS]",
+  "[Candy & Jam]",
+  "[Color&Color+]",
+  "[Consonances & Dissonances]",
+  "[Crazy Beats, 秋葉工房 & A-One]",
+  "[Crimson Moon vs Pays feerique]",
+  "[Dear,friends]",
+  "[DiGiTAL WiNG & THE OTHER FLOWER - Eurobeat]",
+  "[E.B.S. 0／1]",
+  "[EastNewSound&A-One]",
+  "[Edel SOUNDS＆月ノ鍵]",
+  "[Emotional&Reason]",
+  "[FALSE&TRUES]",
+  "[FactoryNoise＆AG]",
+  "[FelesVlinder & schwarzwald]",
+  "[HaCT&More]",
+  "[Hasenpfeffer×asami×朽チ縄]",
+  "[I DO Loud.＆現代社会の縮図＆Blau tea]",
+  "[I&k]",
+  "[Iemitsu.／A]",
+  "[J&B]",
+  "[J＆B／すたじおたわし／A-HEAD]",
+  "[Krik／Krak]",
+  "[LEAP&LOOP]",
+  "[LOVEマシーン×にくや]",
+  "[Liz Triangle×MiddleIsland]",
+  "[Lunatic×Bullets!]",
+  "[MONOMIND & ROMANTIC MELLOW]",
+  "[Melted Yin & Yang]",
+  "[Mods Crisis∞ × Register6]",
+  "[N+]",
+  "[Neko & 雅]",
+  "[Next Reflection x NIZI-RINGO]",
+  "[Pastel World×IbEthics]",
+  "[Pizuya's Cell ✕ BLOOD STAIN CHILD]",
+  "[Planet+]",
+  "[ProjectMTG／時遊戯画]",
+  "[R.I.N. ft. ガネメ]",
+  "[Ridil&ATMOSPHERIC]",
+  "[R／K Project]",
+  "[S.K'／Sound]",
+  "[SHM+MHS]",
+  "[STAR FACTORY＆SEVEN VOLT]",
+  "[STEP×STEP]",
+  "[Scarlet&Silver]",
+  "[Sharp Eight & Eve Hates Me]",
+  "[Shisuka, Frozen Starfall & Saku]",
+  "[Silence Records × NIZI-RINGO]",
+  "[Sing, R. Sing!]",
+  "[Sound.／Ecriture]",
+  "[SoundTeam,LORB]",
+  "[Spoo and Nick × 少年モラトリアム]",
+  "[Stersion & Misty]",
+  "[Studio FE／Aleile]",
+  "[SuZuKi4&Ki4-Fu3]",
+  "[Suspicion & Fear]",
+  "[S／N Ravens]",
+  "[TUMENECO & RED FOREST]",
+  "[TUMENECO × はにーぽけっと による]",
+  "[Travel cat + girl]",
+  "[UMM＆SOLEIL]",
+  "[UPFG x 神乃木制作所]",
+  "[VAGUEDGE DIES FOR DIES IRAE vs. Heterodyne.]",
+  "[Xceon vs Starving Trancer]",
+  "[anos+plus×SAVE THE QUEEN]",
+  "[asami & Hasenpfeffer]",
+  "[flap+frog]",
+  "[midnight school, ALTERNAIT, COSMIC COMIC]",
+  "[octet＊×Aether]",
+  "[signum／ii]",
+  "[※論理について。   ,   ペンギノン]",
+  "[あんぐる～ど×ゲィりあんズ ]",
+  "[いえろ～ぜぶら ｘ 有限会社るざりん ｘ False&Trues]",
+  "[かっくん×ぶるっくりん☆すてーしょん×groovin' bullets]",
+  "[さやかた紅茶館さん＆GenocideKitten]",
+  "[ねこまち+歩く電波塔の会]",
+  "[はちみつくまさん／ひえろぐらふ] hachikuma-hierograph",
+  "[はにーぽけっと × A-One]",
+  "[ぴずやの独房 ✕ BLOOD STAIN CHILD]",
+  "[まいぺーす×ぷろぐれす]",
+  "[イノライ×少女理論観測所×AbsoRute Zero]",
+  "[ガネメ × 北斗藍]",
+  "[コココソフト×趣味工房にんじんわいん]",
+  "[スタジオマグロフレーク×青波ゆらゆら]",
+  "[ノーストリリア & 8686m & PsychoPhysics]",
+  "[モヒカンサンドバッグVS×&幽幻屋]",
+  "[上海アリス幻樂団 & 黄昏フロンティア] ZUN & Twilight frontier",
+  "[俺++(Includeore)]",
+  "[俺++×音召缶]",
+  "[凍幻舎×夢想夏月郷]",
+  "[堕武者+ultraviolence+]",
+  "[夕焼けコンテナ。 & 水車小屋]",
+  "[奏琉堂＆D.S.K Recordz]",
+  "[姫騎士オフライン x SOUTH OF HEAVEN]",
+  "[岡垣正志＆フレンズ]",
+  "[岸田教団&THE明星ロケッツ]",
+  "[幽閉カタルシス×仮面の騎士]",
+  "[幽閉サテライト×神楽めあ×少女フラクタル]",
+  "[想謳×結律 心庵 ]",
+  "[梶迫小道具店×Lab＊]",
+  "[海老桜咲く×粥占偽神事]",
+  "[灿华幻梦 × 墨染燐桦]",
+  "[燃えるゴミ燃えないゴミ／金沢合同]",
+  "[秋葉工房 × A-One]",
+  "[荒御霊 x As／Hi Soundworks]",
+  "[荒御霊×MONOMIND]",
+  "[西明石俗物園×東生駒珍物園]",
+  "[非可逆リズム×ENVIRONMENTAL DEVELOPMENT]",
+  "[黒天羊舎×E-MP]"
+ ]
+}
