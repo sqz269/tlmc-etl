@@ -139,8 +139,12 @@ This is inherent to the wrapper, not to this image.
 Docker Desktop (WSL2 backend) runs this image unchanged. Two caveats:
 
 - **Keep scratch inside the Linux filesystem.** Bind-mounting a Windows path and
-  writing the ~109 files per track across the 9P boundary hits a well-known
-  performance cliff. Transcode to a container-local path, then move results.
+  writing across the 9P boundary hits a well-known performance cliff. Transcode
+  to a container-local path, then move results. The same caution applies to a
+  network mount on any node: the output is small-file writes, not one stream.
+  (This used to say ~109 files per track, from the era of loose segments.
+  `HLS_SINGLE_FILE` makes it 9 -- a playlist and one byte-range media file per
+  rung, plus the master -- so 1.48 M files catalogue-wide rather than 18 M.)
 - **Paths differ.** The worklist's absolute POSIX paths will not resolve against
   a Windows host mount, and `Shared/utils.py:oslex_quote` produces `mslex`
   quoting on Windows and `shlex` on POSIX — a worklist generated on one will
