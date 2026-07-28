@@ -36,14 +36,58 @@ Run the whole stage inside one container:
 docker run --rm -it \
   --user "$(id -u):$(id -g)" \
   -v "$PWD:/repo" \
-  -v /mnt/tlmc:/mnt/tlmc \
+  -v "/mnt/tlmc:/mnt/tlmc" \
   tlmc-ffmpeg:runner
 ```
 
 The library **must** be mounted at the same absolute path it has on the host
 (`/mnt/tlmc:/mnt/tlmc`), because `hls_assignment.py` bakes absolute paths into
-the worklist. `/repo` is bind-mounted read-write so journals and the completed
-list land back on the host, and so code edits need no rebuild.
+the worklist. Mounting the parent is enough — the tree itself lives at
+`/mnt/tlmc/TLMC v6/`. `/repo` is bind-mounted read-write so journals and the
+completed list land back on the host, and so code edits need no rebuild.
+
+## Splitting the encode across machines
+
+Set both variables on each node. `TLMC_SHARD_INDEX` is 0-based:
+
+```sh
+docker run --rm -it \
+  --user "$(id -u):$(id -g)" \
+  -e TLMC_SHARD_COUNT=3 -e TLMC_SHARD_INDEX=0 \
+  -v "$PWD:/repo" \
+  -v "/mnt/tlmc:/mnt/tlmc" \
+  tlmc-ffmpeg:runner
+```
+
+Every node reads the same worklist and keeps only the tracks its shard owns, so
+no node touches another's work. There is no queue, no lock and no coordinator —
+ownership is a pure function of the track id, so the nodes need not agree on
+anything but the count.
+
+Ownership uses blake2b rather than `hash()`: Python salts string hashing per
+process unless `PYTHONHASHSEED` is pinned, so `hash()` would place the same
+track in different shards on different nodes, encoding some tracks three times
+and others never. Measured over 100k ids the split is even to within 0.6%.
+
+Each shard writes its own journal and completed list
+(`hls_transcode.completed.output.shard0of3.txt`), so nodes on shared storage
+never interleave writes into one file. On startup a node reads **every** shard's
+completed list, so the shard count can change between runs, or results be
+gathered from other machines, without re-encoding what is already done.
+
+Leaving both variables unset is a single node over the whole worklist, which is
+what earlier runs did.
+
+### What each node needs
+
+| | |
+|---|---|
+| the image | build locally — it is non-redistributable, see Licensing |
+| the library | at the identical absolute path, read-write (HLS output is written beside each track) |
+| `/repo` | the worklist, and somewhere to put its journal |
+
+The worklist must be generated **once**, on one machine, and shared. Generating
+it per node would mint different track ids and the shards would not agree.
 
 ## Ad-hoc use
 
