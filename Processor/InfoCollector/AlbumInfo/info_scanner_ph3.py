@@ -43,7 +43,7 @@ def merge(ph1, ph2_track, ph2_album):
             # sort tracks by their track path basename
             tracks.sort(key=lambda track: os.path.basename(track["TrackPath"]))
 
-            for idx, track in enumerate(tracks):
+            for track in tracks:
                 track_metadata = ph2_track[track["TrackPath"]]
                 rm_man_check_props(track_metadata)
                 track["TrackMetadata"] = track_metadata
@@ -55,12 +55,33 @@ def merge(ph1, ph2_track, ph2_album):
                         os.path.basename(track["TrackPath"])
                     )[0]
 
-                if track["TrackMetadata"]["track"] == -1:
-                    print(
-                        f"Sequentially assigned track number [{idx + 1}] for",
-                        track["TrackPath"],
-                    )
-                    track["TrackMetadata"]["track"] = idx + 1
+            # Numbers already spoken for on this disc. Filling gaps by ordinal
+            # position handed out numbers that were already in use -- six discs
+            # ended up with a duplicate that way, and a duplicate makes track
+            # order ambiguous downstream. Take the lowest number nobody holds
+            # instead, which cannot collide by construction.
+            #
+            # The test is `< 1`, not `== -1`: phase 2 emits -1 when it cannot
+            # find a number at all, but a tag reading "0" is decimal and passes
+            # through as a real value. Track numbering is 1-based, so 0 is as
+            # absent as -1 -- thirteen tracks arrived here that way.
+            taken = {
+                t["TrackMetadata"]["track"]
+                for t in tracks
+                if t["TrackMetadata"]["track"] >= 1
+            }
+            next_free = 1
+            for track in tracks:
+                if track["TrackMetadata"]["track"] >= 1:
+                    continue
+                while next_free in taken:
+                    next_free += 1
+                print(
+                    f"Assigned track number [{next_free}] for",
+                    track["TrackPath"],
+                )
+                track["TrackMetadata"]["track"] = next_free
+                taken.add(next_free)
 
 
 def main():
