@@ -25,7 +25,8 @@
    "[音召缶]"
   ],
   "[Astral Sky vs. 非可逆リズム × ちょこふぁん]": [
-   "[Astral Sky vs. 非可逆リズム]",
+   "[Astral Sky]",
+   "[非可逆リズム]",
    "[ちょこふぁん]"
   ],
   "[ちょこふぁん×イノライ]": [
@@ -582,5 +583,6 @@
   "[西明石俗物園×東生駒珍物園]",
   "[非可逆リズム×ENVIRONMENTAL DEVELOPMENT]",
   "[黒天羊舎×E-MP]"
- ]
+ ],
+ "_generated_from": "artist_scanner.discovery.new_artists.output.json as applied. Generate this file from the applied state, never from an intermediate: the first version of it was written from a pre-flattening working file and recorded a link pointing at another collaboration, which is exactly what the flattening removed."
 }
