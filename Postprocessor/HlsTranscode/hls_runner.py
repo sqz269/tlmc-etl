@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 import Postprocessor.HlsTranscode.output.path_definitions as HlsTranscodePathDef
-from Postprocessor.HlsTranscode.hls_assignment import make_ffmpeg_hls_transcode_cmd
+from Postprocessor.HlsTranscode.hls_assignment import make_ffmpeg_hls_ladder_cmd
 from Shared import json_utils, utils
 from Shared.reporting_multi_processor import (
     JournalWriter,
@@ -143,55 +143,50 @@ class HlsRunner:
     ):
         stage_track_dir = os.path.join(STAGE_DIR, track_id) if STAGE_DIR else None
         try:
-            src_file = None
-            succeeded = 0
-            for quality, work_details in work.items():
-                src = work_details["src"]
-                src_file = src
-                cmd = work_details["cmd"]
-                dst_root = work_details["dst_root"]
+            # Every rung of a track shares a source and a gain -- they differ
+            # only in bitrate and destination -- so the ladder is one command.
+            first = next(iter(work.values()))
+            src_file = src = first["src"]
+            gain_db = first["gain_db"]
 
-                # Staging re-derives the command rather than rewriting the one
-                # baked into the worklist: that string is already shell-quoted
-                # and carries dst_root in two places, so patching it textually
-                # would have to re-implement the quoting to stay correct.
-                if stage_track_dir:
-                    dst_root = os.path.join(stage_track_dir, quality)
-                    cmd = " ".join(
-                        make_ffmpeg_hls_transcode_cmd(
-                            src, dst_root, quality, gain_db=work_details["gain_db"]
-                        )
-                    )
+            # The per-rung command baked into the worklist is deliberately not
+            # used. It is already shell-quoted and carries dst_root twice, so
+            # redirecting it to scratch would mean re-implementing that quoting;
+            # rebuilding from the same generator keeps one source of truth.
+            dst_roots = {
+                quality: (
+                    os.path.join(stage_track_dir, quality)
+                    if stage_track_dir
+                    else details["dst_root"]
+                )
+                for quality, details in work.items()
+            }
 
-                messageWriter.report_state(f"[{quality}] Processing {src}")
-                # Create destination directory
+            messageWriter.report_state(f"Processing {src}")
+            for dst_root in dst_roots.values():
                 os.makedirs(dst_root, exist_ok=True)
 
-                proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    universal_newlines=True,
-                    shell=True,
-                )
+            cmd = " ".join(make_ffmpeg_hls_ladder_cmd(src, dst_roots, gain_db=gain_db))
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+                shell=True,
+            )
 
-                stdout, stderr = proc.communicate()
-                if proc.returncode != 0:
-                    journalWriter.report_error(
-                        f"Failed to process {track_id} with command [{cmd}]\n"
-                    )
-                    continue
+            stdout, stderr = proc.communicate()
 
-                succeeded += 1
-
-            # A track only counts as done when every quality rendered. The old
-            # code reported "Completed" and unlinked the source even when all
-            # four encodes failed, which destroyed the only lossless copy of a
-            # track that had produced no playable output at all.
-            if succeeded != len(work):
+            # A track only counts as done when every rung rendered. The old code
+            # reported "Completed" and unlinked the source even when all four
+            # encodes failed, which destroyed the only lossless copy of a track
+            # that had produced no playable output at all. One process makes
+            # that all-or-nothing by construction: the exit code covers the
+            # whole ladder, and a partial ladder was already treated as failure.
+            if proc.returncode != 0:
                 journalWriter.report_error(
-                    f"Incomplete {track_id}: {succeeded}/{len(work)} qualities "
-                    f"rendered, source kept for retry\n"
+                    f"Failed to process {track_id} with command [{cmd}]: "
+                    f"{stderr.strip()[-500:]}\n"
                 )
                 return
 
