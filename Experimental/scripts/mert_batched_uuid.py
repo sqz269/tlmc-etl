@@ -371,7 +371,15 @@ def main():
         # ~8 GB of host RAM to ~2.4 GB.
         batch_size=64,
         pin_memory=True,
-        num_workers=8,
+        # 8 decode workers measured 96% decode-busy on the v6 run against a
+        # ~5.3 batch/s model ceiling: the pipeline was input-bound, and the
+        # DataLoader's strict worker round-robin turns any one slow file into
+        # a stall for everyone (throughput sawtoothing 4 -> 1 batch/s). 16
+        # oversupplies decode ~2x so the prefetch queue absorbs per-file
+        # variance; the decode host had 32 cores at load 10, so the extra
+        # workers are free. Raise --shm-size in step: workers x prefetch x
+        # batch x 576 KB/chunk is the in-flight reservation (~4.6 GB at 16).
+        num_workers=int(os.environ.get("MERT_NUM_WORKERS", "16")),
         prefetch_factor=8,
       )
     # Leaving the `with` block joins the pool, so every queued save has landed
