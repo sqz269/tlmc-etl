@@ -129,7 +129,11 @@ def init_model() -> Tuple[AutoModel, Wav2Vec2FeatureExtractor, str]:
     .to(device)
     .eval()
   )
-  if torch.cuda.is_available():
+  # torch.compile is lazy: it succeeds here and then dies at the FIRST FORWARD
+  # PASS if Triton can't find a C compiler, which the slim inference container
+  # deliberately does not ship. Gate it so the container runs eager (the
+  # measured batch-size table was collected eager; the ETA math is unchanged).
+  if torch.cuda.is_available() and os.environ.get("MERT_TORCH_COMPILE", "1") != "0":
     model = torch.compile(model, mode="reduce-overhead", fullgraph=False)
   
   processor = Wav2Vec2FeatureExtractor.from_pretrained(
