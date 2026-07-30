@@ -3,6 +3,8 @@ namespace PushToDb.Model;
 public enum CreditRole
 {
     Arranger,
+    // 作曲 -- distinct from arranger; matters for original compositions.
+    Composer,
     Vocalist,
     Lyricist,
     Performer,
