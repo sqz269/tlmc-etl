@@ -94,11 +94,15 @@ def cached(cache_id, cache_dir, debug=False, disable_parse=False, restore=False)
                     ).execute()
 
                 else:
+                    # Model.create() executes the insert itself; chaining
+                    # .execute() onto the returned instance raised
+                    # AttributeError on every first-time write, killing the
+                    # scrape on its first cache miss.
                     SourceCacheTable.create(
                         path=path_id,
                         cached_source_path=caced_src_path,
                         time_cached=datetime.datetime.now(),
-                    ).execute()
+                    )
             return src
 
         return wrapper

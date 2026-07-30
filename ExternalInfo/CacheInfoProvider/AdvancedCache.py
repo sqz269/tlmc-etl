@@ -95,7 +95,7 @@ def advanced_cache(
                         path=path_id,
                         cached_source_path=caced_src_path,
                         time_cached=datetime.datetime.now(),
-                    )
+                    ).execute()  # replace() builds a query; unexecuted it was a silent no-op
                 else:
                     AdvancedSourceCacheTable.create(
                         path=path_id,
