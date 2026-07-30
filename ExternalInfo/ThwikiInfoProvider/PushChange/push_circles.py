@@ -51,6 +51,7 @@ country_map = {
     "荷兰": "nld",
     "波多黎各": "pri",
     "泰国": "tha",
+    "乌克兰": "ukr",
 }
 
 # thwiki status -> wire CircleStatus (snake_case enum values)

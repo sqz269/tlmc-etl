@@ -225,7 +225,9 @@ def main():
         print("Importing data")
         import_data()
 
-    # process_query()
+    # Both stages are status-gated (PENDING -> QUERY_RESULT_FOUND -> SCRAPE_OK),
+    # so re-running only touches unfinished rows.
+    process_query()
     process_page()
 
     print("Done")
