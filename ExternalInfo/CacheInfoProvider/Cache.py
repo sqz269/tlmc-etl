@@ -45,29 +45,32 @@ def cached(cache_id, cache_dir, debug=False, disable_parse=False, restore=False)
                         if disable_parse:
                             return f.read()
                         return mw.parse(f.read())
-                if restore and os.path.exists(os.path.join(cache_dir, path_id)):
-                    restore_path = os.path.join(cache_dir, path_id)
-                    if (
-                        SourceCacheTable.select()
-                        .where(SourceCacheTable.path == path_id)
-                        .exists()
-                    ):
-                        SourceCacheTable.replace(
-                            path=path_id,
-                            cached_source_path=restore_path,
-                            time_cached=datetime.datetime.now(),
-                        ).execute()
-
-                    else:
-                        SourceCacheTable.create(
-                            path=path_id,
-                            cached_source_path=restore_path,
-                            time_cached=datetime.datetime.now(),
-                        ).execute()
-                    with open(restore_path, "r", encoding="utf-8") as f:
-                        if disable_parse:
-                            return f.read()
-                        return mw.parse(f.read())
+            # Top level on purpose: a cache directory carried over from another
+            # machine has the files but no index rows at all, so restoring only
+            # from inside the row-exists branch (the previous shape) never
+            # fired for exactly the case restore exists for.
+            if restore and os.path.exists(os.path.join(cache_dir, path_id)):
+                restore_path = os.path.join(cache_dir, path_id)
+                if (
+                    SourceCacheTable.select()
+                    .where(SourceCacheTable.path == path_id)
+                    .exists()
+                ):
+                    SourceCacheTable.replace(
+                        path=path_id,
+                        cached_source_path=restore_path,
+                        time_cached=datetime.datetime.now(),
+                    ).execute()
+                else:
+                    SourceCacheTable.create(
+                        path=path_id,
+                        cached_source_path=restore_path,
+                        time_cached=datetime.datetime.now(),
+                    )
+                with open(restore_path, "r", encoding="utf-8") as f:
+                    if disable_parse:
+                        return f.read()
+                    return mw.parse(f.read())
             if debug:
                 print("Cache Miss for " + url)
             src = func(url)
@@ -91,11 +94,15 @@ def cached(cache_id, cache_dir, debug=False, disable_parse=False, restore=False)
                     ).execute()
 
                 else:
+                    # Model.create() executes the insert itself; chaining
+                    # .execute() onto the returned instance raised
+                    # AttributeError on every first-time write, killing the
+                    # scrape on its first cache miss.
                     SourceCacheTable.create(
                         path=path_id,
                         cached_source_path=caced_src_path,
                         time_cached=datetime.datetime.now(),
-                    ).execute()
+                    )
             return src
 
         return wrapper

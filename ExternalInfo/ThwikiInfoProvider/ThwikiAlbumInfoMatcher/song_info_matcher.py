@@ -228,6 +228,9 @@ def generate_track_formatted(mapped_tracks, abbriv_map: Dict[str, str]):
         track_fmt_map["arrangement"] = (
             json.loads(track.arrangement) if track.arrangement else None
         )
+        track_fmt_map["composer"] = (
+            json.loads(track.composer) if track.composer else None
+        )
         track_fmt_map["lyricist"] = (
             json.loads(track.lyrics_author) if track.lyrics_author else None
         )

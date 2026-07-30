@@ -1,0 +1,7 @@
+THWIKI_SONG_INFO_WIKI_PAGE_CACHE_DIR = "thwiki_song_info_cache"
+THWIKI_LYRICS_WIKI_PAGE_CACHE_DIR = "thwiki_lyrics_cache"
+
+THWIKI_LYRICS_LLM_LINE_HEAL_CACHE_DIR = "thwiki_lyrics_llm_line_heal_cache"
+
+THWIKI_ARTIST_INFO_QUREY_CACHE_DIR = "thwiki_artist_info_query_cache"
+THWIKI_ARTIST_INFO_WIKI_PAGE_CACHE_DIR = "thwiki_artist_info_cache"

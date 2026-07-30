@@ -1,47 +1,35 @@
-﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PushToDb.Model;
 
 public class Track
 {
-    [Key]
-    [Required]
     public Guid Id { get; set; }
 
-    [Required]
+    public Guid DiscId { get; set; }
+
+    /// <summary>1-based; unique per disc (enforced by the schema).</summary>
+    public short TrackNumber { get; set; }
+
     [Column(TypeName = "jsonb")]
-    public LocalizedField Name { get; set; }
-
-    [Required]
-    public int Index { get; set; }
-
-    [Required]
-    public int Disc { get; set; }
+    public LocalizedField Name { get; set; } = null!;
 
     public TimeSpan? Duration { get; set; }
 
-    public List<string> Genre { get; set; } = new();
-
-    public List<string> Staff { get; set; } = new();
-
-    public List<string> Arrangement { get; set; } = new();
-
-    public List<string> Vocalist { get; set; } = new();
-
-    public List<string> Lyricist { get; set; } = new();
-
     public bool? OriginalNonTouhou { get; set; }
-    
-    public Album Album { get; set; }
 
-    public List<OriginalTrack> Original { get; set; } = new();
+    /// <summary>
+    /// Root-relative track directory in the library storage root. NULL is a valid
+    /// state: the track exists in the catalogue but has no playable media — media
+    /// is no longer a precondition for a row.
+    /// </summary>
+    public string? MediaKey { get; set; }
 
-    public Asset? TrackFile { get; set; }
+    public List<short> HlsBitrates { get; set; } = [];
 
-    public TrackEmbedding? Embedding { get; set; }
+    public bool HasDash { get; set; }
 
-    [ForeignKey("LyricsId")]
-    public Lyrics? Lyrics { get; set; }
+    public Guid? SourceAssetId { get; set; }
+
     public Guid? LyricsId { get; set; }
 }

@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Sharprompt;
+using System.ComponentModel.DataAnnotations;
 
 namespace PushToDb.UserOptions;
 
@@ -9,17 +8,10 @@ public enum UserOptionDataOptions
     CircleBasicMetadata,
     [Display(Name = "Albums and Track basic metadata (With HLS Postprocessing)")]
     AlbumTrackBasicMetadata,
-    [Display(Name = "Track Embedding Data")]
+    [Display(Name = "Track Embedding Data (stamps embedding_config)")]
     TrackEmbeddingData,
-
-
-    //[Display(Name = "Thwiki Sourced Extended Artist/Circle metadata")]
-    //ThwikiExtendedArtistCircleMetadata,
-    //[Display(Name = "Thwiki Sourced Extended Album/Track metadata")]
-    //ThwikiExtendedAlbumTrackMetadata,
-    //[Display(Name = "Thwiki Sourced Lyrics Data")]
-    //ThwikiLyricsData,
-
-    //[Display(Name = "MPEG DASH Repackaged Playlists")]
-    //MpegDashPlaylists,
+    [Display(Name = "Similar Track Data (precompute shard CSVs)")]
+    SimilarTrackData,
+    [Display(Name = "Similar Release/Circle Data (group precompute CSVs)")]
+    SimilarGroupData,
 }

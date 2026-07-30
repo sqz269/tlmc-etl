@@ -78,7 +78,13 @@ def get_original_song_query_params(songs: List[str]) -> List[Tuple[str, str]]:
         if "原曲段落" in s:
             continue
 
-        s = bracket_split(s.strip().replace("\n", ""))
+        # A malformed segment (stray text outside template braces) should cost
+        # us that one reference, not the whole track/run.
+        try:
+            s = bracket_split(s.strip().replace("\n", ""))
+        except Exception as e:
+            print(f"\n[WARN] Skipping unparseable original segment: {s!r} ({e})")
+            continue
         for k in s:
             param = param_extr.match(k)
             if not param:
@@ -146,8 +152,9 @@ class OriginalTrackMap:
 
     @staticmethod
     def cache_data(query):
-        source = TrackSource.create(id=query, query_kw=query)
-
+        # Fetch and parse everything BEFORE touching the database, so a failed
+        # fetch cannot leave behind a TrackSource row with no tracks (which
+        # would poison every subsequent run with a duplicate-PK crash).
         songs_all_lang = {}
         key_index = {}
         for lang in [Lang.JP, Lang.EN, Lang.ZH]:
@@ -155,6 +162,11 @@ class OriginalTrackMap:
             r = requests.get(url, headers=OriginalTrackMap.HEADER)
             bs = BeautifulSoup(r.text, "lxml")
             rst = bs.find("textarea", {"id": "array-0"})
+            if rst is None:
+                raise Exception(
+                    f"Mapping table missing for {query}/{lang} "
+                    f"(HTTP {r.status_code}; page absent or blocked by WAF challenge)"
+                )
             (song_info, sp_ind, sp_ind_e, sp_ind_a) = OriginalTrackMap.parse_table(
                 rst.text
             )
@@ -166,6 +178,8 @@ class OriginalTrackMap:
                     print(f"{query} {lang} KEY MISMATCH")
                     with open(f"song_map_mismatch.log", "a", encoding="utf-8") as f:
                         f.write(f"{query} {lang}\n")
+
+        source, _ = TrackSource.get_or_create(id=query, defaults={"query_kw": query})
 
         # Collapse the embedded dict into an single flat dict
         d = []

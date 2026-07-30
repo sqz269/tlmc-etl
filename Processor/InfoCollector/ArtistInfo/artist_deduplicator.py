@@ -8,6 +8,7 @@ import uuid
 
 import Shared.utils as utils
 from Processor.InfoCollector.ArtistInfo.output.path_definitions import (
+    ARTIST_DISCOVERY_DEDUPLICATED_ARTISTS_OUTPUT_PATH,
     ARTIST_DISCOVERY_MERGED_ARTISTS_OUTPUT_PATH,
     ARTIST_DISCOVERY_NEW_ARTISTS_OUTPUT_PATH,
     EXISTING_ARTIST_NAME_DUMP_OUTPUT_PATH,
@@ -23,7 +24,7 @@ artist_merged_name_dump_output = os.path.join(
 )
 
 dedupled = os.path.join(
-    output_root, "deduplicated." + ARTIST_DISCOVERY_MERGED_ARTISTS_OUTPUT_PATH
+    output_root, ARTIST_DISCOVERY_DEDUPLICATED_ARTISTS_OUTPUT_PATH
 )
 
 def check_and_resolve():

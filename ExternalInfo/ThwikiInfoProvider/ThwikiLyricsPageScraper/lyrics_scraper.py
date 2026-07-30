@@ -124,7 +124,7 @@ def follow_redirect(src) -> Optional[str]:
     lyrics_wiki_page_cache_path,
     disable_parse=True,
     debug=True,
-    # restore=True,
+    restore=True,
 )
 def get_page_source(page_title) -> Optional[str]:
     PAGE_SRC_URL = "https://thwiki.cc/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={path}&utf8=1"
@@ -215,58 +215,13 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
     # used in case there is no timestamp
     current_timestamp_default = 0
 
-    # we need to handle original lyrics that are purely english
-    # and lyrics that mixes japanese and english
-    # it's weird
-    # do a first pass, scanning languages
-    possible_langs: Set[str] = set()
-    for line in src_section.split("\n"):
-        if not line.strip():
-            continue
-
-        if any([line.startswith(term) for term in lyrics_section_term]):
-            is_in_lyrics_section = False
-            current_timestamp = None
-            continue
-
-        if not line.strip("x"):
-            continue
-
-        if line.replace(" ", "").startswith("lyrics="):
-            is_in_lyrics_section = not is_in_lyrics_section
-            continue
-
-        if not is_in_lyrics_section:
-            continue
-
-        if line.replace(" ", "").startswith("time="):
-            current_timestamp = line.split("=")[1]
-            if not current_timestamp:
-                current_timestamp = f"<line-{current_timestamp_default}>"
-                current_timestamp_default += 1
-            continue
-
-        if line.replace(" ", "").startswith("sep="):
-            sep_timestamp = line.split("=")[1]
-            current_timestamp = None
-            continue
-
-        if current_timestamp is None:
-            continue
-
-        try:
-            lang, _ = line.split("=", 1)
-            lang = lang.strip().lower()
-        except:
-            pass
-
-        possible_langs.add(lang)
-
-    if "ja" in possible_langs:
-        possible_langs.discard("en")
-
+    # The old two-pass language scan and its en->ja "remap" heuristic are gone:
+    # the corpus audit measured it mislabeling ~15k English lines as Japanese
+    # (and destroying some outright when the real ja= line arrived later).
+    # Lines are stored under the language the wiki author wrote.
     is_in_lyrics_section = False
     current_timestamp = None
+    timestamp_synthesized = False
     lyrics = {}
 
     for line in src_section.split("\n"):
@@ -286,49 +241,65 @@ def get_lyrics_actual(src_section: str, section_title: Optional[str]) -> LyricsM
             continue
 
         if not is_in_lyrics_section:
-            continue
+            # A handful of pages (zh-community format) never write a lyrics=
+            # marker: bare time=/lang= lines follow the info template
+            # directly. A time= line is distinctive enough to open the
+            # section implicitly; the 4 remaining silent-empty corpus pages
+            # were all this shape.
+            if line.replace(" ", "").startswith("time="):
+                is_in_lyrics_section = True
+            else:
+                continue
 
         if line.replace(" ", "").startswith("time="):
             current_timestamp = (line.replace(" ", "").split("=")[1]).strip()
             if not current_timestamp:
                 current_timestamp = f"<line-{current_timestamp_default}>"
                 current_timestamp_default += 1
-            lyrics[current_timestamp] = {}
+            timestamp_synthesized = False
+            # setdefault: a duplicated time= used to reset the dict and wipe
+            # every line already captured under that timestamp.
+            lyrics.setdefault(current_timestamp, {})
             continue
 
         if line.replace(" ", "").startswith("sep="):
             sep_timestamp = line.replace(" ", "").split("=")[1].strip()
             lyrics[sep_timestamp] = {}
             current_timestamp = None
-            continue
-
-        if current_timestamp is None:
+            timestamp_synthesized = False
             continue
 
         try:
             lang, text = line.split("=", 1)
-            lang = lang.strip().lower()
-            # Explicitly exclude lang: en, b/c sometimes it is in japanese lyrics
-            if lang == "en" and "ja" in possible_langs:
-                all_langs = lyrics.values()
-                # we are making big assumptions here
-                if "ja" not in lyrics[current_timestamp]:
-                    lyrics[current_timestamp]["ja"] = text
-                elif "zh" not in lyrics[current_timestamp]:
-                    lyrics[current_timestamp]["zh"] = text
-                else:
-                    # terrible
-                    lyrics[current_timestamp]["ja"] = (
-                        lyrics[current_timestamp]["ja"] + text
-                    )
-                    print("wtf")
-                    # breakpoint()
-                continue
-
-            lyrics[current_timestamp][lang] = text.strip()
         except ValueError:
-            current_timestamp = None
-            is_in_lyrics_section = False
+            # A '='-less line used to shut the whole section off, silently
+            # dropping everything after a decorative <br> or divider. Only the
+            # template closer ends the block; anything else is skipped.
+            if line.strip().startswith("}}"):
+                current_timestamp = None
+                is_in_lyrics_section = False
+            continue
+
+        lang = lang.strip().lower()
+
+        # Untimed lyrics (sep=-only pages, lines before the first time=) used
+        # to be dropped wholesale here. Synthesize line groups instead: seeing
+        # a language repeat starts a new group, so ja=/en= pairs stay together
+        # while runs of a single language become one group per line.
+        if current_timestamp is None or (
+            timestamp_synthesized and lang in lyrics[current_timestamp]
+        ):
+            current_timestamp = f"<line-{current_timestamp_default}>"
+            current_timestamp_default += 1
+            timestamp_synthesized = True
+            lyrics[current_timestamp] = {}
+
+        if lang in lyrics[current_timestamp]:
+            # The same language twice under one real timestamp used to
+            # overwrite the first line. Keep both.
+            lyrics[current_timestamp][lang] += "\n" + text.strip()
+        else:
+            lyrics[current_timestamp][lang] = text.strip()
 
     for timestamp, lines in lyrics.items():
         lines = [LyricsModel.ThwikiLyricsLineLang(lang, text) for lang, text in lines.items()]

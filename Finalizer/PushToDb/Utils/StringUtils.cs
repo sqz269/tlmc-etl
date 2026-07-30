@@ -34,6 +34,12 @@ public static class StringExtensions
         return null;
     }
 
+    public static DateOnly? TryGetDateOnly(this string? dateString)
+    {
+        var dateTime = dateString.TryGetDateTime();
+        return dateTime == null ? null : DateOnly.FromDateTime(dateTime.Value);
+    }
+
     public static LocalizedField AsLocalizedField(this string str)
     {
         return new LocalizedField()

@@ -21,9 +21,8 @@ from Shared.json_utils import json_dump, json_load
 
 
 artist_merged_name_dump_output = utils.get_output_path(
-    ArtistInfoPathDef, 
-    # ArtistInfoPathDef.ARTIST_DISCOVERY_MERGED_ARTISTS_OUTPUT_PATH
-    "deduplicated.artist_scanner.discovery.merged_artists.output.json"
+    ArtistInfoPathDef,
+    ArtistInfoPathDef.ARTIST_DISCOVERY_DEDUPLICATED_ARTISTS_OUTPUT_PATH,
 )
 
 artist_info_query_cache_path = utils.get_output_path(
@@ -226,7 +225,9 @@ def main():
         print("Importing data")
         import_data()
 
-    # process_query()
+    # Both stages are status-gated (PENDING -> QUERY_RESULT_FOUND -> SCRAPE_OK),
+    # so re-running only touches unfinished rows.
+    process_query()
     process_page()
 
     print("Done")

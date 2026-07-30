@@ -2,7 +2,7 @@ import json
 import re
 import uuid
 from typing import Any, Dict, List
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 import mwparserfromhell as mw
@@ -92,7 +92,14 @@ class ThWikiCc:
 
     TRACK_KNOWN_ARGS_IGNORE = ["乐器", "演奏阵列"]
 
-    TRACK_VALUE_SINGLE_ITEM = ["duration", "title"]
+    # "title" here was a dead key -- the mapped name is title_jp -- so every
+    # track title fell through to the multi-value path and was split on
+    # full-width commas, shredding titles that legitimately contain one.
+    TRACK_VALUE_SINGLE_ITEM = ["duration"]
+
+    # Kept as a list (the matcher does json.loads(title_jp)[0]) but never
+    # comma-split.
+    TRACK_VALUE_NO_SPLIT = ["title_jp"]
 
     DISC_SCAN = re.compile("={3}\s?Disc\s?(\d+)\s?={3}", re.IGNORECASE)
 
@@ -101,29 +108,46 @@ class ThWikiCc:
         parsed = urlparse(url)
         return parsed.path.split("/")[-1]
 
+    # Same detection the lyrics scraper uses; the album scraper previously
+    # parsed the redirect stub, found no infobox, and marked the album FAILED.
+    REDIRECT_SCAN = re.compile(r"#(?:redirect|重定向)\s*\[\[(.+?)\]\]", re.IGNORECASE)
+
     @staticmethod
     @cached(
         cache_id="thc",
         cache_dir=song_wiki_page_cache_path,
+        restore=True,
     )
     def get_source(url):
-        url = ThWikiCc.PAGE_SRC_URL.format(path=ThWikiCc.get_title_from_url(url))
-        response = httpx.get(url, headers=ThWikiCc.HEADER)
-        if response.status_code != 200:
-            print(
-                "Failed to get page source for {path}. Error: {code}".format(
-                    path=url, code=response.status_code
+        title = ThWikiCc.get_title_from_url(url)
+        for _ in range(3):
+            api_url = ThWikiCc.PAGE_SRC_URL.format(path=title)
+            response = httpx.get(api_url, headers=ThWikiCc.HEADER)
+            if response.status_code != 200:
+                raise Exception(
+                    "Failed to get page source for {path}. Error: {code}".format(
+                        path=api_url, code=response.status_code
+                    )
                 )
-            )
-            raise Exception(
-                "Failed to get page source for {path}. Error: {code}".format(
-                    path=url, code=response.status_code
-                )
-            )
 
-        j = response.json()
-        page = list(j["query"]["pages"].values())[0]
-        return mw.parse(page["revisions"][0]["*"])
+            j = response.json()
+            page = list(j["query"]["pages"].values())[0]
+            if "revisions" not in page:
+                # Distinct message so mistagged.txt separates dead links from
+                # parse failures.
+                raise Exception(f"Page missing on thwiki: {title}")
+
+            src = page["revisions"][0]["*"]
+            if match := ThWikiCc.REDIRECT_SCAN.match(src.strip()):
+                # Redirect targets are raw wikitext: strip display text and
+                # anchors, then bring them to URL shape.
+                target = match.group(1).split("|")[0].split("#")[0].strip()
+                title = quote(target.replace(" ", "_"))
+                continue
+
+            return mw.parse(src)
+
+        raise Exception(f"Redirect chain too deep starting from {url}")
 
     @staticmethod
     def _fmt_album_metadata(data: Dict[str, str]):
@@ -148,7 +172,9 @@ class ThWikiCc:
             album_metadata["title_en"] = album_metadata["title"]
             del album_metadata["title"]
         else:
-            album_metadata["title_zh"] = ""
+            # title_zh keeps the scraped 译名: blanking it here (the previous
+            # behaviour) discarded the Chinese translation of every
+            # Japanese-titled album, which is most of them.
             album_metadata["title_jp"] = album_metadata["title"]
             album_metadata["title_en"] = ""
             del album_metadata["title"]
@@ -197,6 +223,9 @@ class ThWikiCc:
                     continue
                 if k in ThWikiCc.TRACK_VALUE_SINGLE_ITEM:
                     fmt_track_info[k] = list(map(transformer, v))[0]
+                    continue
+                if k in ThWikiCc.TRACK_VALUE_NO_SPLIT:
+                    fmt_track_info[k] = list(map(transformer, v))
                     continue
 
                 fmt_track_info[k] = list(
@@ -336,10 +365,12 @@ def process_album(album: Album):
     try:
         album_info, track_info, seller_info = ThWikiCc.process(album.data_source)
     except Exception as e:
-        print(f"Error processing {album.album_id}")
+        # The reason matters: without it, a systematic failure (a cache bug, a
+        # template rename) is indistinguishable from genuine mistags.
+        print(f"Error processing {album.album_id}: {type(e).__name__}: {e}")
         utils.append_file(
             "mistagged.txt",
-            f"Potential Mistag [{album.album_id}]\n",
+            f"Potential Mistag [{album.album_id}] {album.data_source} :: {type(e).__name__}: {e}\n",
         )
         album.process_status = ProcessStatus.FAILED
         album.save()

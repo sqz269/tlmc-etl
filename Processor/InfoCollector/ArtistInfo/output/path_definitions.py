@@ -7,3 +7,7 @@ ARTIST_DISCOVERY_NEW_ARTISTS_OUTPUT_PATH = (
 ARTIST_DISCOVERY_MERGED_ARTISTS_OUTPUT_PATH = (
     "artist_scanner.discovery.merged_artists.output.json"
 )
+
+ARTIST_DISCOVERY_DEDUPLICATED_ARTISTS_OUTPUT_PATH = (
+    "deduplicated.artist_scanner.discovery.merged_artists.output.json"
+)

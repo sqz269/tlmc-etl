@@ -5,6 +5,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 import json
+import os
 import re
 import time
 import html
@@ -42,7 +43,9 @@ from mwparserfromhell.nodes.html_entity import HTMLEntity
 from mwparserfromhell.nodes.wikilink import Wikilink
 from ExternalInfo.CacheInfoProvider.Cache import cached
 
-ENABLE_AI_HEALING = True
+# Healing needs OPENAI_API_KEY; set ENABLE_AI_HEALING=0 to run without it —
+# lines that would have healed fall back to strip_code text + a need_review flag.
+ENABLE_AI_HEALING = os.environ.get("ENABLE_AI_HEALING", "1") != "0"
 
 OPEN_AI_API_CONTEXT: Optional[OpenAI] = None
 
@@ -206,6 +209,11 @@ def llm_heal_line(raw_line: str) -> Optional[Dict[Any, Any]]:
 def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
 
     def _extract_text(param: Parameter) -> str:
+        if not param.value.nodes:
+            # e.g. {{color:#00ffff|}} — an empty parameter is empty text, not
+            # an IndexError worth a paid LLM call (236 corpus lines).
+            return ""
+
         param_type_narrower: Callable[[Parameter], Union[Template, Text, Any]] = lambda x: x.value.nodes[0]
         typed_param = param_type_narrower(param)
         if isinstance(typed_param, Text):
@@ -280,9 +288,6 @@ def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
             raise ValueError(
                 f"Unexpected number of parameters in template {template.name}"
             )
-            breakpoint()
-            need_review.append(True)
-            return _extract_text(template.params[0]), ""
 
         result = []
         params: Parameter
@@ -291,30 +296,8 @@ def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
 
         return result[0], result[1]
 
-    def _parse_node(node: Any) -> Union[str, Tuple[str, RubyAnnotation]]:
-        match node:
-            case Text():
-                return node.value
-            case Template():
-                return _parse_node(node)
-            case Tag() as tag:
-                excluded_tags = ['ref', 'hr']
-                replacement_tags = {':': '\t', '*': '*'}
-
-                match tag.tag:
-                    case tag if tag in excluded_tags:
-                        return ""
-                    case tag if tag in replacement_tags:
-                        return replacement_tags[tag]
-                    case _:
-                        breakpoint()
-                        raise ValueError(f"Unexpected tag {tag.wiki_markup}")
-            case Comment() | HTMLEntity():
-                # Discard comments and HTML entities
-                return ""
-            case _:
-                breakpoint()
-                raise ValueError(f"Unexpected node type: {type(node)}")
+    # (a dead `_parse_node` helper lived here: unreachable, and its
+    # `case Template(): return _parse_node(node)` recursed forever — removed)
 
     raw_text = ""
 
@@ -336,26 +319,38 @@ def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
                 annotations.append(ruby)
                 raw_text += raw
             elif isinstance(nodes, Tag):
-                if nodes.tag == "dd":
+                tag_name = str(nodes.tag)
+                if tag_name in ("dd", "li"):
+                    # Leading ':' / '*' markers: indentation, not content.
                     continue
-                # excluded_tags = ['ref', 'hr']
-                # replacement_tags = {':': '\t', '*': '*'}
-                # if nodes.tag in excluded_tags:
-                #     continue
-
-                # if nodes.tag in replacement_tags:
-                #     raw_text += replacement_tags[nodes.tag]
-                #     continue
-
-                # breakpoint()
-                # raise ValueError(f"Unexpected tag {nodes.wiki_markup}")
-                raise ValueError(f"Unexpected tag {nodes.tag}")
-                raw_text += line
+                if tag_name in ("ref", "hr"):
+                    # References and rules carry no lyric text.
+                    continue
+                if tag_name == "br":
+                    raw_text += " "
+                    continue
+                if tag_name in ("span", "i", "b", "u", "big", "small", "sup",
+                                "center", "p", "font", "nowiki"):
+                    # Formatting wrappers: keep the contents, drop the
+                    # dressing. These were roughly two thirds of all paid LLM
+                    # heals. A wrapper with a nested template still goes to
+                    # the heal path so ruby annotations are not flattened.
+                    contents = nodes.contents
+                    if contents is None:
+                        continue
+                    if contents.filter_templates():
+                        raise ValueError(
+                            f"Formatting tag with nested template: {tag_name}")
+                    raw_text += str(contents.strip_code())
+                    continue
+                raise ValueError(f"Unexpected tag {tag_name}")
             elif isinstance(nodes, Comment):
                 # Discard comments
                 continue
             elif isinstance(nodes, Wikilink):
-                raw_text += nodes.text
+                # [[target]] has text=None; [[target|display]] text is
+                # Wikicode. Both shapes crashed here and burned LLM calls.
+                raw_text += str(nodes.text) if nodes.text is not None else str(nodes.title)
             elif isinstance(nodes, HTMLEntity):
                 # Discard HTML entities
                 if str(nodes).replace(";", "") == "&nbsp":
@@ -368,14 +363,19 @@ def parse_line(line: str, need_review: List[Any]) -> LyricsAnnotatedLine:
                 breakpoint()
                 raise ValueError(f"Unexpected node type: {type(nodes)}")
     except Exception as e:
-        print("Failed to parse line, falling back to AI healing")
-        json = llm_heal_line(line)
-        if json is None:
-            r = LyricsAnnotatedLine.empty()
-        else:
-            r = LyricsAnnotatedLine.from_json(json)
-        print(r)
-        return r
+        print(f"Failed to parse line locally ({e}), falling back to AI healing")
+        healed = llm_heal_line(line) if ENABLE_AI_HEALING else None
+        if healed is not None:
+            try:
+                return LyricsAnnotatedLine.from_json(healed)
+            except Exception as heal_error:
+                print(f"LLM heal returned unusable JSON: {heal_error}")
+
+        # A failed heal used to be recorded as clean success with the line
+        # blanked (or dropped). Keep the plain text and flag it for review.
+        need_review.append(True)
+        return LyricsAnnotatedLine(
+            time=None, text=str(mw.parse(line).strip_code()), annotations=[])
     return LyricsAnnotatedLine(time=None, text=raw_text, annotations=annotations)
 
 
