@@ -20,9 +20,6 @@ from ExternalInfo.ThwikiInfoProvider.PushChange.api_client import make_session, 
 from ExternalInfo.ThwikiInfoProvider.ThwikiOriginalTrackMapper.Model.OriginalTrackMapModel import (
     OriginalTrack,
 )
-from ExternalInfo.ThwikiInfoProvider.ThwikiOriginalTrackMapper.original_track_map import (
-    non_offical_works,
-)
 
 DEFAULT_CSV = "ExternalInfo/ThwikiInfoProvider/OriginalAlbums_v6_filled.csv"
 
@@ -70,14 +67,13 @@ def main():
     works = load_works(csv_path)
     session = make_session()
 
-    # Only push works that actually carry songs; alias relics (憑依華) and
-    # blacklisted fan works have no OriginalTrack rows and stay local.
+    # Push every work that carries songs — no blacklist here: the matcher can
+    # emit a key for ANY source with mapping rows (its skip-set drifted from
+    # the fetch-side one once already, orphaning TGM references). Alias
+    # relics (憑依華) have no OriginalTrack rows and stay local naturally.
     pushed_songs = 0
     failures = []
     for source_id, work in works.items():
-        if source_id in non_offical_works:
-            continue
-
         tracks = list(
             OriginalTrack.select().where(OriginalTrack.source == source_id)
         )
