@@ -7,7 +7,7 @@ vector sets. Members are track pooled vectors for albums, and album centroids
 for circles -- the latter keeps thousand-track circles at a set size that
 subsampling does not have to butcher.
 
-Every neighbor gets two scores:
+Every neighbor gets three scores:
 
   score_raw    plain symmetric chamfer. Near-duplicate recordings (pooled
                cosine >= --dup-thresh, the ~0.999 band the v5 run measured)
@@ -18,11 +18,21 @@ Every neighbor gets two scores:
                max entirely, so a shared recording must find its best
                *different* counterpart. A pure re-release collapses toward 0
                here rather than topping the list.
+  score_kde    what KDE similarity becomes once it must live in 1024
+               dimensions: the cosine of RBF kernel mean embeddings, which is
+               the closed form of two Gaussian KDEs' overlap integral -- the
+               mean kernel over all cross member pairs, self-normalized so
+               identical groups score exactly 1. Unlike chamfer it weighs
+               where the mass sits (a 90/10 metal/piano circle no longer
+               matches its 10/90 mirror), and duplicates dilute into an n*m
+               average instead of winning a max. Bandwidth comes from the
+               median heuristic over recall-candidate member pairs; Scott's
+               rule from the 2-D UMAP demo has no meaning up here.
 
-similar_<level>s.csv ranks by score_style. A pure re-release scores ~0 there
-and would drop out of a style-ranked top list entirely, taking its raw signal
-with it, so the raw flavor gets its own file: similar_<level>s_raw.csv keeps
-the top --top-raw neighbors ranked by score_raw.
+Each flavor gets its own ranked file (similar_<level>s.csv by style,
+similar_<level>s_raw.csv by raw, similar_<level>s_kde.csv by kde), all with
+identical anchor_id, neighbor_id, rank, score_style, score_raw, score_kde
+columns, so the rankings can be compared row for row.
 
 Group ids: albums use the AlbumID column of the targets CSV when it is
 populated (the generated all_targets.csv leaves it empty), otherwise the
@@ -133,14 +143,58 @@ def centroids(vecs: torch.Tensor, idx: torch.Tensor, mask: torch.Tensor) -> torc
     return torch.nn.functional.normalize(s, dim=-1).half()
 
 
-def chamfer_groups(vecs, idx, mask, eff, a_rows, cand_rows, dup_thresh):
-    """Symmetric chamfer of anchors against candidates, raw and style flavors.
+def calibrate_gamma(vecs, idx, mask, cand, sample=256, per=4):
+    """Median-heuristic RBF bandwidth, as 1/median cosine distance.
 
-    Returns (raw [B, K] fp32, style [B, K] fp32). Style masks member pairs at
+    Measured over member pairs of anchors vs their own recall candidates --
+    the pairs the kernel actually has to discriminate -- rather than global
+    random pairs, which sit further apart and would over-smooth. The kernel
+    evaluates to e^-1 at the median.
+    """
+    rng = np.random.default_rng(3)
+    n = idx.shape[0]
+    a = torch.from_numpy(
+        rng.choice(n, min(sample, n), replace=False)).to(vecs.device)
+    pick = torch.from_numpy(
+        rng.integers(0, cand.shape[1], (a.shape[0], per))).to(vecs.device)
+    c = torch.gather(cand[a.long()], 1, pick)
+    B, K = c.shape
+    C, dim = idx.shape[1], vecs.shape[1]
+    Q = vecs[idx[a].reshape(-1)].view(B, C, dim)
+    Dv = vecs[idx[c.reshape(-1)].reshape(-1)].view(B, K, C, dim)
+    sims = torch.einsum("bqd,bkcd->bkqc", Q, Dv).float()
+    valid = mask[a][:, None, :, None] & mask[c][:, :, None, :]
+    med = float((1.0 - sims[valid]).median())
+    return 1.0 / max(med, 1e-4), med
+
+
+def self_kernel_mass(vecs, idx, mask, eff, gamma, block=2048):
+    """Each group's mean self-kernel <mu, mu>, diagonal included. [G] fp32."""
+    G = idx.shape[0]
+    out = torch.empty(G, dtype=torch.float32, device=vecs.device)
+    for i in range(0, G, block):
+        rows = torch.arange(i, min(G, i + block), device=vecs.device)
+        V = vecs[idx[rows].reshape(-1)].view(rows.shape[0], idx.shape[1], -1)
+        s = torch.einsum("bcd,bed->bce", V, V).float()
+        k = torch.exp(gamma * (s - 1.0))
+        valid = (mask[rows][:, :, None] & mask[rows][:, None, :]).float()
+        out[rows] = (k * valid).sum((1, 2)) / eff[rows].float().pow(2)
+    return out
+
+
+def chamfer_groups(vecs, idx, mask, eff, kaa, a_rows, cand_rows,
+                   dup_thresh, gamma):
+    """Chamfer (raw, style) and KDE similarity of anchors vs candidates.
+
+    Returns (raw, style, kde), each [B, K] fp32. Style masks member pairs at
     or above dup_thresh out of both maxes; a member whose every counterpart is
     a duplicate contributes 0 (nan_to_num on the -inf max), which is what
     demotes pure re-releases. Mask order follows the track kernel: candidate
     pads before the per-query max, query pads before the per-candidate max.
+
+    kde reuses the candidate-pad -inf fill: exp maps those slots to a clean 0
+    contribution, query pads are zeroed by the qm factor, and the cross mean
+    is normalized by both groups' self-kernel mass so self-similarity is 1.
     """
     B, K = cand_rows.shape
     C, dim = idx.shape[1], vecs.shape[1]
@@ -151,6 +205,11 @@ def chamfer_groups(vecs, idx, mask, eff, a_rows, cand_rows, dup_thresh):
 
     sims = torch.einsum("bqd,bkcd->bkqc", Q, Dv).float()
     sims.masked_fill_(~dm[:, :, None, :], float("-inf"))
+
+    kern = torch.exp(gamma * (sims - 1.0)) * qm[:, None, :, None]
+    cross = kern.sum((2, 3)) / (eff[a_rows][:, None] * eff[cand_rows]).float()
+    kde = cross / (kaa[a_rows][:, None] * kaa[cand_rows]).sqrt()
+
     style = sims.clone()
     style.masked_fill_(style >= dup_thresh, float("-inf"))
 
@@ -163,19 +222,24 @@ def chamfer_groups(vecs, idx, mask, eff, a_rows, cand_rows, dup_thresh):
         d_side = d_max.masked_fill(~dm, 0).sum(2) / eff[cand_rows].float()
         return 0.5 * (q_side + d_side)
 
-    return both_sides(sims), both_sides(style)
+    return both_sides(sims), both_sides(style), kde
 
 
-def check_symmetry(vecs, idx, mask, eff, n_groups, dup_thresh, pairs=128):
-    """Both chamfer flavors must be symmetric; self-similarity must be ~1."""
+def check_symmetry(vecs, idx, mask, eff, kaa, n_groups, dup_thresh, gamma,
+                   pairs=128):
+    """All three flavors must be symmetric; raw and kde self-scores ~1."""
     rng = np.random.default_rng(7)
     a = torch.from_numpy(rng.choice(n_groups, pairs)).cuda()
     b = torch.from_numpy(rng.choice(n_groups, pairs)).cuda()
-    r_ab, s_ab = chamfer_groups(vecs, idx, mask, eff, a, b[:, None], dup_thresh)
-    r_ba, s_ba = chamfer_groups(vecs, idx, mask, eff, b, a[:, None], dup_thresh)
-    sym = max(float((r_ab - r_ba).abs().max()), float((s_ab - s_ba).abs().max()))
-    self_raw, _ = chamfer_groups(vecs, idx, mask, eff, a, a[:, None], dup_thresh)
-    self_err = float((self_raw - 1.0).abs().max())
+    ab = chamfer_groups(vecs, idx, mask, eff, kaa, a, b[:, None],
+                        dup_thresh, gamma)
+    ba = chamfer_groups(vecs, idx, mask, eff, kaa, b, a[:, None],
+                        dup_thresh, gamma)
+    sym = max(float((x - y).abs().max()) for x, y in zip(ab, ba))
+    self_raw, _, self_kde = chamfer_groups(vecs, idx, mask, eff, kaa,
+                                           a, a[:, None], dup_thresh, gamma)
+    self_err = max(float((self_raw - 1.0).abs().max()),
+                   float((self_kde - 1.0).abs().max()))
     print(f"check: symmetry err {sym:.2e}, self-score err {self_err:.2e}",
           flush=True)
     if sym > 5e-3 or self_err > 5e-3:
@@ -231,45 +295,47 @@ def main() -> None:
     cand = sims.topk(k, dim=1).indices
     del sims
 
-    check_symmetry(vecs, idx, mask, eff, n, args.dup_thresh)
+    gamma, med = calibrate_gamma(vecs, idx, mask, cand)
+    print(f"kde: median candidate member distance {med:.4f} "
+          f"-> gamma {gamma:.1f}", flush=True)
+    kaa = self_kernel_mass(vecs, idx, mask, eff, gamma)
+
+    check_symmetry(vecs, idx, mask, eff, kaa, n, args.dup_thresh, gamma)
 
     os.makedirs(args.out, exist_ok=True)
-    out_csv = os.path.join(args.out, f"similar_{args.level}s.csv")
-    raw_csv = os.path.join(args.out, f"similar_{args.level}s_raw.csv")
+    paths = {
+        "style": os.path.join(args.out, f"similar_{args.level}s.csv"),
+        "raw": os.path.join(args.out, f"similar_{args.level}s_raw.csv"),
+        "kde": os.path.join(args.out, f"similar_{args.level}s_kde.csv"),
+    }
+    keep = {"style": min(args.top, k), "raw": min(args.top_raw, k),
+            "kde": min(args.top, k)}
     t_run = time.time()
-    with open(out_csv + ".tmp", "w", newline="", encoding="utf-8") as f, \
-         open(raw_csv + ".tmp", "w", newline="", encoding="utf-8") as fr:
-        w = csv.writer(f)
-        w.writerow(["anchor_id", "neighbor_id", "rank",
-                    "score_style", "score_raw"])
-        wr = csv.writer(fr)
-        wr.writerow(["anchor_id", "neighbor_id", "rank",
-                     "score_raw", "score_style"])
-        for i in range(0, n, args.batch):
-            a = torch.arange(i, min(n, i + args.batch), device=device)
-            c = cand[a.long()]
-            raw, style = chamfer_groups(
-                vecs, idx, mask, eff, a, c, args.dup_thresh)
-
-            top = style.topk(min(args.top, k), dim=1)
+    handles = {fl: open(p + ".tmp", "w", newline="", encoding="utf-8")
+               for fl, p in paths.items()}
+    writers = {}
+    for fl, h in handles.items():
+        writers[fl] = csv.writer(h)
+        writers[fl].writerow(["anchor_id", "neighbor_id", "rank",
+                              "score_style", "score_raw", "score_kde"])
+    for i in range(0, n, args.batch):
+        a = torch.arange(i, min(n, i + args.batch), device=device)
+        c = cand[a.long()]
+        raw, style, kde = chamfer_groups(
+            vecs, idx, mask, eff, kaa, a, c, args.dup_thresh, gamma)
+        scores = {"style": style, "raw": raw, "kde": kde}
+        for fl, w in writers.items():
+            top = scores[fl].topk(keep[fl], dim=1)
             nbr = torch.gather(c, 1, top.indices).cpu().numpy()
-            sty = top.values.cpu().numpy()
-            rw = torch.gather(raw, 1, top.indices).cpu().numpy()
-
-            top_r = raw.topk(min(args.top_raw, k), dim=1)
-            nbr_r = torch.gather(c, 1, top_r.indices).cpu().numpy()
-            rw_r = top_r.values.cpu().numpy()
-            sty_r = torch.gather(style, 1, top_r.indices).cpu().numpy()
-
+            cols = [torch.gather(scores[s], 1, top.indices).cpu().numpy()
+                    for s in ("style", "raw", "kde")]
             for bi, row in enumerate(a.tolist()):
                 for r in range(nbr.shape[1]):
-                    w.writerow([gids[row], gids[nbr[bi, r]], r + 1,
-                                f"{sty[bi, r]:.6f}", f"{rw[bi, r]:.6f}"])
-                for r in range(nbr_r.shape[1]):
-                    wr.writerow([gids[row], gids[nbr_r[bi, r]], r + 1,
-                                 f"{rw_r[bi, r]:.6f}", f"{sty_r[bi, r]:.6f}"])
-    os.replace(out_csv + ".tmp", out_csv)
-    os.replace(raw_csv + ".tmp", raw_csv)
+                    w.writerow([gids[row], gids[nbr[bi, r]], r + 1]
+                               + [f"{col[bi, r]:.6f}" for col in cols])
+    for fl, h in handles.items():
+        h.close()
+        os.replace(paths[fl] + ".tmp", paths[fl])
 
     np.savez(os.path.join(args.out, f"{args.level}_centroids.npz"),
              ids=np.array(gids, dtype=object),
@@ -281,10 +347,13 @@ def main() -> None:
             "k_recall": k, "top_kept": min(args.top, k),
             "top_raw_kept": min(args.top_raw, k), "pad": args.pad,
             "dup_thresh": args.dup_thresh,
+            "kde_gamma": round(gamma, 2),
+            "kde_median_dist": round(med, 6),
             "members": "track pooled vectors" if args.level == "album"
                        else "album centroids",
             "scoring": "symmetric chamfer; style flavor drops member pairs "
-                       ">= dup_thresh from both maxes",
+                       ">= dup_thresh from both maxes; kde is the cosine of "
+                       "RBF kernel mean embeddings, median-heuristic gamma",
             "wall_seconds": round(time.time() - t_run, 1),
         }, f, indent=2)
     print(f"run complete: {n} {args.level}s in {time.time() - t_run:.1f}s",
