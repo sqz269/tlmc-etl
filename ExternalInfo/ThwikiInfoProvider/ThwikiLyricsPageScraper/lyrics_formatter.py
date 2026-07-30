@@ -5,6 +5,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 import json
+import os
 import re
 import time
 import html
@@ -42,7 +43,9 @@ from mwparserfromhell.nodes.html_entity import HTMLEntity
 from mwparserfromhell.nodes.wikilink import Wikilink
 from ExternalInfo.CacheInfoProvider.Cache import cached
 
-ENABLE_AI_HEALING = True
+# Healing needs OPENAI_API_KEY; set ENABLE_AI_HEALING=0 to run without it —
+# lines that would have healed fall back to strip_code text + a need_review flag.
+ENABLE_AI_HEALING = os.environ.get("ENABLE_AI_HEALING", "1") != "0"
 
 OPEN_AI_API_CONTEXT: Optional[OpenAI] = None
 
