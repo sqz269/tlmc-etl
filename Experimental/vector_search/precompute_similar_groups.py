@@ -34,12 +34,14 @@ similar_<level>s_raw.csv by raw, similar_<level>s_kde.csv by kde), all with
 identical anchor_id, neighbor_id, rank, score_style, score_raw, score_kde
 columns, so the rankings can be compared row for row.
 
-Group ids: albums use the AlbumID column of the targets CSV when it is
-populated (the generated all_targets.csv leaves it empty), otherwise the
-"<circle dir>/<album dir>" pair from the playlist path; circles always use the
-circle directory name. The CSV predates any on-disk renames, so path-derived
-names are canonical, and multi-disc layouts do not matter because only the two
-components directly under "TLMC v6" are read.
+Group ids: the preferred source is database exports -- --track-release-csv
+(track_id,release_id) and --release-circle-csv (release_id,circle_id), plain
+two-column CSVs from the live catalogue -- which yields real entity uuids and
+models collab releases correctly: a release linked to two circles contributes
+its centroid to both. Without them, --targets-csv falls back to path parsing:
+albums become "<circle dir>/<album dir>" pairs and circles the circle
+directory name, which mis-models joint circle directories as circles of their
+own and needs path normalization at load time.
 """
 
 import argparse
@@ -91,7 +93,7 @@ def pool_tracks(store: ChunkStore, device: str) -> torch.Tensor:
 
 
 def read_mappings(targets_csv: str):
-    """(track_id -> album_id, album_id -> circle_name), CSV order preserved."""
+    """Path-parsed fallback: ((track, album) pairs, (album, circle) pairs)."""
     track_album = {}
     album_circle = {}
     with open(targets_csv, encoding="utf-8") as f:
@@ -106,21 +108,29 @@ def read_mappings(targets_csv: str):
             album = row[0] or f"{circle}/{parts[5]}"
             track_album[row[1]] = album
             album_circle.setdefault(album, circle)
-    return track_album, album_circle
+    return list(track_album.items()), list(album_circle.items())
 
 
-def build_groups(member_of: dict, item_ids, pad: int, device: str):
+def read_pairs(path: str):
+    """Two-column (item_id, group_id) CSV, as exported by psql COPY."""
+    with open(path, encoding="utf-8") as f:
+        return [(r[0], r[1]) for r in csv.reader(f) if len(r) >= 2 and r[0]]
+
+
+def build_groups(pairs, item_ids, pad: int, device: str):
     """Padded member index per group over an item-vector matrix.
 
-    member_of maps item_id -> group_id for items that exist in `item_ids`
-    (row order of the vector matrix). Groups larger than the pad are uniformly
+    pairs is an iterable of (item_id, group_id); items may belong to several
+    groups (collab releases). Items absent from `item_ids` (the row order of
+    the vector matrix) are skipped. Groups larger than the pad are uniformly
     subsampled, same policy as the chunk-level gather.
     Returns (group_ids, idx [G, pad] int64, mask [G, pad] bool).
     """
+    row_of = {item: r for r, item in enumerate(item_ids)}
     rows_of = {}
-    for row, item in enumerate(item_ids):
-        g = member_of.get(item)
-        if g is not None:
+    for item, g in pairs:
+        row = row_of.get(item)
+        if row is not None:
             rows_of.setdefault(g, []).append(row)
 
     gids = sorted(rows_of)
@@ -249,8 +259,13 @@ def check_symmetry(vecs, idx, mask, eff, kaa, n_groups, dup_thresh, gamma,
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--store", required=True)
-    ap.add_argument("--targets-csv", required=True,
-                    help="AlbumID,TrackID,PlaylistPath rows for the corpus")
+    ap.add_argument("--track-release-csv", default=None,
+                    help="track_id,release_id rows exported from the catalogue")
+    ap.add_argument("--release-circle-csv", default=None,
+                    help="release_id,circle_id rows exported from the catalogue")
+    ap.add_argument("--targets-csv", default=None,
+                    help="AlbumID,TrackID,PlaylistPath fallback; groups come "
+                         "from playlist paths instead of entity ids")
     ap.add_argument("--level", choices=["album", "circle"], required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--k", type=int, default=500, help="recall candidates")
@@ -271,7 +286,18 @@ def main() -> None:
     pooled = pool_tracks(store, device)
     print(f"pooled {len(store)} tracks in {time.time() - t0:.1f}s", flush=True)
 
-    track_album, album_circle = read_mappings(args.targets_csv)
+    if args.track_release_csv:
+        track_album = read_pairs(args.track_release_csv)
+        album_circle = (read_pairs(args.release_circle_csv)
+                        if args.release_circle_csv else None)
+        mapping_src = "database export"
+    elif args.targets_csv:
+        track_album, album_circle = read_mappings(args.targets_csv)
+        mapping_src = "playlist paths"
+    else:
+        ap.error("need --track-release-csv or --targets-csv")
+    if args.level == "circle" and not album_circle:
+        ap.error("circle level needs --release-circle-csv or --targets-csv")
     track_ids = [str(t) for t in store.track_ids]
 
     alb_ids, alb_idx, alb_mask = build_groups(
@@ -349,6 +375,7 @@ def main() -> None:
             "dup_thresh": args.dup_thresh,
             "kde_gamma": round(gamma, 2),
             "kde_median_dist": round(med, 6),
+            "mapping": mapping_src,
             "members": "track pooled vectors" if args.level == "album"
                        else "album centroids",
             "scoring": "symmetric chamfer; style flavor drops member pairs "
