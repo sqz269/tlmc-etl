@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using EFCore.BulkExtensions;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using PushToDb.ExternalModel;
 using PushToDb.Model;
@@ -8,318 +7,301 @@ using Sharprompt;
 
 namespace PushToDb.Operations;
 
-public record ObjectsToInsert(
-    List<Album> Albums,
-    List<Track> Tracks,
-    List<HlsPlaylist> HlsPlaylists,
-    List<HlsSegment> HlsSegments,
-    List<Asset> Assets
-)
-{
-    public Album GetMasterAlbum()
-    {
-        if (Albums.Count == 1)
-        {
-            return Albums.First();
-        }
-
-        return Albums.FirstOrDefault(a => a.DiscNumber == 0);
-    }
-};
-
-
 public static class AlbumTrackMetadataProcessor
 {
-    public static List<Circle> GetCirclesByIds(AppDbContext context, List<Guid> id)
-    {
-        return context.Circles.Where(c => id.Contains(c.Id)).ToList();
-    }
-
-
-    public static List<HlsPlaylist> InstantiateHlsPlaylists(ObjectsToInsert insertTracker, Dictionary<string, HlsTrack> hlsData, string trackOriginalPath, Track track)
-    {
-        var hlsPlaylists = new List<HlsPlaylist>();
-        // Get the HLS data for the track
-        var hlsInfo = hlsData[trackOriginalPath];
-
-        // Add master playlist
-        var masterPlaylist = new HlsPlaylist
-        {
-            Id = Guid.NewGuid(),
-            Type = HlsPlaylistType.Master,
-            Bitrate = null,
-            HlsPlaylistPath = hlsInfo.MasterPlaylist,
-            Segments = [],
-            Track = track,
-            TrackId = track.Id
-        };
-        insertTracker.HlsPlaylists.Add(masterPlaylist);
-
-        foreach (var (quality, mediaPlaylistInfo) in hlsInfo.MediaPlaylist)
-        {
-            var playlist = new HlsPlaylist
-            {
-                Id = Guid.NewGuid(),
-                Type = HlsPlaylistType.Media,
-                Bitrate = int.Parse(quality.Replace("k", "")),
-                HlsPlaylistPath = mediaPlaylistInfo.Playlist,
-                Segments = [],
-                Track = track,
-                TrackId = track.Id
-            };
-
-            foreach (var (segmentPath, segmentIndex) in mediaPlaylistInfo.Segments)
-            {
-                // Get filename from path
-                var segmentName = Path.GetFileName(segmentPath);
-                playlist.Segments.Add(new HlsSegment
-                {
-                    Id = Guid.NewGuid(),
-                    Path = segmentPath,
-                    Name = segmentName,
-                    Index = segmentIndex,
-                    HlsPlaylist = playlist,
-                    HlsPlaylistId = playlist.Id
-                });
-
-                insertTracker.HlsSegments.Add(playlist.Segments.Last());
-            }
-
-            insertTracker.HlsPlaylists.Add(playlist);
-            hlsPlaylists.Add(playlist);
-        }
-
-        return hlsPlaylists;
-    }
-
-    public static List<Track> InstantiateTracks(ObjectsToInsert insertTracker, Dictionary<string, HlsTrack> hlsData, List<JTrack> tracks)
-    {
-        // Each track has a list of HLS playlists (A track can have multiple qualities)
-        var instantiated = new List<Track>();
-
-        foreach (var jTrack in tracks)
-        {
-            var trackMetadata = jTrack.TrackMetadata;
-            var track = new Track
-            {
-                Id = Guid.Parse(jTrack.TrackMetadata.TrackId),
-                Name = trackMetadata.Title.AsLocalizedField(),
-                Index = trackMetadata.Track,
-                Staff = trackMetadata.Artist.Split(", ").ToList(),
-            };
-
-            var hlsPlaylists = InstantiateHlsPlaylists(insertTracker, hlsData, jTrack.TrackPath, track);
-
-            insertTracker.Tracks.Add(track);
-            instantiated.Add(track);
-        }
-
-        return instantiated;
-    }
-
-    public static List<Album> InstantiateDiscs(ObjectsToInsert insertTracker, JAlbum album, List<Circle> circles, Dictionary<string, HlsTrack> hlsData)
-    {
-        var albumMetadata = album.AlbumMetadata;
-
-        var discs = album.Discs;
-
-        var instantiated = new List<Album>();
-
-        var numberOfDiscs = discs.Count;
-        foreach (var jDisc in discs.Values)
-        {
-            // If there is only one disc, use the album id, 
-            string id = numberOfDiscs == 1 ? album.AlbumMetadata.AlbumId : jDisc.DiscId;
-
-            instantiated.Add(new Album
-            {
-                Id = Guid.Parse(id),
-                Name = albumMetadata.AlbumName.AsLocalizedField(),
-                ReleaseDate = albumMetadata.ReleaseDate.TryGetDateTime(),
-                ReleaseConvention = albumMetadata.ReleaseConvention.GetNonEmptyStringOrNull(),
-                CatalogNumber = albumMetadata.CatalogNumber.GetNonEmptyStringOrNull(),
-                NumberOfDiscs = numberOfDiscs,
-                DiscNumber = jDisc.DiscNumber,
-                DiscName = jDisc.DiscName.GetNonEmptyStringOrNull(),
-
-                AlbumArtist = circles,
-
-                Tracks = InstantiateTracks(insertTracker, hlsData, jDisc.Tracks)
-            });
-
-            insertTracker.Albums.Add(instantiated.Last());
-        }
-
-        // Instantiate the master album if there are multiple discs
-        if (numberOfDiscs > 1)
-        {
-            var masterAlbum = new Album
-            {
-                Id = Guid.Parse(albumMetadata.AlbumId),
-                Name = albumMetadata.AlbumName.AsLocalizedField(),
-                ReleaseDate = albumMetadata.ReleaseDate.TryGetDateTime(),
-                ReleaseConvention = albumMetadata.ReleaseConvention.GetNonEmptyStringOrNull(),
-                CatalogNumber = albumMetadata.CatalogNumber.GetNonEmptyStringOrNull(),
-                NumberOfDiscs = numberOfDiscs,
-                DiscNumber = 0,
-                DiscName = null,
-
-                AlbumArtist = circles
-            };
-
-            // Need to assign all discs as the child of the master album
-            foreach (var disc in instantiated)
-            {
-                disc.ParentAlbum = masterAlbum;
-            }
-
-            insertTracker.Albums.Add(masterAlbum);
-            instantiated.Add(masterAlbum);
-        }
-
-        return instantiated;
-    }
-
-    public static List<Asset> InstantiateAssets(ObjectsToInsert insertTracker, List<JAsset> assets)
-    {
-        var instantiated = new List<Asset>();
-
-        foreach (var jAsset in assets)
-        {
-            instantiated.Add(new Asset
-            {
-                Id = Guid.Parse(jAsset.AssetId),
-                Name = jAsset.AssetName,
-                Path = jAsset.AssetPath
-            });
-
-            insertTracker.Assets.Add(instantiated.Last());
-        }
-
-        return instantiated;
-    }
+    private const int AlbumsPerBatch = 500;
 
     public static void PushBasicAlbumAndTrackData(AppDbContext context)
     {
         var aggregatedFp = Prompt.Input<string>(
             "Enter path to assigned_megered.json",
-            defaultValue: @"D:\PROG\TlmcTagger\TlmcInfoProviderV2\Processor\InfoCollector\Aggregator\output\assigned_megered.json",
-            validators: [Validators.Required(), PathValidator.ValidateFilePath()]
-        );
-        var hlsFinalizedFp = Prompt.Input<string>(
-            "Enter path to hls.finalized.output.json",
-            defaultValue: @"D:\PROG\TlmcTagger\TlmcInfoProviderV2\Postprocessor\HlsTranscode\output\hls.finalized.output.json",
             validators: [Validators.Required(), PathValidator.ValidateFilePath()]);
+        var hlsFinalizedFp = Prompt.Input<string>(
+            "Enter path to hls.finalized.output.json (v6 per-track shape)",
+            validators: [Validators.Required(), PathValidator.ValidateFilePath()]);
+        // Rows hold root-relative storage keys; this prefix is what gets stripped.
+        var libraryRoot = Prompt.Input<string>(
+            "Enter the library root prefix all source paths share",
+            defaultValue: "/mnt/tlmc/TLMC v6",
+            validators: [Validators.Required()]);
 
-        // Load both file to json
         Console.WriteLine("Loading Assignment Merged Data");
-        var aggregated = JsonConvert.DeserializeObject<Dictionary<string, JAlbum>>(File.ReadAllText(aggregatedFp));
-        Console.WriteLine("Assignment Merged Data Loaded");
+        var aggregated = JsonConvert.DeserializeObject<Dictionary<string, JAlbum>>(File.ReadAllText(aggregatedFp))!;
 
         Console.WriteLine("Loading Hls Finalized Data");
+        var hlsFinalized = JsonConvert.DeserializeObject<Dictionary<string, HlsFinalizedTrack>>(File.ReadAllText(hlsFinalizedFp))!;
 
-        // open file stream, cuz the json is too big
-        using var hlsFinalizedStream = new FileStream(hlsFinalizedFp, FileMode.Open, FileAccess.Read);
-        using var hlsFinalizedReader = new StreamReader(hlsFinalizedStream);
-        using var hlsFinalizedJsonReader = new JsonTextReader(hlsFinalizedReader);
+        // Attribution only needs circle ids, not tracked entities; one snapshot up
+        // front replaces a per-album query and survives ChangeTracker.Clear().
+        var knownCircleIds = context.Circles.Select(c => c.Id).ToHashSet();
 
-        var hlsFinalized = new JsonSerializer().Deserialize<Dictionary<string, HlsTrack>>(hlsFinalizedJsonReader);
-
-        Console.WriteLine("Hls Finalized Data Loaded");
-
-        var queueObjects = new List<ObjectsToInsert>();
-
+        var stats = new LoadStats();
         var index = 0;
-        var failed = 0;
-        // Enumerate through the aggregated data
+
         foreach (var (albumId, albumData) in aggregated)
         {
-            // Keep track of list of objects we actually need to insert
-            var objectsToInsert = new ObjectsToInsert([], [], [], [], []);
-            var albumArtists = GetCirclesByIds(context, albumData.AlbumMetadata.AlbumArtistIds.Select(Guid.Parse).ToList());
-
-            try
-            {
-                var discsInstantiated = InstantiateDiscs(objectsToInsert, albumData, albumArtists, hlsFinalized);
-            }
-            // 
-            catch (KeyNotFoundException e)
-            {
-                // if there is tracks that are not in hls.finalized.output.json, skip the album
-                // Usually an indicator that the hls transcoding failed either due to corrupted files or other reasons
-                Console.WriteLine(e);
-                failed++;
-                continue;
-            }
-            var assets = InstantiateAssets(objectsToInsert, albumData.Assets);
-
-            // Find thumbnail from assets
-            var thumbnail = assets.FirstOrDefault(a => a.Path == albumData.Thumbnail);
-            if (thumbnail is not null)
-            {
-                objectsToInsert.Albums.ForEach(a => a.Image = thumbnail);
-            }
-
-            // Attach assets to albums, note that we only attach assets to master album if there are multiple discs
-            var masterAlbum = objectsToInsert.GetMasterAlbum();
-            if (masterAlbum is not null)
-            {
-                masterAlbum.OtherFiles = assets;
-            }
-
-            queueObjects.Add(objectsToInsert);
-
+            InstantiateAlbum(context, albumData, hlsFinalized, libraryRoot, knownCircleIds, stats);
+            stats.Releases++;
             index++;
-            Console.WriteLine($"[{index} / {aggregated.Count} | {failed} ] {albumId}");
+
+            if (index % AlbumsPerBatch == 0)
+            {
+                // Cleared between batches: an ever-growing tracker made the old
+                // loader quadratic.
+                context.SaveChanges();
+                context.ChangeTracker.Clear();
+                Console.WriteLine($"[{index}/{aggregated.Count}] committed " +
+                                  $"(tracks: {stats.Tracks}, no-media: {stats.TracksWithoutMedia})");
+            }
         }
 
-        Console.WriteLine("Objects Instantiated. Starting DB Commit");
-
-        index = 0;
-        //failed = 0;
-        //// Commit to DB
-        //foreach (var objectsToInsert in queueObjects)
-        //{
-        //    // Start a transaction
-        //    //using var transaction = context.Database.BeginTransaction();
-
-        //    // We need to be-careful with the insert order, as we need to insert the parent album first
-        //    // and since albums references assets, we need to insert assets first (Although this is not reflected in the model, but there is a circular dependency between albums and assets)
-
-        //    context.Assets.AddRange(objectsToInsert.Assets);
-        //    context.SaveChanges();
-
-        //    // Insert all the objects
-        //    context.Albums.AddRange(objectsToInsert.Albums);
-        //    context.Tracks.AddRange(objectsToInsert.Tracks);
-
-        //    // Commit the transaction
-        //    //context.SaveChanges();
-        //    //transaction.Commit();
-        //    index++;
-        //    Console.WriteLine($"[{index}/{queueObjects.Count}] Tracking {objectsToInsert.Albums.Count} Albums, {objectsToInsert.Tracks.Count} Tracks, {objectsToInsert.Assets.Count} Assets");
-
-        //    if (index % 1000 == 0)
-        //    {
-        //        Console.WriteLine("Saving Changes");
-        //        context.SaveChanges();
-        //    }
-        //}
-
-        Console.WriteLine("Saving Changes");
         context.SaveChanges();
-        var allHlsSegments = queueObjects.SelectMany(o => o.HlsSegments).ToList();
-        var allHlsPlaylists = queueObjects.SelectMany(o => o.HlsPlaylists).ToList();
-
-        Console.WriteLine("Inserting HLS Playlists");
-        context.BulkInsert(allHlsPlaylists, progress: obj => Console.WriteLine($"PROGRESS: {obj.ToString()}"));
-
-        Console.WriteLine("Inserting HLS Segments");
-        context.BulkInsert(allHlsSegments, progress: obj => Console.WriteLine($"PROGRESS: {obj.ToString()}"));
-
-        Console.WriteLine("Saving Changes");
-        context.SaveChanges();
+        context.ChangeTracker.Clear();
 
         Console.WriteLine("All Done");
+        Console.WriteLine(
+            $"Releases: {stats.Releases}, Discs: {stats.Discs}, Tracks: {stats.Tracks} " +
+            $"(without media: {stats.TracksWithoutMedia}), Assets: {stats.Assets}, " +
+            $"Artworks: {stats.Artworks}, Credits: {stats.Credits}");
+        if (stats.MissingCircleIds.Count > 0)
+        {
+            Console.WriteLine($"WARNING: {stats.MissingCircleIds.Count} attributed circle id(s) " +
+                              "had no circle row; attribution for those was skipped:");
+            foreach (var id in stats.MissingCircleIds.Take(20))
+            {
+                Console.WriteLine($"  {id}");
+            }
+        }
+
+        if (stats.PathsOutsideRoot.Count > 0)
+        {
+            Console.WriteLine($"WARNING: {stats.PathsOutsideRoot.Count} path(s) were not under " +
+                              $"'{libraryRoot}' and were skipped:");
+            foreach (var path in stats.PathsOutsideRoot.Take(20))
+            {
+                Console.WriteLine($"  {path}");
+            }
+        }
+    }
+
+    private static void InstantiateAlbum(
+        AppDbContext context,
+        JAlbum albumData,
+        Dictionary<string, HlsFinalizedTrack> hlsFinalized,
+        string libraryRoot,
+        HashSet<Guid> knownCircleIds,
+        LoadStats stats)
+    {
+        var metadata = albumData.AlbumMetadata;
+        var releaseId = Guid.Parse(metadata.AlbumId);
+
+        var release = new Release
+        {
+            Id = releaseId,
+            Name = metadata.AlbumName.AsLocalizedField(),
+            ReleaseDate = metadata.ReleaseDate.TryGetDateOnly(),
+            ReleaseConvention = metadata.ReleaseConvention.GetNonEmptyStringOrNull(),
+            CatalogNumber = metadata.CatalogNumber.GetNonEmptyStringOrNull(),
+            TlmcRootReference = [albumData.AlbumRoot],
+        };
+        context.Releases.Add(release);
+
+        // Attribution, ordered as scraped. Collaborations arrive as multiple ids
+        // here and become multiple rows — the old loader dropped them entirely.
+        short ordinal = 0;
+        foreach (var artistId in metadata.AlbumArtistIds.Select(Guid.Parse).Distinct())
+        {
+            if (!knownCircleIds.Contains(artistId))
+            {
+                stats.MissingCircleIds.Add(artistId);
+                continue;
+            }
+
+            context.ReleaseCircles.Add(new ReleaseCircle
+            {
+                ReleaseId = releaseId,
+                CircleId = artistId,
+                Ordinal = ordinal++,
+            });
+        }
+
+        // Assets, and the cover artwork if the scan pass designated one.
+        Guid? thumbnailAssetId = null;
+        foreach (var jAsset in albumData.Assets)
+        {
+            var storageKey = Relativize(jAsset.AssetPath, libraryRoot);
+            if (storageKey == null)
+            {
+                stats.PathsOutsideRoot.Add(jAsset.AssetPath);
+                continue;
+            }
+
+            var asset = new Asset
+            {
+                Id = Guid.Parse(jAsset.AssetId),
+                Root = StorageRoot.Library,
+                StorageKey = storageKey,
+                Name = jAsset.AssetName,
+            };
+            context.Assets.Add(asset);
+            stats.Assets++;
+
+            if (jAsset.AssetPath == albumData.Thumbnail)
+            {
+                thumbnailAssetId = asset.Id;
+            }
+        }
+
+        if (thumbnailAssetId is { } coverAssetId)
+        {
+            var artwork = new Artwork
+            {
+                Id = Guid.CreateVersion7(),
+                SourceAssetId = coverAssetId,
+            };
+            context.Artworks.Add(artwork);
+            release.ArtworkId = artwork.Id;
+            stats.Artworks++;
+        }
+
+        // Discs: one row each, always — no disc-0 sentinel, no id reuse. Disc
+        // numbers are sanitised to a dense 1..N when the metadata's are unusable,
+        // because the schema enforces uniqueness per release.
+        var discNumbersSeen = new HashSet<short>();
+        var discOrdinal = (short)0;
+        foreach (var jDisc in albumData.Discs.Values)
+        {
+            discOrdinal++;
+            var discNumber = (short)jDisc.DiscNumber;
+            if (discNumber < 1 || !discNumbersSeen.Add(discNumber))
+            {
+                discNumber = discOrdinal;
+                while (!discNumbersSeen.Add(discNumber))
+                {
+                    discNumber++;
+                }
+            }
+
+            var disc = new Disc
+            {
+                Id = Guid.Parse(jDisc.DiscId),
+                ReleaseId = releaseId,
+                DiscNumber = discNumber,
+                Name = jDisc.DiscName.GetNonEmptyStringOrNull(),
+            };
+            context.Discs.Add(disc);
+            stats.Discs++;
+
+            InstantiateTracks(context, jDisc, disc.Id, hlsFinalized, libraryRoot, stats);
+        }
+    }
+
+    private static void InstantiateTracks(
+        AppDbContext context,
+        JDisc jDisc,
+        Guid discId,
+        Dictionary<string, HlsFinalizedTrack> hlsFinalized,
+        string libraryRoot,
+        LoadStats stats)
+    {
+        var trackNumbersSeen = new HashSet<short>();
+        var trackOrdinal = (short)0;
+
+        foreach (var jTrack in jDisc.Tracks)
+        {
+            trackOrdinal++;
+            var trackMetadata = jTrack.TrackMetadata;
+            var trackId = Guid.Parse(trackMetadata.TrackId);
+
+            var trackNumber = (short)trackMetadata.Track;
+            if (trackNumber < 1 || !trackNumbersSeen.Add(trackNumber))
+            {
+                trackNumber = trackOrdinal;
+                while (!trackNumbersSeen.Add(trackNumber))
+                {
+                    trackNumber++;
+                }
+            }
+
+            var track = new Track
+            {
+                Id = trackId,
+                DiscId = discId,
+                TrackNumber = trackNumber,
+                Name = trackMetadata.Title.AsLocalizedField(),
+            };
+
+            // Media is not a precondition for the row: 40 upstream-broken files,
+            // partial transfers and CJK publish failures still deserve catalogue
+            // entries that browse and search — they just cannot play.
+            if (hlsFinalized.TryGetValue(jTrack.TrackPath, out var hls))
+            {
+                track.MediaKey = Relativize(hls.TrackDir, libraryRoot);
+                if (track.MediaKey == null)
+                {
+                    stats.PathsOutsideRoot.Add(hls.TrackDir);
+                    stats.TracksWithoutMedia++;
+                }
+                else
+                {
+                    track.HlsBitrates = hls.Bitrates.OrderBy(b => b).ToList();
+                    track.HasDash = hls.HasDash;
+                }
+            }
+            else
+            {
+                stats.TracksWithoutMedia++;
+            }
+
+            context.Tracks.Add(track);
+            stats.Tracks++;
+
+            // Verbatim credits, split on the source's ", " convention, order kept.
+            var creditOrdinal = (short)0;
+            foreach (var name in trackMetadata.Artist.Split(", ")
+                         .Select(s => s.Trim())
+                         .Where(s => s.Length > 0))
+            {
+                context.TrackCredits.Add(new TrackCredit
+                {
+                    TrackId = trackId,
+                    Role = CreditRole.Staff,
+                    Ordinal = creditOrdinal++,
+                    CreditName = name,
+                });
+                stats.Credits++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Absolute path → forward-slashed root-relative storage key, or null when the
+    /// path is not under the root. No prefix substitution ever lands in a row.
+    /// </summary>
+    private static string? Relativize(string absolutePath, string libraryRoot)
+    {
+        var normalized = absolutePath.Replace('\\', '/');
+        var root = libraryRoot.Replace('\\', '/').TrimEnd('/');
+
+        if (!normalized.StartsWith(root + '/', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var key = normalized[(root.Length + 1)..].TrimStart('/');
+        return key.Length == 0 ? null : key;
+    }
+
+    private class LoadStats
+    {
+        public int Releases;
+        public int Discs;
+        public int Tracks;
+        public int TracksWithoutMedia;
+        public int Assets;
+        public int Artworks;
+        public int Credits;
+        public HashSet<Guid> MissingCircleIds { get; } = [];
+        public List<string> PathsOutsideRoot { get; } = [];
     }
 }

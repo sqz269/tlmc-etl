@@ -1,6 +1,7 @@
 import os
 import re
 import uuid
+from uuid6 import uuid7
 
 import Shared.utils as utils
 from Processor.InfoCollector.ArtistInfo.output.path_definitions import (
@@ -42,7 +43,7 @@ def main():
         if struct["linked"]:
             continue
 
-        struct["known_id"] = [str(uuid.uuid4())]
+        struct["known_id"] = [str(uuid7())]
         struct["new"] = True
         artist_aggr[raw] = struct
 
@@ -68,7 +69,7 @@ def main():
                 print(
                     f"[REVIEW] Failed to find {linked_lower} in existing or new standalone. Creating new id"
                 )
-                new_uuid = str(uuid.uuid4())
+                new_uuid = str(uuid7())
                 # Keyed lowercase, like every other entry. artist_scanner_ph2
                 # keys on raw.lower() and id_assign_and_merge looks up
                 # album_artist.lower(), so a raw-cased key here is unreachable:

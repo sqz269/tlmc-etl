@@ -1,5 +1,7 @@
 import os
-from uuid import uuid4
+# UUIDv7: the timestamp prefix gives B-tree locality on bulk insert, and the ids
+# render as time-sortable TypeIDs at the API (SCHEMA-V6.md section 1).
+from uuid6 import uuid7
 
 import Processor.InfoCollector.Aggregator.output.path_definitions as AggregatorPathDef
 import Processor.InfoCollector.AlbumInfo.output.path_definitions as AlbumInfoPathDef
@@ -71,14 +73,14 @@ def match_circle_list(info_phase3, circle_dict):
 
 def assign_id(info_phase3):
     for entry in info_phase3:
-        entry["AlbumMetadata"]["AlbumId"] = str(uuid4())
+        entry["AlbumMetadata"]["AlbumId"] = str(uuid7())
         for asset in entry["Assets"]:
-            asset["AssetId"] = str(uuid4())
+            asset["AssetId"] = str(uuid7())
 
         for disc_path, disc in entry["Discs"].items():
-            disc["DiscId"] = str(uuid4())
+            disc["DiscId"] = str(uuid7())
             for track in disc["Tracks"]:
-                track["TrackMetadata"]["TrackId"] = str(uuid4())
+                track["TrackMetadata"]["TrackId"] = str(uuid7())
 
 
 def transform_with_album_id_as_key(info_phase3):

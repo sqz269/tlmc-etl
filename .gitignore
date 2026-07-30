@@ -796,3 +796,6 @@ pip-selfcheck.json
 
 # End of https://www.toptal.com/developers/gitignore/api/venv,python,visualstudio,visualstudiocode,csharp
 Finalizer/ApiPushToDb/backend-api-client/
+
+# Raw embedding exports (v6 inference output, ~61 GB)
+Experimental/embeddings_v6/

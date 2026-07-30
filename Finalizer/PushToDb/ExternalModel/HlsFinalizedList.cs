@@ -1,24 +1,24 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace PushToDb.ExternalModel;
 
-public class MediaPlaylistInfo
+/// <summary>
+/// One entry per track in hls.finalized.output.json, keyed by source audio path.
+/// v6 shape: per-track facts only — the per-segment inventory is gone, because the
+/// on-disk layout is a convention (SCHEMA-V6.md section 3). The manifest survives
+/// at all because collision-renamed directories (`stem [ext]`) make the track dir
+/// non-derivable from metadata alone.
+/// </summary>
+public class HlsFinalizedTrack
 {
-    [JsonProperty("segments")]
-    // First string is the path to the segment, second int is the segment index
-    public Dictionary<string, int> Segments { get; set; }
+    /// <summary>Absolute track directory; the loader relativizes it into media_key.</summary>
+    [JsonProperty("track_dir")]
+    public string TrackDir { get; set; } = null!;
 
-    [JsonProperty("playlist")]
-    // Points to the playlist.m3u8 file
-    public string Playlist { get; set; }
-}
+    /// <summary>Available rungs, e.g. [128, 192, 256, 320].</summary>
+    [JsonProperty("bitrates")]
+    public List<short> Bitrates { get; set; } = [];
 
-public class HlsTrack
-{
-    [JsonProperty("master_playlist")]
-    public string MasterPlaylist { get; set; }
-
-    [JsonProperty("medias")]
-    // First string is the quality, e.g. 320k, 128k
-    public Dictionary<string, MediaPlaylistInfo> MediaPlaylist { get; set; }
+    [JsonProperty("has_dash")]
+    public bool HasDash { get; set; }
 }

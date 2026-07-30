@@ -130,7 +130,14 @@ def main():
             """
             result = {}
             for quality, target_info in entry.items():
-                result[quality] = scan_quality_dir(target_info['dst_root'])
+                scanned = scan_quality_dir(target_info['dst_root'])
+                # A rung without its playlist or media file is a failed encode;
+                # surface it as an error rather than record a rung that 404s.
+                if 'playlist' not in scanned or not scanned['segments']:
+                    raise FileNotFoundError(
+                        f"incomplete quality dir: {target_info['dst_root']}"
+                    )
+                result[quality] = scanned
 
             # Test if master playlist file already exists
             master_playlist_path = os.path.join(proc_root, "playlist.m3u8")
@@ -142,9 +149,15 @@ def main():
             utils.append_file("error.txt", f"{proc_root or track_id}\t{e!r}\n", True)
             continue
 
+        # v6 shape (SCHEMA-V6.md section 3): per-track facts only. The on-disk
+        # layout is a convention shared with the backend, so the per-segment
+        # inventory that used to live here is no longer recorded anywhere -- the
+        # manifest survives only because collision-renamed dirs (`stem [ext]`)
+        # make track_dir non-derivable from metadata alone.
         all_results[src] = {
-            "master_playlist": master_playlist_path,
-            "medias": result
+            "track_dir": proc_root,
+            "bitrates": sorted(int(q.replace("k", "")) for q in result.keys()),
+            "has_dash": os.path.isfile(os.path.join(proc_root, "manifest.mpd")),
         }
 
     print("\nPrcoessing Complete, writing results to output")

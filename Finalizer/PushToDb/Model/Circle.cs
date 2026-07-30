@@ -1,11 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace PushToDb.Model;
 
 public enum CircleStatus {
     // Circle is active in touhou
-    Active, 
+    Active,
 
     // Currently Inactive, but may be active in the future
     Inactive,
@@ -17,32 +14,29 @@ public enum CircleStatus {
     Transfer,
 
     // Unknown, but queried
-    Unknown, 
-    
+    Unknown,
+
     // Status not queried
     Unset
 }
 
 public class Circle
 {
-    [Key]
     public Guid Id { get; set; }
 
-    public string Name { get; set; }
+    public string Name { get; set; } = null!;
     public CircleStatus Status { get; set; }
 
-    [Column(TypeName = "date")]
-    public DateTime? Established { get; set; }
+    public DateOnly? Established { get; set; }
 
     public string? Country { get; set; }
 
-    public List<string> Alias { get; set; } = new();
+    public List<string> Alias { get; set; } = [];
 
-    public List<string> DataSource { get; set; } = new();
+    public List<string> DataSource { get; set; } = [];
 
     // Stores the reference to the original TLMC directory (Raw name for the circle)
     public string? TlmcReference { get; set; }
 
-    public List<CircleWebsite> Website { get; set; } = new();
-    public List<Album>? Albums { get; set; } = new();
+    public List<CircleWebsite> Website { get; set; } = [];
 }
