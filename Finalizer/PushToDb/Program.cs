@@ -75,12 +75,17 @@ if (args.Length > 0)
             SimilarTrackProcessor.PushSimilarTrackData(
                 appDbContext, args[1], truncateFirst: !args.Contains("--no-truncate"));
             return;
+        case "similar-groups" when args.Length >= 2:
+            SimilarGroupProcessor.PushSimilarGroupData(
+                appDbContext, args[1], truncateFirst: !args.Contains("--no-truncate"));
+            return;
         default:
             Console.WriteLine("Usage:");
             Console.WriteLine("  PushToDb circles <merged_artists.json>");
             Console.WriteLine("  PushToDb catalog <assigned_megered.json> <hls.finalized.output.json> <library-root-prefix>");
             Console.WriteLine("  PushToDb embeddings <push_ready-folder> [model-string]");
             Console.WriteLine("  PushToDb similar <shards-dir> [--no-truncate]");
+            Console.WriteLine("  PushToDb similar-groups <groups-dir> [--no-truncate]");
             Environment.Exit(1);
             return;
     }
@@ -101,6 +106,9 @@ switch (opt)
         break;
     case UserOptionDataOptions.SimilarTrackData:
         SimilarTrackProcessor.PushSimilarTrackData(appDbContext);
+        break;
+    case UserOptionDataOptions.SimilarGroupData:
+        SimilarGroupProcessor.PushSimilarGroupData(appDbContext);
         break;
     default:
         throw new ArgumentOutOfRangeException();

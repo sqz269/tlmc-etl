@@ -12,4 +12,6 @@ public enum UserOptionDataOptions
     TrackEmbeddingData,
     [Display(Name = "Similar Track Data (precompute shard CSVs)")]
     SimilarTrackData,
+    [Display(Name = "Similar Release/Circle Data (group precompute CSVs)")]
+    SimilarGroupData,
 }
