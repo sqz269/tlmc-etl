@@ -23,7 +23,7 @@ import os
 import sys
 from multiprocessing import Pool
 
-from mutagen.flac import FLAC
+import mutagen
 
 import Postprocessor.HlsTranscode.output.path_definitions as HlsOutputPathDef
 from Shared import utils
@@ -57,12 +57,17 @@ def _streaminfo_duration(path):
 
 
 def read_duration(item):
-    flac_path, media_key = item
+    audio_path, media_key = item
     try:
-        return (media_key, _streaminfo_duration(flac_path), None)
+        return (media_key, _streaminfo_duration(audio_path), None)
     except Exception:
+        # Not (plain) FLAC: the library carries m4a/mp3/wav strays too, and
+        # mutagen.File dispatches on the actual container.
         try:
-            return (media_key, FLAC(flac_path).info.length, None)
+            audio = mutagen.File(audio_path)
+            if audio is None or not audio.info.length:
+                raise ValueError("unrecognized or empty audio")
+            return (media_key, audio.info.length, None)
         except Exception as e:
             return (media_key, None, f"{type(e).__name__}: {e}")
 
