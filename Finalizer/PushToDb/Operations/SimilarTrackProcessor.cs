@@ -14,9 +14,10 @@ namespace PushToDb.Operations;
 /// </summary>
 public static class SimilarTrackProcessor
 {
-    public static void PushSimilarTrackData(AppDbContext context)
+    public static void PushSimilarTrackData(
+        AppDbContext context, string? shardsDirectory = null, bool? truncateFirst = null)
     {
-        var shardsDir = Prompt.Input<string>(
+        var shardsDir = shardsDirectory ?? Prompt.Input<string>(
             "Enter path to the precompute shards directory (similar_*.csv)",
             validators: [Validators.Required()]);
         shardsDir = shardsDir.Replace("\"", "");
@@ -33,7 +34,7 @@ public static class SimilarTrackProcessor
             return;
         }
 
-        var truncate = Prompt.Confirm("Truncate similar_track before loading?", defaultValue: true);
+        var truncate = truncateFirst ?? Prompt.Confirm("Truncate similar_track before loading?", defaultValue: true);
 
         var connection = (NpgsqlConnection)context.Database.GetDbConnection();
         connection.Open();

@@ -13,9 +13,10 @@ public static class TrackEmbeddingProcessor
     private const int MeanMaxDims = 2048;
     private const int BatchSize = 5000;
 
-    public static void PushTrackEmbeddingData(AppDbContext context)
+    public static void PushTrackEmbeddingData(
+        AppDbContext context, string? embeddingsFolder = null, string? modelString = null)
     {
-        var folderPath = Prompt.Input<string>(
+        var folderPath = embeddingsFolder ?? Prompt.Input<string>(
             "Enter path to the push_ready embeddings folder (contains mean/ and mean+max/)",
             validators: [Validators.Required()]);
         folderPath = folderPath.Replace("\"", "");
@@ -28,7 +29,7 @@ public static class TrackEmbeddingProcessor
         // The provenance stamp the API reports as the similarity basis. The .bin
         // directories carry no manifest today, so this is asked for explicitly
         // rather than silently derived from a folder name.
-        var model = Prompt.Input<string>(
+        var model = modelString ?? Prompt.Input<string>(
             "Model string for embedding_config (model/chunking/layer-mix)",
             defaultValue: "mert-v1-330m/win6s-hop4s/last4",
             validators: [Validators.Required()]);

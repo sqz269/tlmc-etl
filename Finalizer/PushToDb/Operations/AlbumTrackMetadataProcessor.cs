@@ -11,16 +11,20 @@ public static class AlbumTrackMetadataProcessor
 {
     private const int AlbumsPerBatch = 500;
 
-    public static void PushBasicAlbumAndTrackData(AppDbContext context)
+    public static void PushBasicAlbumAndTrackData(
+        AppDbContext context,
+        string? aggregatedPath = null,
+        string? hlsFinalizedPath = null,
+        string? libraryRootPrefix = null)
     {
-        var aggregatedFp = Prompt.Input<string>(
+        var aggregatedFp = aggregatedPath ?? Prompt.Input<string>(
             "Enter path to assigned_megered.json",
             validators: [Validators.Required(), PathValidator.ValidateFilePath()]);
-        var hlsFinalizedFp = Prompt.Input<string>(
+        var hlsFinalizedFp = hlsFinalizedPath ?? Prompt.Input<string>(
             "Enter path to hls.finalized.output.json (v6 per-track shape)",
             validators: [Validators.Required(), PathValidator.ValidateFilePath()]);
         // Rows hold root-relative storage keys; this prefix is what gets stripped.
-        var libraryRoot = Prompt.Input<string>(
+        var libraryRoot = libraryRootPrefix ?? Prompt.Input<string>(
             "Enter the library root prefix all source paths share",
             defaultValue: "/mnt/tlmc/TLMC v6",
             validators: [Validators.Required()]);

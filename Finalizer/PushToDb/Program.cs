@@ -56,6 +56,36 @@ catch (Exception e)
     return;
 }
 
+// Non-interactive mode for unattended runs; no args falls through to the menu.
+if (args.Length > 0)
+{
+    switch (args[0])
+    {
+        case "circles" when args.Length == 2:
+            CircleMetadataProcessor.PushBasicCircleData(appDbContext, args[1]);
+            return;
+        case "catalog" when args.Length == 4:
+            AlbumTrackMetadataProcessor.PushBasicAlbumAndTrackData(appDbContext, args[1], args[2], args[3]);
+            return;
+        case "embeddings" when args.Length is 2 or 3:
+            TrackEmbeddingProcessor.PushTrackEmbeddingData(
+                appDbContext, args[1], args.Length == 3 ? args[2] : "mert-v1-330m/win6s-hop4s/last4");
+            return;
+        case "similar" when args.Length >= 2:
+            SimilarTrackProcessor.PushSimilarTrackData(
+                appDbContext, args[1], truncateFirst: !args.Contains("--no-truncate"));
+            return;
+        default:
+            Console.WriteLine("Usage:");
+            Console.WriteLine("  PushToDb circles <merged_artists.json>");
+            Console.WriteLine("  PushToDb catalog <assigned_megered.json> <hls.finalized.output.json> <library-root-prefix>");
+            Console.WriteLine("  PushToDb embeddings <push_ready-folder> [model-string]");
+            Console.WriteLine("  PushToDb similar <shards-dir> [--no-truncate]");
+            Environment.Exit(1);
+            return;
+    }
+}
+
 var opt = Prompt.Select<UserOptionDataOptions>("Select the data you want to push to the database (Use Arrow keys to select)", pageSize: 6);
 
 switch (opt)

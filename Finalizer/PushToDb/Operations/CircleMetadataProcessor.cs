@@ -6,9 +6,10 @@ namespace PushToDb.Operations;
 
 public static class CircleMetadataProcessor
 {
-    public static void PushBasicCircleData(AppDbContext context)
+    public static void PushBasicCircleData(AppDbContext context, string? circleFilePath = null)
     {
-        var circleFp = Prompt.Input<string>("Enter path to artist_scanner.discovery.merged_artists.output.json", validators: [Validators.Required(), PathValidator.ValidateFilePath()]);
+        var circleFp = circleFilePath
+            ?? Prompt.Input<string>("Enter path to artist_scanner.discovery.merged_artists.output.json", validators: [Validators.Required(), PathValidator.ValidateFilePath()]);
 
         // get json data from the file
         var circleJsonStr = File.ReadAllText(circleFp);
