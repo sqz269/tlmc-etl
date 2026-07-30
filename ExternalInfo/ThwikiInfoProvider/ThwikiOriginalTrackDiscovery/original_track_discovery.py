@@ -53,33 +53,48 @@ def discover():
     track: Track = None
     count = 0
     original_songs = 0
+    failures = []
     for track in Track.select():
         if not track.original:
             continue
 
-        parse = json.loads(track.original)
+        # One malformed original string or one un-cacheable source must not
+        # abort the whole corpus; log it and keep going.
+        try:
+            parse = json.loads(track.original)
 
-        ps = []
-        for k in parse:
-            ps.extend([l.strip() for l in strict_split(k) if l and l not in exc])
+            ps = []
+            for k in parse:
+                ps.extend([l.strip() for l in strict_split(k) if l and l not in exc])
 
-        qp = get_original_song_query_params(ps)
+            qp = get_original_song_query_params(ps)
 
-        for q in qp:
-            count += 1
-            original_songs += len(qp)
-            print(
-                f"Queried {count} tracks, {original_songs} Original songs [{len(qp)}]",
-                end="\r",
-            )
+            for q in qp:
+                count += 1
+                original_songs += len(qp)
+                print(
+                    f"Queried {count} tracks, {original_songs} Original songs [{len(qp)}]",
+                    end="\r",
+                )
 
-            if q[0] in non_offical_works:
-                continue
+                if q[0] in non_offical_works:
+                    continue
 
-            OriginalTrackMap.query(
-                q[0],
-                q[1],
-            ).title_en
+                try:
+                    OriginalTrackMap.query(
+                        q[0],
+                        q[1],
+                    ).title_en
+                except Exception as e:
+                    failures.append(f"{track.track_id} {q[0]}|{q[1]} :: {type(e).__name__}: {e}")
+        except Exception as e:
+            failures.append(f"{track.track_id} <parse> :: {type(e).__name__}: {e}")
+
+    print()
+    if failures:
+        with open("original_discovery_failures.txt", "w", encoding="utf-8") as f:
+            f.write("\n".join(failures) + "\n")
+        print(f"{len(failures)} lookups failed; see original_discovery_failures.txt")
 
 
 def load_existing(path):
