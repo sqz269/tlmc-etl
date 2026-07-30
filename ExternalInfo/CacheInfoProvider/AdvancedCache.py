@@ -22,6 +22,12 @@ def advanced_cache(
     cache_save_transformer: Optional[Callable[[Any], str]] = lambda x: str(x),
     cache_load_transformer: Optional[Callable[[str], Any]] = lambda x: x,
     cache_filename_generator: Optional[Callable[[Any], str]] = lambda x: str(x),
+    # Mirrors Cache.cached's restore: when the index row is missing but the
+    # file exists under cache_dir, re-register it instead of refetching. This
+    # is what makes a cache directory carried over from another machine (the
+    # v5 scrape) usable without its cache.db, whose recorded absolute paths
+    # died with the old filesystem.
+    restore=False,
 ):
     norm_path = lambda path, subchar="_": re.sub(r"\<|\>|\:|\"|\/|\\|\||\?|\*", subchar, path)
 
@@ -47,6 +53,28 @@ def advanced_cache(
                         print("Cache Hit for " + path_id)
                     with open(cached, "r", encoding="utf-8") as f:
                         return cache_load_transformer(f.read())
+            if restore and os.path.exists(os.path.join(cache_dir, path_id)):
+                restore_path = os.path.join(cache_dir, path_id)
+                if (
+                    AdvancedSourceCacheTable.select()
+                    .where(AdvancedSourceCacheTable.path == path_id)
+                    .exists()
+                ):
+                    AdvancedSourceCacheTable.replace(
+                        path=path_id,
+                        cached_source_path=restore_path,
+                        time_cached=datetime.datetime.now(),
+                    ).execute()
+                else:
+                    AdvancedSourceCacheTable.create(
+                        path=path_id,
+                        cached_source_path=restore_path,
+                        time_cached=datetime.datetime.now(),
+                    )
+                if debug:
+                    print("Cache Restored for " + path_id)
+                with open(restore_path, "r", encoding="utf-8") as f:
+                    return cache_load_transformer(f.read())
             if debug:
                 print("Cache Miss for " + path_id)
             src = func(*args, **kwargs)

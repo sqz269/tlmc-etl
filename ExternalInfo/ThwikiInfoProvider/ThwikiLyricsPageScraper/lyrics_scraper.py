@@ -124,7 +124,7 @@ def follow_redirect(src) -> Optional[str]:
     lyrics_wiki_page_cache_path,
     disable_parse=True,
     debug=True,
-    # restore=True,
+    restore=True,
 )
 def get_page_source(page_title) -> Optional[str]:
     PAGE_SRC_URL = "https://thwiki.cc/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={path}&utf8=1"

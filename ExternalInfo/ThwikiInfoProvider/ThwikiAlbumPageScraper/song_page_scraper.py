@@ -105,6 +105,7 @@ class ThWikiCc:
     @cached(
         cache_id="thc",
         cache_dir=song_wiki_page_cache_path,
+        restore=True,
     )
     def get_source(url):
         url = ThWikiCc.PAGE_SRC_URL.format(path=ThWikiCc.get_title_from_url(url))

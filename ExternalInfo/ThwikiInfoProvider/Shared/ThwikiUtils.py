@@ -59,6 +59,7 @@ def query_keywords(query, cache_id, cache_path) -> Optional[dict]:
         debug=True,
         cache_save_transformer=json.dumps,
         cache_load_transformer=json.loads,
+        restore=True,
     )
     def __query_keywords(_query):
         HEADER = {
@@ -101,6 +102,7 @@ def get_thwiki_source_raw_resp(page_title, cache_id, cache_path) -> Optional[Dic
         debug=True,
         cache_load_transformer=json.loads,
         cache_save_transformer=json.dumps,
+        restore=True,
     )
     def __get_thwiki_source(page_title):
         PAGE_SRC_URL = "https://thwiki.cc/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={path}&utf8=1"
@@ -142,6 +144,7 @@ def get_thwiki_source_follow_redircts(page_title, cache_id, cache_path) -> Optio
         cache_dir=cache_path,
         cache_load_transformer=json.loads,
         cache_save_transformer=json.dumps,
+        restore=True,
     )
     def __get_thwiki_source_follow_redircts(page_title):
         redirect_check = re.compile(
