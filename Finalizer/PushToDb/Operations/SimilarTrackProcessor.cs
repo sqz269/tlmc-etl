@@ -50,6 +50,10 @@ public static class SimilarTrackProcessor
         using (var writer = connection.BeginBinaryImport(
                    "COPY similar_track (anchor_track_id, rank, neighbor_track_id, score) FROM STDIN (FORMAT BINARY)"))
         {
+            // Complete() waits while Postgres checks 2 FKs x 16.4M rows and builds
+            // the PK + neighbour indexes; the default 30s read timeout is nowhere
+            // near enough and aborts the whole transaction at the finish line.
+            writer.Timeout = TimeSpan.FromHours(1);
             foreach (var (shard, index) in shards.Select((s, i) => (s, i)))
             {
                 Console.WriteLine($"[{index + 1}/{shards.Count}] {Path.GetFileName(shard)}");
