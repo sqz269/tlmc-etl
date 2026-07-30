@@ -31,6 +31,16 @@ public static class AlbumTrackMetadataProcessor
         Console.WriteLine("Loading Hls Finalized Data");
         var hlsFinalized = JsonConvert.DeserializeObject<Dictionary<string, HlsFinalizedTrack>>(File.ReadAllText(hlsFinalizedFp))!;
 
+        // The v5 finalizer emitted a per-segment shape (master_playlist/medias);
+        // deserializing it into the v6 model yields null track dirs. Fail here
+        // with a usable message instead of NullReferences mid-load.
+        if (hlsFinalized.Count > 0 && hlsFinalized.Values.First().TrackDir == null)
+        {
+            Console.WriteLine("ERROR: this looks like the old per-segment manifest shape. " +
+                              "Re-run hls_finalizer.py (v6 emits track_dir/bitrates/has_dash) and retry.");
+            return;
+        }
+
         // Attribution only needs circle ids, not tracked entities; one snapshot up
         // front replaces a per-album query and survives ChangeTracker.Clear().
         var knownCircleIds = context.Circles.Select(c => c.Id).ToHashSet();
