@@ -129,7 +129,11 @@ def init_model() -> Tuple[AutoModel, Wav2Vec2FeatureExtractor, str]:
     .to(device)
     .eval()
   )
-  if torch.cuda.is_available():
+  # torch.compile is lazy: it succeeds here and then dies at the FIRST FORWARD
+  # PASS if Triton can't find a C compiler, which the slim inference container
+  # deliberately does not ship. Gate it so the container runs eager (the
+  # measured batch-size table was collected eager; the ETA math is unchanged).
+  if torch.cuda.is_available() and os.environ.get("MERT_TORCH_COMPILE", "1") != "0":
     model = torch.compile(model, mode="reduce-overhead", fullgraph=False)
   
   processor = Wav2Vec2FeatureExtractor.from_pretrained(
@@ -367,7 +371,15 @@ def main():
         # ~8 GB of host RAM to ~2.4 GB.
         batch_size=64,
         pin_memory=True,
-        num_workers=8,
+        # 8 decode workers measured 96% decode-busy on the v6 run against a
+        # ~5.3 batch/s model ceiling: the pipeline was input-bound, and the
+        # DataLoader's strict worker round-robin turns any one slow file into
+        # a stall for everyone (throughput sawtoothing 4 -> 1 batch/s). 16
+        # oversupplies decode ~2x so the prefetch queue absorbs per-file
+        # variance; the decode host had 32 cores at load 10, so the extra
+        # workers are free. Raise --shm-size in step: workers x prefetch x
+        # batch x 576 KB/chunk is the in-flight reservation (~4.6 GB at 16).
+        num_workers=int(os.environ.get("MERT_NUM_WORKERS", "16")),
         prefetch_factor=8,
       )
     # Leaving the `with` block joins the pool, so every queued save has landed
