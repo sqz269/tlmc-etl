@@ -42,13 +42,20 @@ public class AppDbContext : DbContext
             .WithMany(d => d.Tracks)
             .HasForeignKey(t => t.DiscId);
 
+        // The FK relationships below carry no navigations — they exist so EF knows
+        // the insert dependency order within a SaveChanges. Without them the first
+        // batch died on fk_artwork_asset_source_asset_id: artwork rows were sent
+        // before the assets they reference.
         var releaseCircle = modelBuilder.Entity<ReleaseCircle>();
         releaseCircle.ToTable("release_circle");
         releaseCircle.HasKey(rc => new { rc.ReleaseId, rc.CircleId });
+        releaseCircle.HasOne<Release>().WithMany().HasForeignKey(rc => rc.ReleaseId);
+        releaseCircle.HasOne<Circle>().WithMany().HasForeignKey(rc => rc.CircleId);
 
         var trackCredit = modelBuilder.Entity<TrackCredit>();
         trackCredit.ToTable("track_credit");
         trackCredit.HasKey(tc => new { tc.TrackId, tc.Role, tc.Ordinal });
+        trackCredit.HasOne<Track>().WithMany().HasForeignKey(tc => tc.TrackId);
 
         var circle = modelBuilder.Entity<Circle>();
         circle.ToTable("circle");
@@ -61,7 +68,12 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Asset>().ToTable("asset");
 
-        modelBuilder.Entity<Artwork>().ToTable("artwork");
+        var artwork = modelBuilder.Entity<Artwork>();
+        artwork.ToTable("artwork");
+        artwork.HasOne<Asset>().WithMany().HasForeignKey(a => a.SourceAssetId);
+
+        modelBuilder.Entity<Release>()
+            .HasOne<Artwork>().WithMany().HasForeignKey(r => r.ArtworkId);
 
         var trackEmbedding = modelBuilder.Entity<TrackEmbedding>();
         trackEmbedding.ToTable("track_embedding");
