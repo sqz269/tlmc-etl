@@ -37,12 +37,34 @@ finalized_manifest_path = utils.get_output_path(
 )
 
 
+def _streaminfo_duration(path):
+    """STREAMINFO is mandated to be the first metadata block, so the duration
+    sits in the first 42 bytes of the file. mutagen's full parse walks every
+    block — embedded artwork included, ~250 ms/file on this library — which
+    the fallback below only pays for oddities (ID3-prefixed FLACs etc.)."""
+    with open(path, "rb") as f:
+        if f.read(4) != b"fLaC":
+            raise ValueError("no fLaC magic at offset 0")
+        header = f.read(4)
+        if header[0] & 0x7F != 0:
+            raise ValueError("first block is not STREAMINFO")
+        si = f.read(34)
+        sample_rate = (si[10] << 12) | (si[11] << 4) | (si[12] >> 4)
+        total_samples = ((si[13] & 0x0F) << 32) | int.from_bytes(si[14:18], "big")
+        if not sample_rate or not total_samples:
+            raise ValueError("empty STREAMINFO")
+        return total_samples / sample_rate
+
+
 def read_duration(item):
     flac_path, media_key = item
     try:
-        return (media_key, FLAC(flac_path).info.length, None)
-    except Exception as e:
-        return (media_key, None, f"{type(e).__name__}: {e}")
+        return (media_key, _streaminfo_duration(flac_path), None)
+    except Exception:
+        try:
+            return (media_key, FLAC(flac_path).info.length, None)
+        except Exception as e:
+            return (media_key, None, f"{type(e).__name__}: {e}")
 
 
 def stat_size(item):
