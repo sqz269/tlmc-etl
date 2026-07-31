@@ -6,10 +6,11 @@
 -- and cluster labels from different layout runs are meaningless side by side,
 -- so partial loads are never allowed.
 --
--- year and work_id are denormalized here at load time (release date through
--- disc, and the first original work the track arranges) so the serving
--- endpoint is a single-table scan. Tracks without playable media are skipped:
--- every point on the map must produce sound when clicked.
+-- year, work_id and circle_id are denormalized here at load time (release
+-- date through disc, the first original work the track arranges, and the
+-- release's primary circle) so the serving endpoint is a single-table scan.
+-- Tracks without playable media are skipped: every point on the map must
+-- produce sound when clicked.
 
 BEGIN;
 
@@ -24,13 +25,14 @@ CREATE TEMP TABLE tmp_track_map (
 
 TRUNCATE track_map;
 
-INSERT INTO track_map (track_id, x, y, cluster, year, work_id)
+INSERT INTO track_map (track_id, x, y, cluster, year, work_id, circle_id)
 SELECT m.track_id,
        m.x,
        m.y,
        m.cluster,
        extract(year FROM r.release_date)::smallint,
-       ow.original_work_id
+       ow.original_work_id,
+       pc.circle_id
 FROM tmp_track_map m
 JOIN track t ON t.id = m.track_id
 JOIN disc d ON d.id = t.disc_id
@@ -43,6 +45,13 @@ LEFT JOIN LATERAL (
     ORDER BY os.original_work_id
     LIMIT 1
 ) ow ON true
+LEFT JOIN LATERAL (
+    SELECT rc.circle_id
+    FROM release_circle rc
+    WHERE rc.release_id = r.id
+    ORDER BY rc.ordinal
+    LIMIT 1
+) pc ON true
 WHERE cardinality(t.hls_bitrates) > 0 OR t.has_dash;
 
 COMMIT;
