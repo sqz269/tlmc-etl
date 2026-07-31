@@ -94,7 +94,12 @@ def main():
   sizes = np.bincount(labels)
   print(f"  sizes: largest {sizes[0]}, smallest {sizes[-1]}")
 
-  # Center, then scale both axes by the same factor: aspect ratio is signal.
+  # A handful of stray points otherwise dictate the frame and shove the dense
+  # continent off-center: clamp to the 0.1..99.9 percentile box first (strays
+  # pin to the edge instead of stretching it). Then center and scale both axes
+  # by the same factor: aspect ratio is signal.
+  lo, hi = np.percentile(coords, [0.1, 99.9], axis=0)
+  coords = np.clip(coords, lo, hi)
   coords -= (coords.min(axis=0) + coords.max(axis=0)) / 2
   coords *= 0.95 / np.abs(coords).max()
 
