@@ -14,6 +14,15 @@ project onto the map as contiguous colored regions. Labels are relabeled by
 descending cluster size. They exist to color the map into nameable regions,
 not to be authoritative genres.
 
+Supervised mode: if existing_labels.csv (track_id,cluster — export it from the
+live track_map) sits next to the input, k-means is SKIPPED and those labels
+both ride through to the output and semi-supervise the UMAP layout
+(target_weight below), pulling each family into contiguous territory instead
+of letting 2D folding interleave them. Reuse-not-recompute matters: k-means is
+nondeterministic, so recomputing would renumber the families and silently
+misassign the curated names in track_map_cluster. Tracks absent from the
+labels file get -1, which UMAP treats as unlabeled.
+
 Reads track_embeddings.csv, exported from the DB first:
 
   COPY (
@@ -30,12 +39,14 @@ Run with the heavy deps injected (umap-learn brings scikit-learn):
 """
 
 import csv
+import os
 import sys
 import time
 
 import numpy as np
 
 INPUT_CSV = "track_embeddings.csv"
+LABELS_CSV = "existing_labels.csv"
 OUTPUT_CSV = "track_map.csv"
 
 PCA_DIMS = 100
@@ -44,6 +55,10 @@ UMAP_MIN_DIST = 0.1
 # Enough families that each is one kind of sound, few enough that a categorical
 # palette and a future naming pass stay tractable.
 KMEANS_CLUSTERS = 48
+# How hard supervised mode pulls same-family points together. 0 reproduces the
+# unsupervised layout; 1 shatters it into 48 disjoint islands and destroys the
+# between-family geography.
+TARGET_WEIGHT = 0.4
 
 
 def load_embeddings():
@@ -65,6 +80,13 @@ def main():
   from sklearn.decomposition import PCA
   from umap import UMAP
 
+  existing = None
+  if os.path.exists(LABELS_CSV):
+    by_id = {tid: int(c) for tid, c in csv.reader(open(LABELS_CSV))}
+    existing = np.array([by_id.get(t, -1) for t in ids], dtype=np.int64)
+    known = int((existing >= 0).sum())
+    print(f"supervised: {known} existing labels (k-means skipped, names stay valid)")
+
   norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
   embeddings /= np.maximum(norms, 1e-12)
 
@@ -76,23 +98,32 @@ def main():
 
   # No random_state on purpose: setting one forces single-threaded layout.
   print("UMAP -> 2d (this is the long part)...")
-  coords = UMAP(
+  reducer = UMAP(
     n_components=2,
     n_neighbors=UMAP_NEIGHBORS,
     min_dist=UMAP_MIN_DIST,
     metric="cosine",
+    target_metric="categorical",
+    target_weight=TARGET_WEIGHT,
     verbose=True,
-  ).fit_transform(reduced)
+  )
+  if existing is not None:
+    coords = reducer.fit_transform(reduced, y=existing)
+  else:
+    coords = reducer.fit_transform(reduced)
   print(f"  done at {time.time() - t0:.0f}s")
 
-  print(f"k-means ({KMEANS_CLUSTERS}) over the PCA features...")
-  raw_labels = KMeans(n_clusters=KMEANS_CLUSTERS, n_init=4).fit_predict(reduced)
-  by_size = np.argsort(-np.bincount(raw_labels, minlength=KMEANS_CLUSTERS))
-  relabel = np.empty(KMEANS_CLUSTERS, dtype=np.int64)
-  relabel[by_size] = np.arange(KMEANS_CLUSTERS)
-  labels = relabel[raw_labels]
-  sizes = np.bincount(labels)
-  print(f"  sizes: largest {sizes[0]}, smallest {sizes[-1]}")
+  if existing is not None:
+    labels = existing
+  else:
+    print(f"k-means ({KMEANS_CLUSTERS}) over the PCA features...")
+    raw_labels = KMeans(n_clusters=KMEANS_CLUSTERS, n_init=4).fit_predict(reduced)
+    by_size = np.argsort(-np.bincount(raw_labels, minlength=KMEANS_CLUSTERS))
+    relabel = np.empty(KMEANS_CLUSTERS, dtype=np.int64)
+    relabel[by_size] = np.arange(KMEANS_CLUSTERS)
+    labels = relabel[raw_labels]
+    sizes = np.bincount(labels)
+    print(f"  sizes: largest {sizes[0]}, smallest {sizes[-1]}")
 
   # A handful of stray points otherwise dictate the frame and shove the dense
   # continent off-center: clamp to the 0.1..99.9 percentile box first (strays
